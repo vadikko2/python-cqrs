@@ -1,0 +1,53 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=42", "wheel"]
+
+[project]
+authors = [
+  {name = "Vadim Kozyrevskiy"}
+]
+dependencies = [
+  "pydantic==2.*",
+  "orjson==3.9.15",
+  "aio-pika==9.3.0",
+  "di[anyio]==0.79.2",
+  "sqlalchemy[asyncio]==2.0.*"
+]
+description = ""
+name = "cqrs"
+version = "24.31.01"
+
+[project.optional-dependencies]
+git = [
+  "pre-commit==3.8.0 "
+]
+kafka = [
+  "aiokafka==0.10.0",
+  "retry-async==0.1.4"
+]
+lint = [
+  "flake8==7.0.0",
+  "flake8-pytest",
+  "black"
+]
+tests = [
+  "aiokafka==0.10.0",
+  "retry-async==0.1.4",
+  "pytest~=7.4.2",
+  "pytest-asyncio~=0.21.1",
+  "pytest-env==0.6.2",
+  "python-dotenv==1.0.1",
+  "cryptography==42.0.2",
+  "asyncmy==0.2.9"
+]
+
+[tool.pytest.ini_options]
+addopts = "--junit-xml=report.xml"
+asyncio_mode = "auto"
+junit_family = "xunit1"
+testpaths = [
+  "tests"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,7 @@
+CREATE DATABASE IF NOT EXISTS `test_cqrs`;
+
+-- create the user for test database
+CREATE USER 'cqrs'@'%' IDENTIFIED BY 'cqrs';
+GRANT CREATE, ALTER, INDEX, LOCK TABLES, REFERENCES, UPDATE, DELETE, DROP, SELECT, INSERT ON `test_cqrs`.* TO 'cqrs'@'%';
+
+FLUSH PRIVILEGES;
