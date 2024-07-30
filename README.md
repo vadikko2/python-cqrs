@@ -1,0 +1,2 @@
+# cqrs
+Python CQRS framework
