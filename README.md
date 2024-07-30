@@ -10,12 +10,10 @@ Python-библиотека для реализации шаблона CQRS в �
 
 1. поддержка Pydantic [v2.*](https://docs.pydantic.dev/2.8/);
 2. поддержка Kafka в качестве брокера [aiokafka](https://github.com/aio-libs/aiokafka);
-3. добавлен [EventMediator](https://gitlab.timeweb.net/finance/billing/cqrs/-/blob/main/src/cqrs/mediator.py#L72) для
+3. добавлен `EventMediator` для
    обработки `Notification` и `ECST` событий, приходящих из шины;
-4. переработам [неханизм mapping-а](https://gitlab.timeweb.net/finance/billing/cqrs/-/blob/main/src/cqrs/requests/map.py)
-событий и запросов на обработчики;
-5. добавлен [bootstrap](https://gitlab.timeweb.net/finance/billing/cqrs/-/blob/main/src/cqrs/bootstrap.py) для легкого
-   начала работы;
+4. переработам механизм `mapping`-а событий и запросов на обработчики;
+5. добавлен `bootstrap` для легкого начала работы;
 6. Добавлена поддержка [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html),
 дающего гарантию отправки `Notification` и `ECST` событий в брокера.
 
@@ -68,10 +66,10 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 
 ```
 
-#### Продьюсирование `Notification`/`ECST` событий
+#### Продюсирование `Notification`/`ECST` событий
 
 Во время обработки запроса/команды можно породить сообщения с типом `cqrs.NotificationEvent` или `cqrs.ECSTEvent`,
-которое в дальнейшем спродьюсируется брокером сообщений
+которое в дальнейшем спродюсируется брокером сообщений
 
 ```python
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
@@ -95,7 +93,7 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
 ```
 
 После обработки команды/запроса, при наличии `Notification`/`ECST` событий, вызывается EventEmitter который
-спродьюсирует
+спродюсирует
 события посредством message_broker'а
 
 ### Медиатор
@@ -145,7 +143,7 @@ await broker.send_message(...)
 ### Transactional Outbox
 
 Пакует имплементирует паттерн [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html),
-что позволяет гарантировать продьюсирование сообщений в брокер согласно семантике `at-least-once`.
+что позволяет гарантировать продюсирование сообщений в брокер согласно семантике `at-least-once`.
 
 ```python
 from sqlalchemy.ext.asyncio import session as sql_session
@@ -181,7 +179,7 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
 ```
 
 
-### Продьюсирование событий из Outbox  в Kafka
+### Продюсирование событий из Outbox  в Kafka
 
 В качестве имплементации Transaction Outbox доступен для использования [SqlAlchemyOutbox](https://gitlab.timeweb.net/finance/billing/cqrs/-/blob/main/src/cqrs/outbox/sqlalchemy.py?ref_type=heads).
 Его можно использовать в связке с `KafkaMessageBroker`.
