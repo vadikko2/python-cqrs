@@ -35,7 +35,7 @@ class TestOutbox:
         """
         checks positive save events to outbox case
         """
-        outbox = cqrs.SqlAlchemyOutbox(session)
+        outbox = sqlalchemy.SqlAlchemyOutbox(session)
         request = TestOutboxRequest(message="test_outbox_add_3_event_positive", count=3)
         await TestOutboxRequestHandler(outbox).handle(request)
 
@@ -50,7 +50,7 @@ class TestOutbox:
         """
         checks getting many new events
         """
-        outbox = cqrs.SqlAlchemyOutbox(session)
+        outbox = sqlalchemy.SqlAlchemyOutbox(session)
         request = TestOutboxRequest(message="test_outbox_mark_event_as_produced_positive", count=3)
         await TestOutboxRequestHandler(outbox).handle(request)
 
@@ -63,7 +63,7 @@ class TestOutbox:
         """
         checks getting many new events, but not produced
         """
-        outbox = cqrs.SqlAlchemyOutbox(session)
+        outbox = sqlalchemy.SqlAlchemyOutbox(session)
         request = TestOutboxRequest(message="test_outbox_mark_event_as_produced_positive", count=3)
         await TestOutboxRequestHandler(outbox).handle(request)
         events_list = await outbox.get_events(3)
@@ -79,7 +79,7 @@ class TestOutbox:
         """
         checks getting one event positive
         """
-        outbox = cqrs.SqlAlchemyOutbox(session)
+        outbox = sqlalchemy.SqlAlchemyOutbox(session)
         request = TestOutboxRequest(message="test_outbox_mark_event_as_produced_positive", count=1)
         await TestOutboxRequestHandler(outbox).handle(request)
         [event_over_get_all_events_method] = await outbox.get_events(1)
@@ -93,7 +93,7 @@ class TestOutbox:
         """
         checks getting one event positive, but not produced
         """
-        outbox = cqrs.SqlAlchemyOutbox(session)
+        outbox = sqlalchemy.SqlAlchemyOutbox(session)
         request = TestOutboxRequest(message="test_outbox_mark_event_as_produced_positive", count=1)
         await TestOutboxRequestHandler(outbox).handle(request)
         [event_over_get_all_events_method] = await outbox.get_events(1)
@@ -108,7 +108,7 @@ class TestOutbox:
     async def test_mark_as_failure_positive(self, session):
         """checks reading failure produced event successfully"""
 
-        outbox = cqrs.SqlAlchemyOutbox(session)
+        outbox = sqlalchemy.SqlAlchemyOutbox(session)
         request = TestOutboxRequest(message="test_outbox_mark_event_as_produced_positive", count=2)
         await TestOutboxRequestHandler(outbox).handle(request)
         [failure_event, success_event] = await outbox.get_events(2)
@@ -126,7 +126,7 @@ class TestOutbox:
     async def test_mark_as_failure_negative(self, session):
         """checks reading failure produced events with flush_counter speeding"""
 
-        outbox = cqrs.SqlAlchemyOutbox(session)
+        outbox = sqlalchemy.SqlAlchemyOutbox(session)
         request = TestOutboxRequest(message="test_outbox_mark_event_as_produced_positive", count=1)
         await TestOutboxRequestHandler(outbox).handle(request)
         [failure_event] = await outbox.get_events(1)
