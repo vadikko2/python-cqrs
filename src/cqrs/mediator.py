@@ -89,10 +89,15 @@ class EventMediator:
         self,
         event_map: events.EventMap,
         container: di_container.Container,
+        middleware_chain: middlewares.MiddlewareChain | None = None,
         *,
         dispatcher_type: typing.Type[dispatcher.EventDispatcher] = dispatcher.EventDispatcher,
     ):
-        self._dispatcher = dispatcher_type(event_map, container)
+        self._dispatcher = dispatcher_type(
+            event_map=event_map,  # type: ignore
+            container=container,  # type: ignore
+            middleware_chain=middleware_chain,  # type: ignore
+        )
 
     async def send(self, event: E) -> None:
         await self._dispatcher.dispatch(event)

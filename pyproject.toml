@@ -16,7 +16,7 @@ dependencies = [
 ]
 description = ""
 name = "cqrs"
-version = "24.31.03"
+version = "24.31.04"
 
 [project.optional-dependencies]
 git = [
