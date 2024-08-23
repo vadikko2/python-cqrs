@@ -33,7 +33,7 @@ def setup_event_emitter(
 def setup_mediator(
     event_emitter: events.EventEmitter,
     container: ed_di_container.DIContainer,
-    middlewares: typing.Sequence[mediator_middlewares.Middleware],
+    middlewares: typing.Iterable[mediator_middlewares.Middleware],
     commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
     queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
 ) -> cqrs.RequestMediator:
