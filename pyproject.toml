@@ -16,7 +16,8 @@ dependencies = [
 ]
 description = ""
 name = "cqrs"
-version = "24.33.01"
+readme = "README.md"
+version = "24.34.01"
 
 [project.optional-dependencies]
 git = [
