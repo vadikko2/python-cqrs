@@ -12,7 +12,7 @@
   "pythonPlatform": "Linux",
   "executionEnvironments": [
     {
-      "root": "src/",
+      "root": "./",
       "pythonVersion": "3.12",
       "pythonPlatform": "Linux",
       "reportMissingImports": "error"
