@@ -146,7 +146,7 @@ class OutboxModel(Base):
         cls,
         event_id: uuid.UUID,
         status: repository.EventStatus,
-    ) -> sqlalchemy.Executable:
+    ) -> sqlalchemy.Update:
         values = {
             "event_status": status,
             "flush_counter": cls.flush_counter,
