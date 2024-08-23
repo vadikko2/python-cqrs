@@ -5,23 +5,19 @@ import di
 import cqrs
 from cqrs import events
 from cqrs.container import di as ed_di_container
-from cqrs.middlewares import base as mediator_middlewares
-from cqrs.middlewares import logging as logging_middleware
+from cqrs.middlewares import base as mediator_middlewares, logging as logging_middleware
 
 
 def setup_mediator(
-    container: ed_di_container.DIContainer | None,
-    middlewares: typing.Iterable[mediator_middlewares.Middleware] | None = None,
-    events_mapper: typing.Callable[[events.EventMap], None] = None,
+    container: ed_di_container.DIContainer,
+    middlewares: typing.Iterable[mediator_middlewares.Middleware],
+    events_mapper: typing.Callable[[events.EventMap], None] | None = None,
 ) -> cqrs.EventMediator:
-
     _events_mapper = events.EventMap()
-    if events_mapper:
+    if events_mapper is not None:
         events_mapper(_events_mapper)
 
     middleware_chain = mediator_middlewares.MiddlewareChain()
-    if middlewares is None:
-        middlewares = []
 
     for middleware in middlewares:
         middleware_chain.add(middleware)
@@ -34,9 +30,9 @@ def setup_mediator(
 
 
 def bootstrap(
-    di_container: di.Container | None = None,
-    middlewares: typing.Iterable[mediator_middlewares.Middleware] | None = None,
-    events_mapper: typing.Callable[[events.EventMap], None] = None,
+    di_container: di.Container,
+    middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
+    events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
 ) -> cqrs.EventMediator:
     if on_startup is None:
@@ -45,11 +41,12 @@ def bootstrap(
     for fun in on_startup:
         fun()
 
-    if middlewares is None:
-        middlewares = []
     container = ed_di_container.DIContainer(di_container)
+    middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
+        middlewares or [],
+    )
     return setup_mediator(
         container,
         events_mapper=events_mapper,
-        middlewares=middlewares + [logging_middleware.LoggingMiddleware()],
+        middlewares=middlewares_list + [logging_middleware.LoggingMiddleware()],
     )
