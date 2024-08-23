@@ -15,9 +15,9 @@ dependencies = [
   "retry-async==0.1.4"
 ]
 description = ""
-name = "cqrs"
+name = "python-cqrs"
 readme = "README.md"
-version = "24.34.01"
+version = "0.0.2"
 
 [project.optional-dependencies]
 git = [
