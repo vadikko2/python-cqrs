@@ -14,7 +14,7 @@ dependencies = [
   "sqlalchemy[asyncio]==2.0.*",
   "retry-async==0.1.4"
 ]
-description = ""
+description = "Python CQRS pattern implementation"
 name = "python-cqrs"
 readme = "README.md"
 version = "0.0.2"
