@@ -1,15 +1,18 @@
+import asyncio
 import enum
 import logging
 import typing
 import uuid
 
+import orjson
 import sqlalchemy
 from sqlalchemy import func
+from sqlalchemy.dialects import mysql
 from sqlalchemy.ext.asyncio import session as sql_session
 from sqlalchemy.orm import registry
 
 from cqrs.events import event as ev
-from cqrs.outbox import protocol
+from cqrs.outbox import repository
 
 mapper_registry = registry()
 Base = mapper_registry.generate_base()
@@ -20,12 +23,6 @@ logger = logging.getLogger(__name__)
 class EventType(enum.StrEnum):
     ECST_EVENT = "ecst_event"
     NOTIFICATION_EVENT = "notification_event"
-
-
-class EventStatus(enum.StrEnum):
-    NEW = "new"
-    PRODUCED = "produced"
-    NOT_PRODUCED = "not_produced"
 
 
 MAX_FLUSH_COUNTER_VALUE = 5
@@ -57,9 +54,9 @@ class OutboxModel(Base):
     )
     event_type = sqlalchemy.Column(sqlalchemy.Enum(EventType), nullable=False, comment="Event type")
     event_status = sqlalchemy.Column(
-        sqlalchemy.Enum(EventStatus),
+        sqlalchemy.Enum(repository.EventStatus),
         nullable=False,
-        default=EventStatus.NEW,
+        default=repository.EventStatus.NEW,
         comment="Event producing status",
     )
     flush_counter = sqlalchemy.Column(
@@ -76,7 +73,10 @@ class OutboxModel(Base):
         server_default=func.now(),
         comment="Event creation timestamp",
     )
-    payload = sqlalchemy.Column(sqlalchemy.JSON, nullable=False, default={}, comment="Event payload")
+    payload = sqlalchemy.Column(mysql.BLOB, nullable=False, default={}, comment="Event payload")
+
+    def row_to_dict(self) -> typing.Dict[typing.Text, typing.Any]:
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
     @classmethod
     def get_batch_query(cls, size: int) -> sqlalchemy.Select:
@@ -85,7 +85,7 @@ class OutboxModel(Base):
             .select_from(cls)
             .where(
                 sqlalchemy.and_(
-                    cls.event_status.in_([EventStatus.NEW, EventStatus.NOT_PRODUCED]),
+                    cls.event_status.in_([repository.EventStatus.NEW, repository.EventStatus.NOT_PRODUCED]),
                     cls.flush_counter < MAX_FLUSH_COUNTER_VALUE,
                 ),
             )
@@ -103,7 +103,7 @@ class OutboxModel(Base):
             .where(
                 sqlalchemy.and_(
                     cls.event_id_bin == func.UUID_TO_BIN(event_id),
-                    cls.event_status.in_([EventStatus.NEW, EventStatus.NOT_PRODUCED]),
+                    cls.event_status.in_([repository.EventStatus.NEW, repository.EventStatus.NOT_PRODUCED]),
                     cls.flush_counter < MAX_FLUSH_COUNTER_VALUE,
                 ),
             )
@@ -117,12 +117,12 @@ class OutboxModel(Base):
         cls,
         event_id: uuid.UUID,
         status: typing.Literal[
-            EventStatus.PRODUCED,
-            EventStatus.NOT_PRODUCED,
+            repository.EventStatus.PRODUCED,
+            repository.EventStatus.NOT_PRODUCED,
         ],
     ) -> sqlalchemy.Update:
         values = {"event_status": status}
-        if status == EventStatus.NOT_PRODUCED:
+        if status == repository.EventStatus.NOT_PRODUCED:
             values["flush_counter"] = cls.flush_counter + 1
 
         return sqlalchemy.update(cls).where(cls.event_id_bin == func.UUID_TO_BIN(event_id)).values(**values)
@@ -131,54 +131,59 @@ class OutboxModel(Base):
     def status_sorting_case(cls) -> sqlalchemy.case:
         return sqlalchemy.case(
             {
-                EventStatus.NEW: 1,
-                EventStatus.NOT_PRODUCED: 2,
-                EventStatus.PRODUCED: 3,
+                repository.EventStatus.NEW: 1,
+                repository.EventStatus.NOT_PRODUCED: 2,
+                repository.EventStatus.PRODUCED: 3,
             },
             value=cls.event_status,
             else_=4,
         )
 
 
-class SqlAlchemyOutbox(protocol.Outbox):
-    EVENT_CLASS_MAPPING: typing.ClassVar[typing.Dict[EventType, typing.Type[protocol.Event]]] = {
+class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository[sql_session.AsyncSession]):
+    EVENT_CLASS_MAPPING: typing.ClassVar[typing.Dict[EventType, typing.Type[repository.Event]]] = {
         EventType.NOTIFICATION_EVENT: ev.NotificationEvent,
         EventType.ECST_EVENT: ev.ECSTEvent,
     }
 
-    def __init__(self, session: sql_session.AsyncSession):
-        self.session = session
-
-    def add(self, event: protocol.Event):
-        self.session.add(
+    def add(self, session: sql_session.AsyncSession, event: repository.Event) -> None:
+        bytes_payload = orjson.dumps(event.payload)
+        if self._compressor:
+            bytes_payload = self._compressor.compress(bytes_payload)
+        session.add(
             OutboxModel(
                 event_id=event.event_id,
                 event_id_bin=func.UUID_TO_BIN(event.event_id),
                 event_type=EventType(event.event_type),
                 event_name=event.event_name,
                 created_at=event.event_timestamp,
-                payload=event.payload,
+                payload=bytes_payload,
             ),
         )
 
-    async def save(self):
-        await self.session.commit()
-
-    async def get_events(self, batch_size: int = 100) -> typing.List[protocol.Event]:
-        events: typing.Sequence[OutboxModel] = (
-            (await self.session.execute(OutboxModel.get_batch_query(batch_size))).scalars().all()
+    def _process_events(self, model: OutboxModel) -> repository.Event:
+        event_dict = model.row_to_dict()
+        event_dict["payload"] = orjson.loads(
+            self._compressor.decompress(event_dict["payload"]) if self._compressor else event_dict["payload"],
         )
-        result = []
+        return self.EVENT_CLASS_MAPPING[event_dict["event_type"]].model_validate(event_dict)
 
+    async def get_many(self, session: sql_session.AsyncSession, batch_size: int = 100) -> typing.List[repository.Event]:
+        events: typing.Sequence[OutboxModel] = (
+            (await session.execute(OutboxModel.get_batch_query(batch_size))).scalars().all()
+        )
+
+        tasks = []
         for event in events:
             if not self.EVENT_CLASS_MAPPING.get(event.event_type):
                 logger.warning(f"Unknown event type for {event}")
                 continue
-            result.append(self.EVENT_CLASS_MAPPING[event.event_type].model_validate(event))
-        return result
+            tasks.append(asyncio.to_thread(self._process_events, event))
 
-    async def get_event(self, event_id: uuid.UUID) -> protocol.Event | None:
-        event: OutboxModel | None = (await self.session.execute(OutboxModel.get_event_query(event_id))).scalar()
+        return await asyncio.gather(*tasks)  # noqa
+
+    async def get_one(self, session: sql_session.AsyncSession, event_id: uuid.UUID) -> repository.Event | None:
+        event: OutboxModel | None = (await session.execute(OutboxModel.get_event_query(event_id))).scalar()
 
         if event is None:
             return
@@ -187,10 +192,32 @@ class SqlAlchemyOutbox(protocol.Outbox):
             logger.warning(f"Unknown event type for {event}")
             return
 
-        return self.EVENT_CLASS_MAPPING[event.event_type].model_validate(event)
+        event_dict = event.row_to_dict()
+        event_dict["payload"] = orjson.loads(
+            self._compressor.decompress(event_dict["payload"]) if self._compressor else event_dict["payload"],
+        )
 
-    async def mark_as_produced(self, event_id: uuid.UUID) -> None:
-        await self.session.execute(OutboxModel.update_status_query(event_id, EventStatus.PRODUCED))
+        return self.EVENT_CLASS_MAPPING[event.event_type].model_validate(event_dict)
 
-    async def mark_as_failure(self, event_id: uuid.UUID) -> None:
-        await self.session.execute(OutboxModel.update_status_query(event_id, EventStatus.NOT_PRODUCED))
+    async def update_status(
+        self,
+        session: sql_session.AsyncSession,
+        event_id: uuid.UUID,
+        new_status: repository.EventStatus,
+    ) -> None:
+        await session.execute(OutboxModel.update_status_query(event_id, new_status))
+
+    async def commit(self, session: sql_session.AsyncSession):
+        await session.commit()
+
+    async def rollback(self, session: sql_session.AsyncSession):
+        await session.rollback()
+
+    async def __aenter__(self):
+        self.session = self._session_factory()
+        return self.session
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.session.rollback()
+        await self.session.close()
+        self.session = None

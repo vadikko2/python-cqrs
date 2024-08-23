@@ -1,76 +1,65 @@
-import contextlib
+import asyncio
 import logging
 import typing
 import uuid
 
 from sqlalchemy.ext.asyncio import session as sql_session
 
-from cqrs.message_brokers import kafka
+import cqrs
 from cqrs.message_brokers import protocol as broker_protocol
-from cqrs.outbox import protocol, sqlalchemy
+from cqrs.outbox import repository as repository_protocol
 
 logger = logging.getLogger("cqrs")
 logger.setLevel(logging.DEBUG)
 
-OutboxFactory = typing.Callable[[], protocol.Outbox]
 SessionFactory: typing.TypeAlias = typing.Callable[[], sql_session.AsyncSession]
+Serializer: typing.TypeAlias = typing.Callable[[repository_protocol.Event], typing.Awaitable[typing.Dict]]
 
 
-class SQlAlchemyKafkaEventProducer(protocol.EventProducer):
+class EventProducer:
     def __init__(
         self,
-        sqla_session_factory: SessionFactory,
-        message_broker: kafka.KafkaMessageBroker,
+        message_broker: broker_protocol.MessageBroker,
+        repository: repository_protocol.OutboxedEventRepository,
+        serializer: Serializer | None = None,
     ):
-        self.sqla_session_factory = sqla_session_factory
         self.message_broker = message_broker
+        self.repository = repository
+        self.serializer = serializer
 
-    @contextlib.asynccontextmanager
-    async def transaction(self) -> sql_session.AsyncSession:
-        async with contextlib.aclosing(self.sqla_session_factory()) as session:
-            try:
-                yield session
-            finally:
-                await session.rollback()
+    async def periodically_task(self, batch_size: int = 100, wait_ms: int = 500) -> None:
+        """Calls produce periodically with specified delay"""
+        while True:
+            await asyncio.sleep(float(wait_ms) / 1000.0)
+            await self.produce_batch(batch_size)
+
+    async def send_message(self, session: repository_protocol.Session, event: cqrs.ECSTEvent | cqrs.NotificationEvent):
+        try:
+            serialized = (await self.serializer(event)) if self.serializer else event.model_dump(mode="json")
+            await self.message_broker.send_message(
+                broker_protocol.Message(
+                    message_type=event.event_type,
+                    message_name=event.event_name,
+                    message_id=event.event_id,
+                    payload=serialized,
+                ),
+            )
+        except Exception as e:
+            logger.error(f"Error while producing event {event.event_id} to kafka broker: {e}")
+            await self.repository.update_status(session, event.event_id, repository_protocol.EventStatus.NOT_PRODUCED)
+        else:
+            await self.repository.update_status(session, event.event_id, repository_protocol.EventStatus.PRODUCED)
 
     async def produce_one(self, event_id: uuid.UUID) -> None:
-        async with self.transaction() as session:
-            outbox = sqlalchemy.SqlAlchemyOutbox(session)
-            event: protocol.Event | None = await outbox.get_event(event_id)
+        async with self.repository as session:
+            event = await self.repository.get_one(session, event_id)
             if event:
-                try:
-                    await self.message_broker.send_message(
-                        broker_protocol.Message(
-                            message_type=event.event_type,
-                            message_name=event.event_name,
-                            message_id=event.event_id,
-                            payload=event.model_dump(mode="json"),
-                        ),
-                    )
-                except Exception as e:
-                    logger.error(f"Error while producing event {event_id} to kafka broker: {e}")
-                    await outbox.mark_as_failure(event_id)
-                else:
-                    await outbox.mark_as_produced(event_id)
-            await outbox.save()
+                await self.send_message(session, event)
+            await self.repository.commit(session)
 
     async def produce_batch(self, batch_size: int = 100) -> None:
-        async with self.transaction() as session:
-            outbox = sqlalchemy.SqlAlchemyOutbox(session)
-            events = await outbox.get_events(batch_size)
+        async with self.repository as session:
+            events = await self.repository.get_many(session, batch_size)
             for event in events:
-                try:
-                    await self.message_broker.send_message(
-                        broker_protocol.Message(
-                            message_type=event.event_type,
-                            message_name=event.event_name,
-                            message_id=event.event_id,
-                            payload=event.model_dump(mode="json"),
-                        ),
-                    )
-                except Exception as e:
-                    logger.error(f"Error while producing event {event.event_id} to kafka broker: {e}")
-                    await outbox.mark_as_failure(event.event_id)
-                else:
-                    await outbox.mark_as_produced(event.event_id)
-            await outbox.save()
+                await self.send_message(session, event)
+            await self.repository.commit(session)

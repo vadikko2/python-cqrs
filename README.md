@@ -10,8 +10,7 @@ Python-библиотека для реализации шаблона CQRS в �
 
 1. поддержка Pydantic [v2.*](https://docs.pydantic.dev/2.8/);
 2. поддержка Kafka в качестве брокера [aiokafka](https://github.com/aio-libs/aiokafka);
-3. добавлен `EventMediator` для
-   обработки `Notification` и `ECST` событий, приходящих из шины;
+3. добавлен `EventMediator` для обработки `Notification` и `ECST` событий, приходящих из шины;
 4. переработам механизм `mapping`-а событий и запросов на обработчики;
 5. добавлен `bootstrap` для легкого начала работы;
 6. Добавлена поддержка [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html),
@@ -69,7 +68,7 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 #### Продюсирование `Notification`/`ECST` событий
 
 Во время обработки запроса/команды можно породить сообщения с типом `cqrs.NotificationEvent` или `cqrs.ECSTEvent`,
-которое в дальнейшем спродюсируется брокером сообщений
+которое в дальнейшем продюсируется брокером сообщений
 
 ```python
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
@@ -93,8 +92,7 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
 ```
 
 После обработки команды/запроса, при наличии `Notification`/`ECST` событий, вызывается EventEmitter который
-спродюсирует
-события посредством message_broker'а
+спродюсирует события посредством message_broker'а
 
 ### Медиатор
 
@@ -142,7 +140,7 @@ await broker.send_message(...)
 
 ### Transactional Outbox
 
-Пакует имплементирует паттерн [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html),
+Пакет имплементирует паттерн [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html),
 что позволяет гарантировать продюсирование сообщений в брокер согласно семантике `at-least-once`.
 
 ```python
@@ -150,38 +148,35 @@ from sqlalchemy.ext.asyncio import session as sql_session
 from cqrs import events
 
 def do_some_logic(meeting_room_id: int, session: sql_session.AsyncSession):
-    ""
+    """
     Внесение изменений в БД
-    ""
+    """
     session.add(...)
 
 
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
 
-    def __init__(self, session_factory: typing.Callable[[], sql_session.AsyncSession]):
-        self._session_factory = session_factory
+    def __init__(self, repository: cqrs.SqlAlchemyOutboxedEventRepository):
+        self._repository = repository
         self._events: typing.List[events.Event] = []
 
     async def handle(self, request: CloseMeetingRoomCommand) -> None:
-        outbox = events.SqlAlchemyOutbox(self._session_factory())
-
-        do_some_logic(request.meeting_room_id, outbox.session)
-        outbox.add(
-            events.ECSTEvent(
-               event_name="MeetingRoomCloseв",
-               payload=dict(message="foo"),
-           ),
-        )
-
-        await session.commit()
-        # Безопасно всегда производить после фиксации изменений
-        await outbox.save()
+        async with self._repository as session:
+           do_some_logic(request.meeting_room_id, session)
+           self.repository.add(
+               session,
+               events.ECSTEvent(
+                  event_name="MeetingRoomCloseв",
+                  payload=dict(message="foo"),
+              ),
+           )
+           await self.repository.commit(session)
 ```
 
 
 ### Продюсирование событий из Outbox  в Kafka
 
-В качестве имплементации Transaction Outbox доступен для использования [SqlAlchemyOutbox](https://gitlab.timeweb.net/finance/billing/cqrs/-/blob/main/src/cqrs/outbox/sqlalchemy.py?ref_type=heads).
+В качестве имплементации Transaction Outbox доступен для использования репозиторий доступа к `Outbox` хранилищу SqlAlchemyOutboxedEventRepository.
 Его можно использовать в связке с `KafkaMessageBroker`.
 ```python
 import asyncio
@@ -203,7 +198,7 @@ broker = kafka_broker.KafkaMessageBroker(
     "DEBUG"
 )
 
-producer = cqrs.SQlAlchemyKafkaEventProducer(session_factory(), broker)
+producer = cqrs.EventProducer(cqrs.SqlAlchemyOutboxedEventRepository(session_factory, zlib.ZlibCompressor()), broker)
 loop = asyncio.get_event_loop()
 loop.run_until_complete(app.periodically_task())
 ```
