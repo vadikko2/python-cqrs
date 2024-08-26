@@ -24,8 +24,8 @@ maintainers = [
 ]
 name = "python-cqrs"
 readme = "README.md"
-repository = "https://github.com/vadikko2/python-cqrs"
-version = "0.0.10"
+url = "https://github.com/vadikko2/python-cqrs"
+version = "0.0.11"
 
 [project.optional-dependencies]
 dev = [
