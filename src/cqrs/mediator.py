@@ -1,11 +1,13 @@
 import typing
 
-from cqrs import container as di_container
-from cqrs import dispatcher, events, middlewares, requests, response
-
-Req = typing.TypeVar("Req", bound=requests.Request, contravariant=True)
-Resp = typing.TypeVar("Resp", bound=response.Response, covariant=True)
-E = typing.TypeVar("E", bound=events.Event, contravariant=True)
+from cqrs import (
+    container as di_container,
+    dispatcher,
+    events,
+    middlewares,
+    requests,
+    response,
+)
 
 
 class RequestMediator:
@@ -43,7 +45,9 @@ class RequestMediator:
         event_emitter: events.EventEmitter | None = None,
         middleware_chain: middlewares.MiddlewareChain | None = None,
         *,
-        dispatcher_type: typing.Type[dispatcher.RequestDispatcher] = dispatcher.RequestDispatcher,
+        dispatcher_type: typing.Type[
+            dispatcher.RequestDispatcher
+        ] = dispatcher.RequestDispatcher,
     ) -> None:
         self._event_emitter = event_emitter
         self._dispatcher = dispatcher_type(
@@ -52,7 +56,7 @@ class RequestMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, request: Req) -> Resp | None:
+    async def send(self, request: requests.Request) -> response.Response | None:
         dispatch_result = await self._dispatcher.dispatch(request)
 
         if dispatch_result.events:
@@ -60,7 +64,7 @@ class RequestMediator:
 
         return dispatch_result.response
 
-    async def _send_events(self, events: typing.List[E]) -> None:
+    async def _send_events(self, events: typing.List[events.Event]) -> None:
         if not self._event_emitter:
             return
 
@@ -91,7 +95,9 @@ class EventMediator:
         container: di_container.Container,
         middleware_chain: middlewares.MiddlewareChain | None = None,
         *,
-        dispatcher_type: typing.Type[dispatcher.EventDispatcher] = dispatcher.EventDispatcher,
+        dispatcher_type: typing.Type[
+            dispatcher.EventDispatcher
+        ] = dispatcher.EventDispatcher,
     ):
         self._dispatcher = dispatcher_type(
             event_map=event_map,  # type: ignore
@@ -99,5 +105,5 @@ class EventMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, event: E) -> None:
+    async def send(self, event: events.Event) -> None:
         await self._dispatcher.dispatch(event)

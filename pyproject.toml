@@ -4,7 +4,9 @@ requires = ["setuptools>=42", "wheel"]
 
 [project]
 authors = [
-  {name = "Vadim Kozyrevskiy"}
+  {name = "Vadim Kozyrevskiy", email = "vadim@example.com", github = "https://github.com/vadimkozyrevskiy"},
+  {name = "Dmitriy Kutlubaev", email = "dmitriy@example.com", github = "https://github.com/dmitriykutlubaev"},
+  {name = "Nikita Kunov", email = "nikita@example.com", github = "https://github.com/nikitakunov"}
 ]
 dependencies = [
   "pydantic==2.*",
@@ -20,18 +22,11 @@ readme = "README.md"
 version = "0.0.3"
 
 [project.optional-dependencies]
-git = [
-  "pre-commit==3.8.0 "
-]
-kafka = [
-  "aiokafka==0.10.0"
-]
-lint = [
-  "flake8==7.0.0",
-  "flake8-pytest",
-  "black"
-]
-tests = [
+dev = [
+  "pre-commit==3.8.0",
+  "pyright==1.1.377",
+  "ruff==0.6.2",
+  # Tests
   "aiokafka==0.10.0",
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
@@ -39,6 +34,9 @@ tests = [
   "python-dotenv==1.0.1",
   "cryptography==42.0.2",
   "asyncmy==0.2.9"
+]
+kafka = [
+  "aiokafka==0.10.0"
 ]
 
 [tool.pytest.ini_options]

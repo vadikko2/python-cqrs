@@ -1,27 +1,28 @@
-import collections
 import typing
 
-from cqrs import registry
 from cqrs.events import event, event_handler
 
-E = typing.TypeVar("E", bound=event.Event, contravariant=True)
+_KT = typing.TypeVar("_KT", bound=typing.Type[event.Event])
+_VT = typing.List[typing.Type[event_handler.EventHandler[event.Event]]]
 
 
-class EventMap(registry.InMemoryRegistry[typing.Type[E]], typing.List[typing.Type[event_handler.EventHandler]]):
-    _registry: collections.defaultdict
+class EventMap(typing.Dict[_KT, _VT]):
+    def bind(
+        self,
+        event_type: _KT,
+        handler_type: typing.Type[event_handler.EventHandler[event.Event]],
+    ) -> None:
+        if event_type not in self:
+            self[event_type] = [handler_type]
+        else:
+            if handler_type in self[event_type]:
+                raise KeyError(f"{handler_type} already bind to {event_type}")
+            self[event_type].append(handler_type)
 
-    def __init__(self) -> None:
-        super().__init__()
-        self._registry = collections.defaultdict(list)
+    def __setitem__(self, __key: _KT, __value: _VT) -> None:
+        if __key in self:
+            raise KeyError(f"{__key} already exists in registry")
+        super().__setitem__(__key, __value)
 
-    def bind(self, event_type: typing.Type[E], handler_type: typing.Type[event_handler.EventHandler[E]]) -> None:
-        self[event_type].append(handler_type)
-
-    def get(self, event_type: typing.Type[E]) -> typing.List[typing.Type[event_handler.EventHandler[E]]]:
-        return self._registry[event_type]
-
-    def get_events(self) -> list[typing.Type[E]]:
-        return list(self.keys())
-
-    def __str__(self) -> str:
-        return str(self._registry)
+    def __delitem__(self, __key_: _KT):
+        raise TypeError(f"{self.__class__.__name__} has no delete method")

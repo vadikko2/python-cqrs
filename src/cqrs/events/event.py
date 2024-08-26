@@ -9,7 +9,7 @@ class Event(pydantic.BaseModel, frozen=True):
     """The base class for events"""
 
 
-class DomainEvent(Event):
+class DomainEvent(Event, frozen=True):
     """
     The base class for domain events.
     """
@@ -18,7 +18,7 @@ class DomainEvent(Event):
 _P = typing.TypeVar("_P")
 
 
-class NotificationEvent(Event):
+class NotificationEvent(Event, frozen=True):
     """
     The base class for notification events.
 
@@ -38,7 +38,9 @@ class NotificationEvent(Event):
     """
 
     event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
-    event_timestamp: datetime.datetime = pydantic.Field(default_factory=datetime.datetime.now)
+    event_timestamp: datetime.datetime = pydantic.Field(
+        default_factory=datetime.datetime.now,
+    )
     event_name: typing.Text
     event_type: typing.ClassVar[typing.Text] = "notification_event"
 
@@ -50,7 +52,7 @@ class NotificationEvent(Event):
         return hash(self.event_id)
 
 
-class ECSTEvent(Event, typing.Generic[_P]):
+class ECSTEvent(Event, typing.Generic[_P], frozen=True):
     """
     Base class for ECST events.
 
@@ -74,7 +76,9 @@ class ECSTEvent(Event, typing.Generic[_P]):
     """
 
     event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
-    event_timestamp: datetime.datetime = pydantic.Field(default_factory=datetime.datetime.now)
+    event_timestamp: datetime.datetime = pydantic.Field(
+        default_factory=datetime.datetime.now,
+    )
     event_name: typing.Text
     event_type: typing.ClassVar = "ecst_event"
 
