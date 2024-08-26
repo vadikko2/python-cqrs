@@ -4,9 +4,9 @@ requires = ["setuptools>=42", "wheel"]
 
 [project]
 authors = [
-  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"},
   {name = "Dmitriy Kutlubaev", email = "kutlubaev00@mail.ru"},
-  {name = "Nikita Kunov"}
+  {name = "Nikita Kunov"},
+  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}
 ]
 dependencies = [
   "pydantic==2.*",
