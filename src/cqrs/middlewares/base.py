@@ -9,8 +9,7 @@ HandleType = typing.Callable[[Req], typing.Awaitable[Res]]
 
 
 class Middleware(typing.Protocol):
-    async def __call__(self, request: requests.Request, handle: HandleType) -> Res:
-        ...
+    async def __call__(self, request: requests.Request, handle: HandleType) -> Res: ...
 
 
 class MiddlewareChain:

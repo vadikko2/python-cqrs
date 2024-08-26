@@ -13,7 +13,10 @@ logger = logging.getLogger("cqrs")
 logger.setLevel(logging.DEBUG)
 
 SessionFactory: typing.TypeAlias = typing.Callable[[], sql_session.AsyncSession]
-Serializer: typing.TypeAlias = typing.Callable[[repository_protocol.Event], typing.Awaitable[typing.Dict]]
+Serializer: typing.TypeAlias = typing.Callable[
+    [repository_protocol.Event],
+    typing.Awaitable[typing.Dict],
+]
 
 
 class EventProducer:
@@ -27,15 +30,27 @@ class EventProducer:
         self.repository = repository
         self.serializer = serializer
 
-    async def periodically_task(self, batch_size: int = 100, wait_ms: int = 500) -> None:
+    async def periodically_task(
+        self,
+        batch_size: int = 100,
+        wait_ms: int = 500,
+    ) -> None:
         """Calls produce periodically with specified delay"""
         while True:
             await asyncio.sleep(float(wait_ms) / 1000.0)
             await self.produce_batch(batch_size)
 
-    async def send_message(self, session: repository_protocol.Session, event: cqrs.ECSTEvent | cqrs.NotificationEvent):
+    async def send_message(
+        self,
+        session: object,
+        event: cqrs.ECSTEvent | cqrs.NotificationEvent,
+    ):
         try:
-            serialized = (await self.serializer(event)) if self.serializer else event.model_dump(mode="json")
+            serialized = (
+                (await self.serializer(event))
+                if self.serializer
+                else event.model_dump(mode="json")
+            )
             await self.message_broker.send_message(
                 broker_protocol.Message(
                     message_type=event.event_type,
@@ -45,10 +60,20 @@ class EventProducer:
                 ),
             )
         except Exception as e:
-            logger.error(f"Error while producing event {event.event_id} to kafka broker: {e}")
-            await self.repository.update_status(session, event.event_id, repository_protocol.EventStatus.NOT_PRODUCED)
+            logger.error(
+                f"Error while producing event {event.event_id} to kafka broker: {e}",
+            )
+            await self.repository.update_status(
+                session,
+                event.event_id,
+                repository_protocol.EventStatus.NOT_PRODUCED,
+            )
         else:
-            await self.repository.update_status(session, event.event_id, repository_protocol.EventStatus.PRODUCED)
+            await self.repository.update_status(
+                session,
+                event.event_id,
+                repository_protocol.EventStatus.PRODUCED,
+            )
 
     async def produce_one(self, event_id: uuid.UUID) -> None:
         async with self.repository as session:

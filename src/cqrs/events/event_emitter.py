@@ -24,12 +24,11 @@ class EventEmitter:
         self._message_broker = message_broker
 
     @functools.singledispatchmethod
-    async def emit(self, event: event.Event) -> None:
-        ...
+    async def emit(self, event: event.Event) -> None: ...
 
     @emit.register
     async def _(self, event: event.DomainEvent) -> None:
-        handlers_types = self._event_map.get(type(event))
+        handlers_types = self._event_map.get(type(event), [])
         if not handlers_types:
             logger.warning(
                 "Handlers for domain event %s not found",
@@ -47,7 +46,9 @@ class EventEmitter:
     @emit.register
     async def _(self, event: event.NotificationEvent) -> None:
         if not self._message_broker:
-            raise RuntimeError("To use NotificationEvent, message_broker argument must be specified.")
+            raise RuntimeError(
+                "To use NotificationEvent, message_broker argument must be specified.",
+            )
 
         message = _build_message(event)
 
@@ -62,7 +63,9 @@ class EventEmitter:
     @emit.register
     async def _(self, event: event.ECSTEvent) -> None:
         if not self._message_broker:
-            raise RuntimeError("To use ECSTEvent, message_broker argument must be specified.")
+            raise RuntimeError(
+                "To use ECSTEvent, message_broker argument must be specified.",
+            )
 
         message = _build_message(event)
 
@@ -75,7 +78,9 @@ class EventEmitter:
         await self._message_broker.send_message(message)
 
 
-def _build_message(event: event.NotificationEvent | event.ECSTEvent) -> message_brokers.Message:
+def _build_message(
+    event: event.NotificationEvent | event.ECSTEvent,
+) -> message_brokers.Message:
     payload = event.model_dump(mode="json")
 
     return message_brokers.Message(

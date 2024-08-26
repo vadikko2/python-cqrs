@@ -42,35 +42,24 @@ repos:
   repo: https://github.com/pappasam/toml-sort
   rev: v0.23.1
 - hooks:
-  - args:
-    - --profile
-    - black
-    - --line-length=120
-    id: isort
-  repo: https://github.com/pycqa/isort
-  rev: 5.12.0
-- hooks:
   - id: pycln
   repo: https://github.com/hadialqattan/pycln
   rev: v2.4.0
-- hooks:
-  - args:
-    - --line-length=120
-    id: black
-    include: (src|tests)
-  repo: https://github.com/ambv/black
-  rev: 22.3.0
 - hooks:
   - id: upgrade-type-hints
   repo: https://github.com/sondrelg/pep585-upgrade
   rev: v1.0.1
 - hooks:
-  - args:
-    - --ignore=E501,W504,W605
-    id: flake8
-    include: (src|tests)
-  repo: https://github.com/pycqa/flake8
-  rev: 7.0.0
+  - id: ruff
+    args: [--fix]
+  - id: ruff-format
+  repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.6.1
+- repo: https://github.com/RobertCraigie/pyright-python
+  rev: v1.1.377
+  hooks:
+  - id: pyright
+    types: [python]
 - repo: local
   hooks:
   - id: pytest-unit

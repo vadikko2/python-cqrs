@@ -1,30 +1,27 @@
 import typing
 
-from cqrs import registry
+from cqrs import response
 from cqrs.requests import request, request_handler
 
-TReq = typing.TypeVar("TReq", bound=typing.Type[request.Request], contravariant=True)
-TH = typing.TypeVar("TH", bound=typing.Type[request_handler.RequestHandler], contravariant=True)
+_KT = typing.TypeVar("_KT", bound=typing.Type[request.Request])
+_VT = typing.TypeVar(
+    "_VT",
+    bound=typing.Type[
+        request_handler.RequestHandler[request.Request, response.Response]
+    ],
+)
 
 
-class RequestMap(registry.InMemoryRegistry[TReq, TH]):
-    def bind(
-        self,
-        request_type: TReq,
-        handler_type: TH,
-    ) -> None:
-        self._registry[request_type] = handler_type
+class RequestMap(typing.Dict[_KT, _VT]):
+    _registry: typing.Dict[_KT, _VT]
 
-    def get(self, request_type: TReq) -> TH:
-        handler_type = self._registry.get(request_type)
-        if not handler_type:
-            raise RequestHandlerDoesNotExist("RequestHandler not found matching Request type.")
+    def bind(self, request_type: _KT, handler_type: _VT) -> None:
+        self[request_type] = handler_type
 
-        return handler_type
+    def __setitem__(self, __key: _KT, __value: _VT) -> None:
+        if __key in self:
+            raise KeyError(f"{__key} already exists in registry")
+        super().__setitem__(__key, __value)
 
-    def __str__(self) -> str:
-        return str(self._registry)
-
-
-class RequestHandlerDoesNotExist(Exception):
-    ...
+    def __delitem__(self, __key):
+        raise TypeError(f"{self.__class__.__name__} has no delete method")
