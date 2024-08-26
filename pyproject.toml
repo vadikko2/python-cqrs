@@ -17,9 +17,15 @@ dependencies = [
   "retry-async==0.1.4"
 ]
 description = "Python CQRS pattern implementation"
+maintainers = [
+  {name = "Dmitriy Kutlubaev", email = "kutlubaev00@mail.ru"},
+  {name = "Nikita Kunov"},
+  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}
+]
 name = "python-cqrs"
 readme = "README.md"
-version = "0.0.9"
+repository = "https://github.com/vadikko2/python-cqrs"
+version = "0.0.10"
 
 [project.optional-dependencies]
 dev = [
