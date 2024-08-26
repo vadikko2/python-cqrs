@@ -1,24 +1,19 @@
 # CQRS
 
-Python-библиотека для реализации шаблона CQRS в приложениях Python. Предоставляет набор абстракций и утилит, которые
-помогут разделить задачи чтения и записи, обеспечивая лучшую масштабируемость, производительность и удобство
-обслуживания приложения.
+A Python library for implementing the CQRS (Command Query Responsibility Segregation) pattern in Python applications. It provides a set of abstractions and utilities to help separate read and write tasks, ensuring better scalability, performance, and maintainability of the application.
 
-Библиотека является форком
-библиотеки [diator](https://github.com/akhundMurad/diator) ([документация](https://akhundmurad.github.io/diator/)) с
-рядом улучшений:
+This library is a fork of the [diator](https://github.com/akhundMurad/diator) library ([documentation](https://akhundmurad.github.io/diator/)) with several enhancements:
 
-1. поддержка Pydantic [v2.*](https://docs.pydantic.dev/2.8/);
-2. поддержка Kafka в качестве брокера [aiokafka](https://github.com/aio-libs/aiokafka);
-3. добавлен `EventMediator` для обработки `Notification` и `ECST` событий, приходящих из шины;
-4. переработам механизм `mapping`-а событий и запросов на обработчики;
-5. добавлен `bootstrap` для легкого начала работы;
-6. Добавлена поддержка [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html),
-дающего гарантию отправки `Notification` и `ECST` событий в брокера.
+1. Support for Pydantic [v2.*](https://docs.pydantic.dev/2.8/);
+2. Kafka support using [aiokafka](https://github.com/aio-libs/aiokafka);
+3. Added EventMediator for handling Notification and ECST events coming from the bus;
+4. Redesigned the event and request mapping mechanism to handlers;
+5. Added bootstrap for easy setup;
+6. Added support for [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html), ensuring that Notification and ECST events are sent to the broker.
 
-## Примеры использования
+## Usage Examples
 
-### Обработчики событий
+### Event Handlers
 
 ```python
 from cqrs.events import EventHandler
@@ -31,9 +26,9 @@ class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler])
       await self._meetings_api.notify_room(event.meeting_id, "New user joined!")
 ```
 
-### Обработчик запросов
+### Request Handler
 
-#### Обработчик `command`
+#### Command Handler
 
 ```python
 from cqrs.requests.request_handler import RequestHandler
@@ -48,7 +43,7 @@ class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None])
           await self._meetings_api.join_user(request.user_id, request.meeting_id)
 ```
 
-#### Обработчик `query`
+#### Query handler
 
 ```python
 from cqrs.requests.request_handler import RequestHandler
@@ -65,10 +60,10 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 
 ```
 
-#### Продюсирование `Notification`/`ECST` событий
+### Producing Notification/ECST Events
 
-Во время обработки запроса/команды можно породить сообщения с типом `cqrs.NotificationEvent` или `cqrs.ECSTEvent`,
-которое в дальнейшем продюсируется брокером сообщений
+During the processing of a request/command, messages of type cqrs.NotificationEvent or cqrs.ECSTEvent can be generated, which are subsequently produced by the message broker.
+
 
 ```python
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
@@ -91,10 +86,10 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
         self._events.append(event)
 ```
 
-После обработки команды/запроса, при наличии `Notification`/`ECST` событий, вызывается EventEmitter который
-спродюсирует события посредством message_broker'а
+After processing the command/request, if there are any Notification/ECST events,
+the EventEmitter is invoked to produce the events via the message broker.
 
-### Медиатор
+### Mediator
 
 ```python
 from cqrs.events import EventMap, EventEmitter
@@ -123,7 +118,7 @@ mediator = RequestMediator(
 await mediator.send(join_user_command)
 ```
 
-### Kafka Брокер
+### Kafka broker
 
 ```python
 from cqrs.adapters import kafka as kafka_adapter
@@ -140,8 +135,8 @@ await broker.send_message(...)
 
 ### Transactional Outbox
 
-Пакет имплементирует паттерн [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html),
-что позволяет гарантировать продюсирование сообщений в брокер согласно семантике `at-least-once`.
+The package implements the [Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html) pattern, which ensures that messages are produced to the broker according to the at-least-once semantics.
+
 
 ```python
 from sqlalchemy.ext.asyncio import session as sql_session
@@ -149,7 +144,7 @@ from cqrs import events
 
 def do_some_logic(meeting_room_id: int, session: sql_session.AsyncSession):
     """
-    Внесение изменений в БД
+    Make changes to the database
     """
     session.add(...)
 
@@ -166,7 +161,7 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
            self.repository.add(
                session,
                events.ECSTEvent(
-                  event_name="MeetingRoomCloseв",
+                  event_name="MeetingRoomClosed",
                   payload=dict(message="foo"),
               ),
            )
@@ -174,10 +169,10 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
 ```
 
 
-### Продюсирование событий из Outbox  в Kafka
+### Producing Events from Outbox to Kafka
 
-В качестве имплементации Transaction Outbox доступен для использования репозиторий доступа к `Outbox` хранилищу SqlAlchemyOutboxedEventRepository.
-Его можно использовать в связке с `KafkaMessageBroker`.
+As an implementation of the Transactional Outbox pattern, the SqlAlchemyOutboxedEventRepository is available for use as an access repository to the Outbox storage. It can be utilized in conjunction with the KafkaMessageBroker.
+
 ```python
 import asyncio
 import cqrs
