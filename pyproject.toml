@@ -19,7 +19,7 @@ dependencies = [
 description = "Python CQRS pattern implementation"
 name = "python-cqrs"
 readme = "README.md"
-version = "0.0.7"
+version = "0.0.8"
 
 [project.optional-dependencies]
 dev = [
