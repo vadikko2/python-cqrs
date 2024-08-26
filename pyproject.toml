@@ -4,9 +4,9 @@ requires = ["setuptools>=42", "wheel"]
 
 [project]
 authors = [
-  {name = "Vadim Kozyrevskiy", email = "vadim@example.com", github = "https://github.com/vadimkozyrevskiy"},
-  {name = "Dmitriy Kutlubaev", email = "dmitriy@example.com", github = "https://github.com/dmitriykutlubaev"},
-  {name = "Nikita Kunov", email = "nikita@example.com", github = "https://github.com/nikitakunov"}
+  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru", github = "https://github.com/vadimkozyrevskiy"},
+  {name = "Dmitriy Kutlubaev", email = "kutlubaev00@mail.ru", github = "https://github.com/DimaPlaz"},
+  {name = "Nikita Kunov", github = "https://github.com/Dioneya"}
 ]
 dependencies = [
   "pydantic==2.*",
@@ -19,7 +19,7 @@ dependencies = [
 description = "Python CQRS pattern implementation"
 name = "python-cqrs"
 readme = "README.md"
-version = "0.0.3"
+version = "0.0.4"
 
 [project.optional-dependencies]
 dev = [
