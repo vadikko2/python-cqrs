@@ -243,31 +243,55 @@ def setup_di() -> di.Container:
     return container
 ```
 
-### Mediators
+### Mapping
 
-Чтобы свзять команды и запросы с конкреными обработчиками
+To bind commands, queries and events with specific handlers, you can use the registries `EventMap` and `RequestMap`.
+
+```python
+from cqrs import requests, events
+
+from app import commands, command_handlers
+from app import queries, query_handlers
+from app import event_models, event_handlers
+
+
+def init_commands(mapper: requests.RequestMap) -> None:
+    mapper.bind(commands.JoinMeetingCommand, command_handlers.JoinMeetingCommandHandler)
+
+def init_queries(mapper: requests.RequestMap) -> None:
+    mapper.bind(queries.ReadMeetingQuery, query_handlers.ReadMeetingQueryHandler)
+
+def init_events(mapper: events.EventMap) -> None:
+    mapper.bind(event_models.PaymentCreatedEvent, event_handlers.UpdatePaymentReadModelHandler)
+    mapper.bind(events.ECSTEvent[event_models.ConfigurationUpdated], event_handlers.ConfigurationUpdatedHandler)
+```
+
+# Bootstrap
 
 ```python
 from cqrs.events import EventMap, EventEmitter
 from cqrs.requests import RequestMap
-from cqrs.mediator import RequestMediator
-from cqrs.message_brokers.amqp import AMQPMessageBroker
+from cqrs.mediator import RequestMediator, EventMediator
+from cqrs.message_brokers import kafka as kafka_broker
 
-message_broker = AMQPMessageBroker(
-    dsn=f"amqp://{LOGIN}:{PASSWORD}@{HOSTNAME}/",
-    queue_name="user_joined_domain",
-    exchange_name="user_joined",
+broker = kafka_broker.KafkaMessageBroker(
+    kafka_adapter.kafka_producer_factory(
+        dsn="localhost:9094",
+        topics=["test.topic1", "test.topic2"],
+    ),
+    "DEBUG"
 )
+
 event_map = EventMap()
 event_map.bind(UserJoinedDomainEvent, UserJoinedDomainEventHandler)
+
 request_map = RequestMap()
 request_map.bind(JoinUserCommand, JoinUserCommandHandler)
-event_emitter = EventEmitter(event_map, container, message_broker)
 
-mediator = RequestMediator(
+request_mdeator = RequestMediator(
     request_map=request_map,
     container=container
-    event_emitter=event_emitter,
+    event_emitter=EventEmitter(event_map, container, broker),
 )
 ```
 
