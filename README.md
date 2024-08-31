@@ -1,5 +1,7 @@
 # Python CQRS pattern implementaion with Transaction Outbox supporting
 
+## Overview
+
 This is a package for implementing the CQRS (Command Query Responsibility Segregation) pattern in Python applications.
 It provides a set of abstractions and utilities to help separate read and write use cases, ensuring better scalability, performance, and maintainability of the application.
 
@@ -28,7 +30,8 @@ As a result of executing the command, an event may be produced to the broker.
 from cqrs.requests.request_handler import RequestHandler
 from cqrs.events.event import Event
 
-class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None])
+class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None]):
+
       def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
           self._meetings_api = meetings_api
           self.events: list[Event] = []
@@ -51,7 +54,8 @@ Query Handler returns a representation of the requested data, for example, from 
 from cqrs.requests.request_handler import RequestHandler
 from cqrs.events.event import Event
 
-class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryResult])
+class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryResult]):
+
       def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
           self._meetings_api = meetings_api
           self.events: list[Event] = []
@@ -75,7 +79,8 @@ Below is an example of `Kafka event consuming` that can be used in the Presentat
 ```python
 from cqrs.events import EventHandler
 
-class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler])
+class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler]):
+
     def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
       self._meetings_api = meetings_api
 
@@ -89,6 +94,7 @@ During the handling of a command event, messages of type `cqrs.NotificationEvent
 
 ```python
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
+
     def __init__(self) -> None:
         self._events: typing.List[events.Event] = []
 
@@ -251,7 +257,7 @@ from cqrs import requests, events
 
 from app import commands, command_handlers
 from app import queries, query_handlers
-from app import event_models, event_handlers
+from app import events as event_models, event_handlers
 
 
 def init_commands(mapper: requests.RequestMap) -> None:
@@ -302,3 +308,29 @@ def event_mediator_factory():
 ### FastAPI requests handling
 
 ### Kafka events consuming
+
+To handle events from `Kafka`, you need to implement an event consumer on your application's side, which will call the appropriate handler for each event.
+An example of handling events from `Kafka` is provided below.
+
+```python
+import aiokafka
+import cqrs
+import orjson
+
+from app import events
+
+class OnEvent:
+
+    def __init__(
+        self,
+        event_mediator: cqrs.EventMediator
+    ):
+        self._event_mediator = event_mediator
+
+    async def __call__(self, kafka_message: aiokafka.ConsumerRecord) -> None:
+        event = cqrs.ECSTEvent[events.ECSTMeetingRoomClosed].model_validate(
+            orjson.loads(kafka_message.value),
+            context={"assume_validated": True},
+        )
+        await self._event_mediator.send(event)
+```
