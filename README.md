@@ -71,7 +71,7 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
         self._events: typing.List[events.Event] = []
 
     @property
-    def events(self) -> typing.List:
+    def events(self) -> typing.List[events.Event]:
         return self._events
 
     async def handle(self, request: CloseMeetingRoomCommand) -> None:
@@ -88,6 +88,12 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
 
 After processing the command/request, if there are any Notification/ECST events,
 the EventEmitter is invoked to produce the events via the message broker.
+
+> [!WARNING]
+> It is important to note that producing events using the events property parameter does not guarantee message delivery to the broker.
+> In the event of broker unavailability or an exception occurring during message formation or sending, the message may be lost.
+> This issue can potentially be addressed by configuring retry attempts for sending messages to the broker, but we recommend using the [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html) pattern,
+> which is implemented in the current version of the python-cqrs package for this purpose.
 
 ### Mediator
 
@@ -154,6 +160,10 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
     def __init__(self, repository: cqrs.SqlAlchemyOutboxedEventRepository):
         self._repository = repository
         self._events: typing.List[events.Event] = []
+
+    @property
+    def events(self):
+        return self._events
 
     async def handle(self, request: CloseMeetingRoomCommand) -> None:
         async with self._repository as session:
