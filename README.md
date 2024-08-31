@@ -197,3 +197,12 @@ producer = cqrs.EventProducer(cqrs.SqlAlchemyOutboxedEventRepository(session_fac
 loop = asyncio.get_event_loop()
 loop.run_until_complete(app.periodically_task())
 ```
+
+
+### Transaction log tailing
+
+If the Outbox polling strategy does not suit your needs, I recommend exploring the [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html) pattern.
+The current version of the python-cqrs package does not support the implementation of this pattern.
+
+However, it can be implemented using [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html),
+which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in Kafka (or any other broker).
