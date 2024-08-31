@@ -213,9 +213,7 @@ The current version of the python-cqrs package does not support the implementati
 > which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in Kafka (or any other broker).
 
 
-## Integaration with presentation layers
-
-### DI container
+## DI container
 
 Use the following example to set up dependency injection in your command, query and event handlers. This will make dependency management simpler.
 
@@ -243,7 +241,8 @@ def setup_di() -> di.Container:
     return container
 ```
 
-### Mapping
+
+## Mapping
 
 To bind commands, queries and events with specific handlers, you can use the registries `EventMap` and `RequestMap`.
 
@@ -266,34 +265,39 @@ def init_events(mapper: events.EventMap) -> None:
     mapper.bind(events.ECSTEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
 ```
 
-# Bootstrap
 
+## Bootstrap
+
+The `python-cqrs` package implements a set of bootstrap utilities designed to simplify the initial configuration of an application.
 ```python
-from cqrs.events import EventMap, EventEmitter
-from cqrs.requests import RequestMap
-from cqrs.mediator import RequestMediator, EventMediator
-from cqrs.message_brokers import kafka as kafka_broker
+import functools
 
-broker = kafka_broker.KafkaMessageBroker(
-    kafka_adapter.kafka_producer_factory(
-        dsn="localhost:9094",
-        topics=["test.topic1", "test.topic2"],
-    ),
-    "DEBUG"
-)
+from cqrs.events import bootstrap as event_bootstrap
+from cqrs.requests import bootstrap as request_bootstrap
 
-event_map = EventMap()
-event_map.bind(UserJoinedDomainEvent, UserJoinedDomainEventHandler)
+from app import dependencies, mapping, orm
 
-request_map = RequestMap()
-request_map.bind(JoinUserCommand, JoinUserCommandHandler)
+@functools.lru_cache
+def mediator_factory():
+    return request_bootstrap.bootstrap(
+        di_container=dependencies.setup_di(),
+        commands_mapper=mapping.init_commands,
+        queries_mapper=mapping.init_queries,
+        domain_events_mapper=mapping.init_events,
+        on_startup=[orm.init_store_event_mapper],
+    )
 
-request_mdeator = RequestMediator(
-    request_map=request_map,
-    container=container
-    event_emitter=EventEmitter(event_map, container, broker),
-)
+
+@functools.lru_cache
+def event_mediator_factory():
+    return event_bootstrap.bootstrap(
+        di_container=dependencies.setup_di(),
+        events_mapper=mapping.init_events,
+        on_startup=[orm.init_store_event_mapper],
+    )
 ```
+
+## Integaration with presentation layers
 
 ### FastAPI requests handling
 
