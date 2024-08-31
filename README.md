@@ -12,20 +12,16 @@ This package is a fork of the [diator](https://github.com/akhundMurad/diator) pr
 5. Added `bootstrap` for easy setup;
 6. Added support for [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html), ensuring that `Notification` and `ECST` events are sent to the broker.
 
-### Event Handlers
 
-```python
-from cqrs.events import EventHandler
+## Request Handlers
 
-class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler])
-    def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
-      self._meetings_api = meetings_api
+Request handlers can be divided into two main types:
 
-    async def handle(self, event: UserJoinedEventHandler) -> None:
-      await self._meetings_api.notify_room(event.meeting_id, "New user joined!")
-```
-
-## Request Handler
+1. `Command Handler` executes the received command. The logic of the handler may include, for example, modifying the state of the domain model.
+As a result of executing the command, an event may be produced to the broker.
+> [!TIP]
+> By default, the command handler does not return any result, but this condition is not mandatory.
+2. `Query handler`
 
 ### Command Handler
 
@@ -59,10 +55,23 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 
 ```
 
+
+## Event Handlers
+
+```python
+from cqrs.events import EventHandler
+
+class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler])
+    def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
+      self._meetings_api = meetings_api
+
+    async def handle(self, event: UserJoinedEventHandler) -> None:
+      await self._meetings_api.notify_room(event.meeting_id, "New user joined!")
+```
+
 ## Producing Notification/ECST Events
 
 During the processing of a request/command, messages of type cqrs.NotificationEvent or cqrs.ECSTEvent can be generated, which are subsequently produced by the message broker.
-
 
 ```python
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
@@ -93,35 +102,6 @@ the EventEmitter is invoked to produce the events via the message broker.
 > In the event of broker unavailability or an exception occurring during message formation or sending, the message may be lost.
 > This issue can potentially be addressed by configuring retry attempts for sending messages to the broker, but we recommend using the [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html) pattern,
 > which is implemented in the current version of the python-cqrs package for this purpose.
-
-## Mediator
-
-```python
-from cqrs.events import EventMap, EventEmitter
-from cqrs.requests import RequestMap
-from cqrs.mediator import RequestMediator
-from cqrs.message_brokers.amqp import AMQPMessageBroker
-
-message_broker = AMQPMessageBroker(
-    dsn=f"amqp://{LOGIN}:{PASSWORD}@{HOSTNAME}/",
-    queue_name="user_joined_domain",
-    exchange_name="user_joined",
-)
-event_map = EventMap()
-event_map.bind(UserJoinedDomainEvent, UserJoinedDomainEventHandler)
-request_map = RequestMap()
-request_map.bind(JoinUserCommand, JoinUserCommandHandler)
-event_emitter = EventEmitter(event_map, container, message_broker)
-
-mediator = RequestMediator(
-    request_map=request_map,
-    container=container
-    event_emitter=event_emitter,
-)
-
-# Handles command and published events by the command handler.
-await mediator.send(join_user_command)
-```
 
 ## Kafka broker
 
@@ -220,6 +200,50 @@ The current version of the python-cqrs package does not support the implementati
 
 
 ## Integaration with presentation layers
+
+### DI container
+
+Используйте следующий пример для настройки DI для вашего проекта
+
+```python
+
+import cqrs
+
+def setup_di() -> cqrs.DIContainer:
+    pass
+
+```
+
+### Mediators
+
+Чтобы свзять команды и запросы с конкреными обработчиками
+
+```python
+from cqrs.events import EventMap, EventEmitter
+from cqrs.requests import RequestMap
+from cqrs.mediator import RequestMediator
+from cqrs.message_brokers.amqp import AMQPMessageBroker
+
+message_broker = AMQPMessageBroker(
+    dsn=f"amqp://{LOGIN}:{PASSWORD}@{HOSTNAME}/",
+    queue_name="user_joined_domain",
+    exchange_name="user_joined",
+)
+event_map = EventMap()
+event_map.bind(UserJoinedDomainEvent, UserJoinedDomainEventHandler)
+request_map = RequestMap()
+request_map.bind(JoinUserCommand, JoinUserCommandHandler)
+event_emitter = EventEmitter(event_map, container, message_broker)
+
+mediator = RequestMediator(
+    request_map=request_map,
+    container=container
+    event_emitter=event_emitter,
+)
+
+# Handles command and published events by the command handler.
+await mediator.send(join_user_command)
+```
 
 ### FastAPI requests handling
 
