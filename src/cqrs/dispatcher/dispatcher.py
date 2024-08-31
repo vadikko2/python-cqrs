@@ -13,12 +13,14 @@ from cqrs import (
 
 logger = logging.getLogger("cqrs")
 
+Resp = typing.TypeVar("Resp", res.Response, None, contravariant=True)
+
 
 class RequestHandlerDoesNotExist(Exception): ...
 
 
-class RequestDispatchResult(pydantic.BaseModel):
-    response: res.Response | None = pydantic.Field(default=None)
+class RequestDispatchResult(pydantic.BaseModel, typing.Generic[Resp]):
+    response: Resp = pydantic.Field(default=None)
     events: typing.List[cqrs_events.Event] = pydantic.Field(default_factory=list)
 
 

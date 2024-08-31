@@ -11,7 +11,9 @@ class CloseMeetingRoomEvent(pydantic.BaseModel):
     meeting_room_id: UUID = pydantic.Field()
 
 
-class CloseMeetingRoomEventHandler(events.EventHandler[cqrs.ECSTEvent[CloseMeetingRoomEvent]]):
+class CloseMeetingRoomEventHandler(
+    events.EventHandler[cqrs.ECSTEvent[CloseMeetingRoomEvent]],
+):
     def __init__(self) -> None:
         self.called = False
 
@@ -22,9 +24,10 @@ class CloseMeetingRoomEventHandler(events.EventHandler[cqrs.ECSTEvent[CloseMeeti
 class TestContainer:
     event_handler = CloseMeetingRoomEventHandler()
 
-    async def resolve(self, type_: type):
-        if isinstance(self.event_handler, type_):
+    async def resolve(self, type_) -> CloseMeetingRoomEventHandler:
+        if type_ is CloseMeetingRoomEventHandler:
             return self.event_handler
+        raise Exception(f"Handler of type {type_} not found")
 
 
 @pytest.fixture
@@ -39,7 +42,9 @@ def mediator() -> cqrs.EventMediator:
 
 
 async def test_sending_event_without_response(mediator: cqrs.EventMediator) -> None:
-    handler = await TestContainer().resolve(CloseMeetingRoomEventHandler)
+    handler: CloseMeetingRoomEventHandler = await TestContainer().resolve(
+        CloseMeetingRoomEventHandler,
+    )
 
     await mediator.send(
         event=cqrs.ECSTEvent[CloseMeetingRoomEvent](
@@ -48,4 +53,5 @@ async def test_sending_event_without_response(mediator: cqrs.EventMediator) -> N
         ),
     )
 
+    assert handler
     assert handler.called

@@ -175,7 +175,10 @@ class SqlAlchemyOutboxedEventRepository(
     repository.OutboxedEventRepository[sql_session.AsyncSession],
 ):
     EVENT_CLASS_MAPPING: typing.ClassVar[
-        typing.Dict[EventType, typing.Type[repository.Event]]
+        typing.Dict[
+            EventType,
+            typing.Type[ev.NotificationEvent] | typing.Type[ev.ECSTEvent],
+        ]
     ] = {
         EventType.NOTIFICATION_EVENT: ev.NotificationEvent,
         EventType.ECST_EVENT: ev.ECSTEvent,
@@ -198,14 +201,15 @@ class SqlAlchemyOutboxedEventRepository(
 
     def _process_events(self, model: OutboxModel) -> repository.Event:
         event_dict = model.row_to_dict()
-        event_dict["payload"] = orjson.loads(
-            self._compressor.decompress(event_dict["payload"])
-            if self._compressor
-            else event_dict["payload"],
-        )
+        if event_dict["payload"] is not None:
+            event_dict["payload"] = orjson.loads(
+                self._compressor.decompress(event_dict["payload"])
+                if self._compressor
+                else event_dict["payload"],
+            )
         return self.EVENT_CLASS_MAPPING[event_dict["event_type"]].model_validate(
             event_dict,
-        )
+        )  # type: ignore
 
     async def get_many(
         self,
@@ -250,7 +254,7 @@ class SqlAlchemyOutboxedEventRepository(
             else event_dict["payload"],
         )
 
-        return self.EVENT_CLASS_MAPPING[event.event_type].model_validate(event_dict)
+        return self._process_events(event)
 
     async def update_status(
         self,

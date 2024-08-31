@@ -6,7 +6,7 @@ import uuid
 import cqrs
 from cqrs.events import event as ev
 
-Event: typing.TypeAlias = ev.NotificationEvent | ev.ECSTEvent
+Event = typing.TypeVar("Event", ev.NotificationEvent, ev.ECSTEvent, contravariant=True)
 Session = typing.TypeVar("Session")
 
 
@@ -17,7 +17,11 @@ class EventStatus(enum.StrEnum):
 
 
 class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
-    def __init__(self, session_factory: typing.Callable[[], Session], compressor: cqrs.Compressor | None = None):
+    def __init__(
+        self,
+        session_factory: typing.Callable[[], Session],
+        compressor: cqrs.Compressor | None = None,
+    ):
         self._session_factory = session_factory
         self._compressor = compressor
 
@@ -38,11 +42,20 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
         """Get one event from the repository."""
 
     @abc.abstractmethod
-    async def get_many(self, session: Session, batch_size: int = 100) -> typing.List[Event]:
+    async def get_many(
+        self,
+        session: Session,
+        batch_size: int = 100,
+    ) -> typing.List[Event]:
         """Get many events from the repository."""
 
     @abc.abstractmethod
-    async def update_status(self, session: Session, event_id: uuid.UUID, new_status: EventStatus):
+    async def update_status(
+        self,
+        session: Session,
+        event_id: uuid.UUID,
+        new_status: EventStatus,
+    ):
         """Update the event status"""
 
     @abc.abstractmethod

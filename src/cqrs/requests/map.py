@@ -1,15 +1,9 @@
 import typing
 
-from cqrs import response
 from cqrs.requests import request, request_handler
 
 _KT = typing.TypeVar("_KT", bound=typing.Type[request.Request])
-_VT = typing.TypeVar(
-    "_VT",
-    bound=typing.Type[
-        request_handler.RequestHandler[request.Request, response.Response]
-    ],
-)
+_VT = typing.TypeVar("_VT", bound=typing.Type[request_handler.RequestHandler])
 
 
 class RequestMap(typing.Dict[_KT, _VT]):

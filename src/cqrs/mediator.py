@@ -9,6 +9,8 @@ from cqrs import (
     response,
 )
 
+Resp = typing.TypeVar("Resp", response.Response, None, contravariant=True)
+
 
 class RequestMediator:
     """
@@ -56,7 +58,7 @@ class RequestMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, request: requests.Request) -> response.Response | None:
+    async def send(self, request: requests.Request) -> Resp:
         dispatch_result = await self._dispatcher.dispatch(request)
 
         if dispatch_result.events:

@@ -30,7 +30,10 @@ class ReadMeetingDetailsQueryHandler(
     def events(self) -> list:
         return self._events
 
-    async def handle(self, request: ReadMeetingDetailsQuery) -> ReadMeetingDetailsQueryResult:
+    async def handle(
+        self,
+        request: ReadMeetingDetailsQuery,
+    ) -> ReadMeetingDetailsQueryResult:
         self.called = True
         return ReadMeetingDetailsQueryResult(meeting_room_id=request.meeting_room_id)
 
@@ -50,7 +53,7 @@ async def test_default_dispatcher_logic() -> None:
     middleware_chain.add(middleware)
     dispatcher = RequestDispatcher(
         request_map=request_map,
-        container=TestQueryContainer(),
+        container=TestQueryContainer(),  # type: ignore
         middleware_chain=middleware_chain,
     )
 
@@ -69,7 +72,7 @@ async def test_default_dispatcher_chain_logic() -> None:
     middleware_chain.set([FirstMiddleware(), SecondMiddleware(), ThirdMiddleware()])
     dispatcher = RequestDispatcher(
         request_map=request_map,
-        container=TestQueryContainer(),
+        container=TestQueryContainer(),  # type: ignore
         middleware_chain=middleware_chain,
     )
 
@@ -89,7 +92,7 @@ async def test_default_dispatcher_chain_logic() -> None:
 
 class FirstMiddleware:
     async def __call__(self, request: Request, handle):
-        request.status = "REQ"
+        request.status = "REQ"  # type: ignore
         response = await handle(request)
         response.status = "RES"
         return response
@@ -97,7 +100,7 @@ class FirstMiddleware:
 
 class SecondMiddleware:
     async def __call__(self, request: Request, handle):
-        request.status = "REQ"
+        request.status = "REQ"  # type: ignore
         response = await handle(request)
         response.status = "RES"
         return response
@@ -105,7 +108,7 @@ class SecondMiddleware:
 
 class ThirdMiddleware:
     async def __call__(self, request: Request, handle):
-        request.status = "REQ"
+        request.status = "REQ"  # type: ignore
         response = await handle(request)
         response.status = "RES"
         return response

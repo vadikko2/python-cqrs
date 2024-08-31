@@ -3,14 +3,16 @@ import typing
 from cqrs.events import event, event_handler
 
 _KT = typing.TypeVar("_KT", bound=typing.Type[event.Event])
-_VT = typing.List[typing.Type[event_handler.EventHandler[event.Event]]]
+_VT: typing.TypeAlias = typing.List[
+    typing.Type[event_handler.EventHandler[event.Event]]
+]
 
 
 class EventMap(typing.Dict[_KT, _VT]):
     def bind(
         self,
         event_type: _KT,
-        handler_type: typing.Type[event_handler.EventHandler[event.Event]],
+        handler_type: typing.Type[event_handler.EventHandler],
     ) -> None:
         if event_type not in self:
             self[event_type] = [handler_type]

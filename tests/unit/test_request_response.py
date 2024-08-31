@@ -45,20 +45,27 @@ class ReadMeetingDetailsQueryHandler(
     def events(self) -> list:
         return self._events
 
-    async def handle(self, request: ReadMeetingDetailsQuery) -> ReadMeetingDetailsQueryResult:
+    async def handle(
+        self,
+        request: ReadMeetingDetailsQuery,
+    ) -> ReadMeetingDetailsQueryResult:
         self.called = True
         return ReadMeetingDetailsQueryResult(meeting_room_id=request.meeting_room_id)
 
 
 class TestContainer:
-    command_handler = CloseMeetingRoomCommandHandler()
-    query_handler = ReadMeetingDetailsQueryHandler()
+    close_meeting_room_command_handler = CloseMeetingRoomCommandHandler()
+    read_meeting_details_query_handler = ReadMeetingDetailsQueryHandler()
 
-    async def resolve(self, type_: type):
-        if isinstance(self.command_handler, type_):
-            return self.command_handler
-        elif isinstance(self.query_handler, type_):
-            return self.query_handler
+    async def resolve(
+        self,
+        type_,
+    ) -> CloseMeetingRoomCommandHandler | ReadMeetingDetailsQueryHandler:
+        if type_ is CloseMeetingRoomCommandHandler:
+            return self.close_meeting_room_command_handler
+        elif type_ is ReadMeetingDetailsQueryHandler:
+            return self.read_meeting_details_query_handler
+        raise Exception(f"Handler of type {type_} not found")
 
 
 @pytest.fixture
@@ -79,19 +86,23 @@ def mediator() -> cqrs.RequestMediator:
 
 async def test_sending_request_with_response(mediator: cqrs.RequestMediator) -> None:
     handler = await TestContainer().resolve(ReadMeetingDetailsQueryHandler)
+    uuid = uuid4()
 
+    assert isinstance(handler, ReadMeetingDetailsQueryHandler)
     assert not handler.called
 
-    response = await mediator.send(ReadMeetingDetailsQuery(meeting_room_id=uuid4()))
+    response = await mediator.send(ReadMeetingDetailsQuery(meeting_room_id=uuid))
 
     assert handler.called
     assert response
     assert isinstance(response, ReadMeetingDetailsQueryResult)
-    assert response.meeting_room_id
+    assert response.meeting_room_id == uuid
 
 
 async def test_sending_request_without_response(mediator: cqrs.RequestMediator) -> None:
     handler = await TestContainer().resolve(CloseMeetingRoomCommandHandler)
+
+    assert isinstance(handler, CloseMeetingRoomCommandHandler)
     assert not handler.called
 
     await mediator.send(CloseMeetingRoomCommand(meeting_room_id=uuid4()))

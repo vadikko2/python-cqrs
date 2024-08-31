@@ -4,7 +4,7 @@ import typing
 from cqrs import requests, response
 
 Req = typing.TypeVar("Req", bound=requests.Request, contravariant=True)
-Res = typing.TypeVar("Res", response.Response, None, covariant=True)
+Res = typing.TypeVar("Res", response.Response, None, contravariant=True)
 HandleType = typing.Callable[[Req], typing.Awaitable[Res]]
 
 

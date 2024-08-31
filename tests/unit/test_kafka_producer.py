@@ -13,7 +13,9 @@ class CloseMeetingRoomCommand(requests.Request):
     meeting_room_id: uuid.UUID = pydantic.Field()
 
 
-class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
+class CloseMeetingRoomCommandHandler(
+    requests.RequestHandler[CloseMeetingRoomCommand, None],
+):
     def __init__(self) -> None:
         self.called = False
         self._events: typing.List[events.Event] = []
@@ -25,7 +27,6 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
     async def handle(self, request: CloseMeetingRoomCommand) -> None:
         self.called = True
         event = events.NotificationEvent(
-            event_topic="",
             event_name="",
             payload=dict(
                 meeting_room_id=request.meeting_room_id,
@@ -59,13 +60,19 @@ async def mediator(kafka_producer) -> cqrs.RequestMediator:
     )
 
 
-async def test_produce_some_event(mediator: cqrs.RequestMediator, kafka_producer) -> None:
+async def test_produce_some_event(
+    mediator: cqrs.RequestMediator,
+    kafka_producer,
+) -> None:
     """Тестируется вызов метода KafkaProducer.produce при наличии нотификационных событий"""
 
-    handler = await MockContainer().resolve(CloseMeetingRoomCommandHandler)
+    handler: CloseMeetingRoomCommandHandler | None = await MockContainer().resolve(
+        CloseMeetingRoomCommandHandler,
+    )  # noqa
     command = CloseMeetingRoomCommand(meeting_room_id=uuid.uuid4())
 
     await mediator.send(command)
 
-    assert handler.called  # noqa
-    assert kafka_producer.produce.called  # noqa
+    assert handler
+    assert handler.called
+    assert kafka_producer.produce.called

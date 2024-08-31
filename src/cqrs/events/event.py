@@ -15,7 +15,7 @@ class DomainEvent(Event, frozen=True):
     """
 
 
-_P = typing.TypeVar("_P")
+_P = typing.TypeVar("_P", object, None, contravariant=True)
 
 
 class NotificationEvent(Event, frozen=True):
@@ -82,7 +82,7 @@ class ECSTEvent(Event, typing.Generic[_P], frozen=True):
     event_name: typing.Text
     event_type: typing.ClassVar = "ecst_event"
 
-    payload: _P | None = pydantic.Field(default=None)
+    payload: _P = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
