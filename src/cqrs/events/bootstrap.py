@@ -4,12 +4,12 @@ import di
 
 import cqrs
 from cqrs import events
-from cqrs.container import di as ed_di_container
+from cqrs.container import di as di_container_impl
 from cqrs.middlewares import base as mediator_middlewares, logging as logging_middleware
 
 
 def setup_mediator(
-    container: ed_di_container.DIContainer,
+    container: di_container_impl.DIContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
     events_mapper: typing.Callable[[events.EventMap], None] | None = None,
 ) -> cqrs.EventMediator:
@@ -41,7 +41,8 @@ def bootstrap(
     for fun in on_startup:
         fun()
 
-    container = ed_di_container.DIContainer(di_container)
+    container = di_container_impl.DIContainer()
+    container.attach_external_container(di_container)
     middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
         middlewares or [],
     )
