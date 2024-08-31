@@ -171,7 +171,8 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
 
 ### Producing Events from Outbox to Kafka
 
-As an implementation of the Transactional Outbox pattern, the SqlAlchemyOutboxedEventRepository is available for use as an access repository to the Outbox storage. It can be utilized in conjunction with the KafkaMessageBroker.
+As an implementation of the Transactional Outbox pattern, the SqlAlchemyOutboxedEventRepository is available for use as an access repository to the Outbox storage.
+It can be utilized in conjunction with the KafkaMessageBroker.
 
 ```python
 import asyncio
@@ -204,5 +205,13 @@ loop.run_until_complete(app.periodically_task())
 If the Outbox polling strategy does not suit your needs, I recommend exploring the [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html) pattern.
 The current version of the python-cqrs package does not support the implementation of this pattern.
 
-However, it can be implemented using [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html),
-which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in Kafka (or any other broker).
+> [!TIP]
+> However, it can be implemented using [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html),
+> which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in Kafka (or any other broker).
+
+
+### Integaration with presentation layers
+
+#### FastAPI requests handling
+
+#### Kafka events consuming
