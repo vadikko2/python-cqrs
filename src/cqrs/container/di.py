@@ -9,9 +9,6 @@ T = typing.TypeVar("T")
 
 
 class DIContainer(cqrs_container.Container[di.Container]):
-    def __init__(self, external_container: di.Container) -> None:
-        self._external_container = external_container
-
     @property
     def external_container(self) -> di.Container:
         return self._external_container

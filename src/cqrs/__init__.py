@@ -9,6 +9,9 @@ from cqrs.outbox.repository import OutboxedEventRepository
 from cqrs.outbox.sqlalchemy import SqlAlchemyOutboxedEventRepository
 from cqrs.requests.request import Request
 from cqrs.requests.request_handler import RequestHandler
+from cqrs.response import Response
+from cqrs.container.protocol import Container
+from cqrs.container.di import DIContainer
 
 __all__ = (
     "RequestMediator",
@@ -18,11 +21,14 @@ __all__ = (
     "ECSTEvent",
     "EventEmitter",
     "EventHandler",
-    "RequestHandler",
     "Request",
+    "RequestHandler",
+    "Response",
     "OutboxedEventRepository",
     "SqlAlchemyOutboxedEventRepository",
     "EventProducer",
     "Compressor",
     "ZlibCompressor",
+    "Container",
+    "DIContainer",
 )
