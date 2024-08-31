@@ -4,10 +4,15 @@ requires = ["setuptools>=42", "wheel"]
 
 [project]
 authors = [
-  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}
+  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"},
+  {name = "Dmitriy Kutlubaev", email = "kutlubaev00@mail.ru"},
+  {name = "Nikita Kunov"}
 ]
 classifiers = [
-  "Programming Language :: Python :: 3",
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent"
 ]
@@ -20,15 +25,15 @@ dependencies = [
   "retry-async==0.1.4"
 ]
 description = "Python CQRS pattern implementation"
-maintainers = [
-  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}
-]
+maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
 name = "python-cqrs"
 readme = "README.md"
-version = "0.0.13"
+requires-python = ">=3.10"
+version = "0.0.14"
 
 [project.optional-dependencies]
 dev = [
+  # Develope tools
   "pre-commit==3.8.0",
   "pyright==1.1.377",
   "ruff==0.6.2",
@@ -41,17 +46,17 @@ dev = [
   "cryptography==42.0.2",
   "asyncmy==0.2.9"
 ]
-kafka = [
-  "aiokafka==0.10.0"
-]
+kafka = ["aiokafka==0.10.0"]
+
+[project.urls]
+Issues = "https://github.com/vadikko2/python-cqrs/issues"
+Repository = "https://github.com/vadikko2/python-cqrs"
 
 [tool.pytest.ini_options]
 addopts = "--junit-xml=report.xml"
 asyncio_mode = "auto"
 junit_family = "xunit1"
-testpaths = [
-  "tests"
-]
+testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -116,7 +116,6 @@ class OutboxModel(Base):
             .order_by(cls.status_sorting_case().asc())
             .order_by(cls.id.asc())
             .limit(size)
-            .with_for_update()
         )
 
     @classmethod
@@ -138,7 +137,6 @@ class OutboxModel(Base):
             )
             .order_by(cls.status_sorting_case().asc())
             .order_by(cls.id.asc())
-            .with_for_update()
         )
 
     @classmethod
