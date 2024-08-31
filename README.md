@@ -19,9 +19,11 @@ Request handlers can be divided into two main types:
 
 1. `Command Handler` executes the received command. The logic of the handler may include, for example, modifying the state of the domain model.
 As a result of executing the command, an event may be produced to the broker.
-    > [!TIP]
-    > By default, the command handler does not return any result, but this condition is not mandatory.
-2. `Query handler`
+> [!TIP]
+> By default, the command handler does not return any result, but this condition is not mandatory.
+2. `Query Handler` returns a representation of the requested data, for example, from the [read model](https://radekmaziarka.pl/2018/01/08/cqrs-third-step-simple-read-model/#simple-read-model---to-the-rescue).
+> [!TIP]
+> The read model can be constructed based on domain events produced by the `Command Handler`.
 
 ### Command Handler
 
@@ -58,6 +60,10 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 
 ## Event Handlers
 
+Event handlers are designed to process `Notification` and `ECST` events that are consumed from the broker.
+To configure event handling, you need to implement a broker consumer on the side of your application.
+Below is an example of `Kafka event consuming` that can be used in the Presentation Layer.
+
 ```python
 from cqrs.events import EventHandler
 
@@ -71,7 +77,7 @@ class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler])
 
 ## Producing Notification/ECST Events
 
-During the processing of a request/command, messages of type cqrs.NotificationEvent or cqrs.ECSTEvent can be generated, which are subsequently produced by the message broker.
+During the handling of a command event, messages of type `cqrs.NotificationEvent` or `cqrs.ECSTEvent` may be generated and then sent to the broker.
 
 ```python
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
