@@ -307,6 +307,13 @@ def event_mediator_factory():
 
 ### FastAPI requests handling
 
+If your application uses FastAPI (or any other asynchronous framework for creating APIs), you can use python-cqrs to route requests to the appropriate handlers implementing specific use-cases.
+
+> [!TIP]
+> I recommend separating use-cases and API request handling into different layers.
+> Use-cases should be in the service/application layer, while API handlers should be in the presentation layer.
+> Refer to the useful paper [Onion Architecture Used in Software Development](https://www.researchgate.net/publication/371006360_Onion_Architecture_Used_in_Software_Development).
+
 ### Kafka events consuming
 
 To handle events from `Kafka`, you need to implement an event consumer on your application's side, which will call the appropriate handler for each event.
