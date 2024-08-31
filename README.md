@@ -18,7 +18,8 @@ This package is a fork of the [diator](https://github.com/akhundMurad/diator) pr
 Request handlers can be divided into two main types:
 
 ### Command Handler
-`Command Handler` executes the received command. The logic of the handler may include, for example, modifying the state of the domain model.
+
+Command Handler executes the received command. The logic of the handler may include, for example, modifying the state of the domain model.
 As a result of executing the command, an event may be produced to the broker.
 > [!TIP]
 > By default, the command handler does not return any result, but it is not mandatory.
@@ -32,13 +33,17 @@ class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None])
           self._meetings_api = meetings_api
           self.events: list[Event] = []
 
+      @property
+      def events(self) -> typing.List[events.Event]:
+          return self._events
+
       async def handle(self, request: JoinMeetingCommand) -> None:
           await self._meetings_api.join_user(request.user_id, request.meeting_id)
 ```
 
 ### Query handler
 
-`Query Handler` returns a representation of the requested data, for example, from the [read model](https://radekmaziarka.pl/2018/01/08/cqrs-third-step-simple-read-model/#simple-read-model---to-the-rescue).
+Query Handler returns a representation of the requested data, for example, from the [read model](https://radekmaziarka.pl/2018/01/08/cqrs-third-step-simple-read-model/#simple-read-model---to-the-rescue).
 > [!TIP]
 > The read model can be constructed based on domain events produced by the `Command Handler`.
 
@@ -51,10 +56,13 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
           self._meetings_api = meetings_api
           self.events: list[Event] = []
 
+      @property
+      def events(self) -> typing.List[events.Event]:
+          return self._events
+
       async def handle(self, request: ReadMeetingQuery) -> ReadMeetingQueryResult:
           link = await self._meetings_api.get_link(request.meeting_id)
           return ReadMeetingQueryResult(link=link, meeting_id=request.meeting_id)
-
 ```
 
 
@@ -209,15 +217,30 @@ The current version of the python-cqrs package does not support the implementati
 
 ### DI container
 
-Используйте следующий пример для настройки DI для вашего проекта
+Use the following example to set up dependency injection in your command, query and event handlers. This will make dependency management simpler.
 
 ```python
+import di
+...
 
-import cqrs
-
-def setup_di() -> cqrs.DIContainer:
-    pass
-
+def setup_di() -> di.Container:
+    """
+    Binds implementations to dependencies
+    """
+    container = di.Container()
+    container.bind(
+        di.bind_by_type(
+            dependent.Dependent(cqrs.SqlAlchemyOutboxedEventRepository, scope="request"),
+            cqrs.OutboxedEventRepository
+        )
+    )
+    container.bind(
+        di.bind_by_type(
+            dependent.Dependent(MeetingAPIImplementaion, scope="request"),
+            MeetingAPIProtocol
+        )
+    )
+    return container
 ```
 
 ### Mediators
@@ -246,9 +269,6 @@ mediator = RequestMediator(
     container=container
     event_emitter=event_emitter,
 )
-
-# Handles command and published events by the command handler.
-await mediator.send(join_user_command)
 ```
 
 ### FastAPI requests handling
