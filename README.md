@@ -1,4 +1,4 @@
-# CQRS
+# Python CQRS pattern implementaion with Transaction Outbox supporting
 
 A Python library for implementing the CQRS (Command Query Responsibility Segregation) pattern in Python applications. It provides a set of abstractions and utilities to help separate read and write tasks, ensuring better scalability, performance, and maintainability of the application.
 
