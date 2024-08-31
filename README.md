@@ -262,8 +262,8 @@ def init_queries(mapper: requests.RequestMap) -> None:
     mapper.bind(queries.ReadMeetingQuery, query_handlers.ReadMeetingQueryHandler)
 
 def init_events(mapper: events.EventMap) -> None:
-    mapper.bind(event_models.PaymentCreatedEvent, event_handlers.UpdatePaymentReadModelHandler)
-    mapper.bind(events.ECSTEvent[event_models.ConfigurationUpdated], event_handlers.ConfigurationUpdatedHandler)
+    mapper.bind(events.NotificationEvent[events_models.NotificationMeetingRoomClosed], event_handlers.MeetingRoomClosedNotificationHandler)
+    mapper.bind(events.ECSTEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
 ```
 
 # Bootstrap
