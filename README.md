@@ -305,18 +305,40 @@ def event_mediator_factory():
 
 ## Integaration with presentation layers
 
+>[!TIP]
+> I recommend reading the useful paper [Onion Architecture Used in Software Development](https://www.researchgate.net/publication/371006360_Onion_Architecture_Used_in_Software_Development).
+> Separating user interaction and use-cases into Application and Presentation layers is a good practice.
+> This can improve the `Testability`, `Maintainability`, `Scalability` of the application. It also provides benefits such as `Separation of Concerns`.
+
 ### FastAPI requests handling
 
-If your application uses FastAPI (or any other asynchronous framework for creating APIs), you can use python-cqrs to route requests to the appropriate handlers implementing specific use-cases.
+If your application uses FastAPI (or any other asynchronous framework for creating APIs).
+In this case you can use python-cqrs to route requests to the appropriate handlers implementing specific use-cases.
 
-> [!TIP]
-> I recommend separating use-cases and API request handling into different layers.
-> Use-cases should be in the service/application layer, while API handlers should be in the presentation layer.
-> Refer to the useful paper [Onion Architecture Used in Software Development](https://www.researchgate.net/publication/371006360_Onion_Architecture_Used_in_Software_Development).
+```python
+import fastapi
+import pydantic
+
+from app import dependecies, commands
+
+router = fastapi.APIRouter(prefix="/meetings")
+
+
+@router.put("/{meeting_id}/{user_id}", status_code=status.HTTP_200_OK)
+async def join_metting(
+    meeting_id: pydantic.PositiveInt,
+    user_id: typing.Text,
+    mediator: cqrs.RequestMediator = fastapi.Depends(dependencies.mediator_factory),
+):
+    await mediator.send(commands.JoinMeetingCommand(meeting_id=meeting_id, user_id=user_id))
+    return {"result": "ok"}
+
+```
 
 ### Kafka events consuming
 
-To handle events from `Kafka`, you need to implement an event consumer on your application's side, which will call the appropriate handler for each event.
+If you build interaction by events over brocker like `Kafka`, you can to implement an event consumer on your application's side,
+which will call the appropriate handler for each event.
 An example of handling events from `Kafka` is provided below.
 
 ```python
