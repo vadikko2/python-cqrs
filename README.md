@@ -17,15 +17,11 @@ This package is a fork of the [diator](https://github.com/akhundMurad/diator) pr
 
 Request handlers can be divided into two main types:
 
-1. `Command Handler` executes the received command. The logic of the handler may include, for example, modifying the state of the domain model.
+### Command Handler
+`Command Handler` executes the received command. The logic of the handler may include, for example, modifying the state of the domain model.
 As a result of executing the command, an event may be produced to the broker.
 > [!TIP]
-> By default, the command handler does not return any result, but this condition is not mandatory.
-2. `Query Handler` returns a representation of the requested data, for example, from the [read model](https://radekmaziarka.pl/2018/01/08/cqrs-third-step-simple-read-model/#simple-read-model---to-the-rescue).
-> [!TIP]
-> The read model can be constructed based on domain events produced by the `Command Handler`.
-
-### Command Handler
+> By default, the command handler does not return any result, but it is not mandatory.
 
 ```python
 from cqrs.requests.request_handler import RequestHandler
@@ -41,6 +37,10 @@ class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None])
 ```
 
 ### Query handler
+
+`Query Handler` returns a representation of the requested data, for example, from the [read model](https://radekmaziarka.pl/2018/01/08/cqrs-third-step-simple-read-model/#simple-read-model---to-the-rescue).
+> [!TIP]
+> The read model can be constructed based on domain events produced by the `Command Handler`.
 
 ```python
 from cqrs.requests.request_handler import RequestHandler
