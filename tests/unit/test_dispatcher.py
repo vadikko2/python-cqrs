@@ -61,8 +61,8 @@ async def test_default_dispatcher_logic() -> None:
 
     result = await dispatcher.dispatch(request)
 
-    assert request.status == "REQ"
-    assert result.response.status == "RES"
+    assert request.status == "REQ"  # type: ignore
+    assert result.response.status == "RES"  # type: ignore
 
 
 async def test_default_dispatcher_chain_logic() -> None:
@@ -80,21 +80,21 @@ async def test_default_dispatcher_chain_logic() -> None:
 
     result = await dispatcher.dispatch(request)
 
-    assert request.status == "REQ"
-    assert result.response.status == "RES"
+    assert request.status == "REQ"  # type: ignore
+    assert result.response.status == "RES"  # type: ignore
 
-    assert request.status == "REQ"
-    assert result.response.status == "RES"
+    assert request.status == "REQ"  # type: ignore
+    assert result.response.status == "RES"  # type: ignore
 
-    assert request.status == "REQ"
-    assert result.response.status == "RES"
+    assert request.status == "REQ"  # type: ignore
+    assert result.response.status == "RES"  # type: ignore
 
 
 class FirstMiddleware:
     async def __call__(self, request: Request, handle):
         request.status = "REQ"  # type: ignore
         response = await handle(request)
-        response.status = "RES"
+        response.status = "RES"  # type: ignore
         return response
 
 
@@ -102,7 +102,7 @@ class SecondMiddleware:
     async def __call__(self, request: Request, handle):
         request.status = "REQ"  # type: ignore
         response = await handle(request)
-        response.status = "RES"
+        response.status = "RES"  # type: ignore
         return response
 
 
@@ -110,5 +110,5 @@ class ThirdMiddleware:
     async def __call__(self, request: Request, handle):
         request.status = "REQ"  # type: ignore
         response = await handle(request)
-        response.status = "RES"
+        response.status = "RES"  # type: ignore
         return response

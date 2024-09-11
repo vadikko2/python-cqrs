@@ -3,13 +3,13 @@ import typing
 from cqrs import (
     container as di_container,
     dispatcher,
-    events,
+    events as ev,
     middlewares,
     requests,
     response,
 )
 
-Resp = typing.TypeVar("Resp", response.Response, None, contravariant=True)
+Resp: typing.TypeAlias = response.Response | None
 
 
 class RequestMediator:
@@ -44,7 +44,7 @@ class RequestMediator:
         self,
         request_map: requests.RequestMap,
         container: di_container.Container,
-        event_emitter: events.EventEmitter | None = None,
+        event_emitter: ev.EventEmitter | None = None,
         middleware_chain: middlewares.MiddlewareChain | None = None,
         *,
         dispatcher_type: typing.Type[
@@ -66,7 +66,7 @@ class RequestMediator:
 
         return dispatch_result.response
 
-    async def _send_events(self, events: typing.List[events.Event]) -> None:
+    async def _send_events(self, events: typing.List[ev.Event]) -> None:
         if not self._event_emitter:
             return
 
@@ -93,7 +93,7 @@ class EventMediator:
 
     def __init__(
         self,
-        event_map: events.EventMap,
+        event_map: ev.EventMap,
         container: di_container.Container,
         middleware_chain: middlewares.MiddlewareChain | None = None,
         *,
@@ -107,5 +107,5 @@ class EventMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, event: events.Event) -> None:
+    async def send(self, event: ev.Event) -> None:
         await self._dispatcher.dispatch(event)
