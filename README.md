@@ -27,7 +27,7 @@ As a result of executing the command, an event may be produced to the broker.
 > By default, the command handler does not return any result, but it is not mandatory.
 
 ```python
-from cqrs.requests.request_handler import RequestHandler
+from cqrs.requests.request_handler import RequestHandler, SyncRequestHandler
 from cqrs.events.event import Event
 
 class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None]):
@@ -42,6 +42,21 @@ class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None]):
 
       async def handle(self, request: JoinMeetingCommand) -> None:
           await self._meetings_api.join_user(request.user_id, request.meeting_id)
+
+
+class SyncJoinMeetingCommandHandler(SyncRequestHandler[JoinMeetingCommand, None]):
+
+      def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
+          self._meetings_api = meetings_api
+          self.events: list[Event] = []
+
+      @property
+      def events(self) -> typing.List[events.Event]:
+          return self._events
+
+      def handle(self, request: JoinMeetingCommand) -> None:
+          # do some sync logic
+          ...
 ```
 
 ### Query handler
@@ -67,6 +82,7 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
       async def handle(self, request: ReadMeetingQuery) -> ReadMeetingQueryResult:
           link = await self._meetings_api.get_link(request.meeting_id)
           return ReadMeetingQueryResult(link=link, meeting_id=request.meeting_id)
+
 ```
 
 
@@ -77,7 +93,7 @@ To configure event handling, you need to implement a broker consumer on the side
 Below is an example of `Kafka event consuming` that can be used in the Presentation Layer.
 
 ```python
-from cqrs.events import EventHandler
+from cqrs.events import EventHandler, SyncEventHandler
 
 class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler]):
 
@@ -86,6 +102,15 @@ class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler]):
 
     async def handle(self, event: UserJoinedEventHandler) -> None:
       await self._meetings_api.notify_room(event.meeting_id, "New user joined!")
+
+class SyncUserJoinedEventHandler(SyncEventHandler[UserJoinedEventHandler]):
+
+    def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
+      self._meetings_api = meetings_api
+
+    def handle(self, event: UserJoinedEventHandler) -> None:
+      # do some sync logic
+      ...
 ```
 
 ## Producing Notification/ECST Events

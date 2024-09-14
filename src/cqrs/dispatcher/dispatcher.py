@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import logging
 import typing
 
@@ -8,19 +10,28 @@ from cqrs import (
     events as cqrs_events,
     middlewares,
     requests,
-    response as res,
+    response as resp,
 )
+from cqrs.events import event_handler
+from cqrs.requests import request_handler
 
 logger = logging.getLogger("cqrs")
 
-Resp = typing.TypeVar("Resp", res.Response, None, contravariant=True)
+_Resp = typing.TypeVar("_Resp", resp.Response, None, covariant=True)
+
+_RequestHandler: typing.TypeAlias = (
+    request_handler.RequestHandler | request_handler.SyncRequestHandler
+)
+_EventHandler: typing.TypeAlias = (
+    event_handler.EventHandler | event_handler.SyncEventHandler
+)
 
 
 class RequestHandlerDoesNotExist(Exception): ...
 
 
-class RequestDispatchResult(pydantic.BaseModel, typing.Generic[Resp]):
-    response: Resp = pydantic.Field(default=None)
+class RequestDispatchResult(pydantic.BaseModel):
+    response: resp.Response | None = pydantic.Field(default=None)
     events: typing.List[cqrs_events.Event] = pydantic.Field(default_factory=list)
 
 
@@ -41,9 +52,15 @@ class RequestDispatcher:
             raise RequestHandlerDoesNotExist(
                 f"RequestHandler not found matching Request type {type(request)}",
             )
-        handler = await self._container.resolve(handler_type)
-        wrapped_handle = self._middleware_chain.wrap(handler.handle)
-        response = await wrapped_handle(request)
+        handler: _RequestHandler = await self._container.resolve(handler_type)
+        if asyncio.iscoroutinefunction(handler.handle):
+            wrapped_handle = self._middleware_chain.wrap(handler.handle)
+        else:
+            wrapped_handle = self._middleware_chain.wrap(
+                functools.partial(asyncio.to_thread, handler.handle),
+            )
+        response: resp.Response | None = await wrapped_handle(request)
+
         return RequestDispatchResult(response=response, events=handler.events)
 
 
@@ -64,10 +81,13 @@ class EventDispatcher:
     async def _handle_event(
         self,
         event: cqrs_events.Event,
-        handle_type: typing.Type[cqrs_events.EventHandler[cqrs_events.Event]],
+        handle_type: typing.Type[cqrs_events.EventHandler],
     ):
-        handler = await self._container.resolve(handle_type)
-        await handler.handle(event)
+        handler: _EventHandler = await self._container.resolve(handle_type)
+        if asyncio.iscoroutinefunction(handler.handle):
+            await handler.handle(event)
+        else:
+            await asyncio.to_thread(handler.handle, event)
 
     async def dispatch(self, event: cqrs_events.Event) -> None:
         handler_types = self._event_map.get(type(event), [])
