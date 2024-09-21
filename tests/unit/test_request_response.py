@@ -91,7 +91,9 @@ async def test_sending_request_with_response(mediator: cqrs.RequestMediator) -> 
     assert isinstance(handler, ReadMeetingDetailsQueryHandler)
     assert not handler.called
 
-    response = await mediator.send(ReadMeetingDetailsQuery(meeting_room_id=uuid))
+    response: ReadMeetingDetailsQueryResult = await mediator.send(
+        ReadMeetingDetailsQuery(meeting_room_id=uuid),
+    )
 
     assert handler.called
     assert response

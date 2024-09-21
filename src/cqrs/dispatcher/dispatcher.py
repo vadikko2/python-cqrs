@@ -17,7 +17,7 @@ from cqrs.requests import request_handler
 
 logger = logging.getLogger("cqrs")
 
-_Resp = typing.TypeVar("_Resp", resp.Response, None, covariant=True)
+_Resp = typing.TypeVar("_Resp", resp.Response, None, contravariant=True)
 
 _RequestHandler: typing.TypeAlias = (
     request_handler.RequestHandler | request_handler.SyncRequestHandler
@@ -30,8 +30,8 @@ _EventHandler: typing.TypeAlias = (
 class RequestHandlerDoesNotExist(Exception): ...
 
 
-class RequestDispatchResult(pydantic.BaseModel):
-    response: resp.Response | None = pydantic.Field(default=None)
+class RequestDispatchResult(pydantic.BaseModel, typing.Generic[_Resp]):
+    response: _Resp = pydantic.Field(default=None)
     events: typing.List[cqrs_events.Event] = pydantic.Field(default_factory=list)
 
 
@@ -59,7 +59,7 @@ class RequestDispatcher:
             wrapped_handle = self._middleware_chain.wrap(
                 functools.partial(asyncio.to_thread, handler.handle),
             )
-        response: resp.Response | None = await wrapped_handle(request)
+        response = await wrapped_handle(request)
 
         return RequestDispatchResult(response=response, events=handler.events)
 
