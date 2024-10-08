@@ -64,9 +64,6 @@ class RequestDispatcher:
         return RequestDispatchResult(response=response, events=handler.events)
 
 
-E = typing.TypeVar("E", bound=cqrs_events.Event, contravariant=True)
-
-
 class EventDispatcher:
     def __init__(
         self,

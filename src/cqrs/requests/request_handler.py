@@ -7,7 +7,6 @@ from cqrs.requests import request as r
 
 _Req = typing.TypeVar("_Req", bound=r.Request, contravariant=True)
 _Resp = typing.TypeVar("_Resp", response.Response, None, covariant=True)
-_E = typing.TypeVar("_E", bound=event.Event, contravariant=True)
 
 
 class RequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
@@ -41,7 +40,7 @@ class RequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
 
     @property
     @abc.abstractmethod
-    def events(self) -> typing.List[_E]:
+    def events(self) -> typing.List[event.Event]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -79,7 +78,7 @@ class SyncRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
 
     @property
     @abc.abstractmethod
-    def events(self) -> typing.List[_E]:
+    def events(self) -> typing.List[event.Event]:
         raise NotImplementedError
 
     @abc.abstractmethod
