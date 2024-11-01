@@ -3,7 +3,12 @@ import typing
 from cqrs.requests import request, request_handler
 
 _KT = typing.TypeVar("_KT", bound=typing.Type[request.Request])
-_VT = typing.TypeVar("_VT", bound=typing.Type[request_handler.RequestHandler])
+_VT = typing.TypeVar(
+    "_VT",
+    bound=typing.Type[
+        request_handler.RequestHandler | request_handler.SyncRequestHandler
+    ],
+)
 
 
 class RequestMap(typing.Dict[_KT, _VT]):
