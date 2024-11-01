@@ -25,8 +25,19 @@ _retry = functools.partial(
     is_async=True,
 )
 
-SecurityProtocol: typing.TypeAlias = typing.Literal["PLAINTEXT", "SSL", "SASL_PLAINTEXT", "SASL_SSL"]
-SaslMechanism: typing.TypeAlias = typing.Literal["PLAIN", "GSSAPI", "SCRAM-SHA-256", "SCRAM-SHA-512", "OAUTHBEARER"]
+SecurityProtocol: typing.TypeAlias = typing.Literal[
+    "PLAINTEXT",
+    "SSL",
+    "SASL_PLAINTEXT",
+    "SASL_SSL",
+]
+SaslMechanism: typing.TypeAlias = typing.Literal[
+    "PLAIN",
+    "GSSAPI",
+    "SCRAM-SHA-256",
+    "SCRAM-SHA-512",
+    "OAUTHBEARER",
+]
 
 logger = logging.getLogger("cqrs")
 logger.setLevel(logging.DEBUG)
@@ -74,7 +85,9 @@ class KafkaProducer(metaclass=_Singleton):
         Produces event to kafka broker.
         Tries to reconnect if connect has been lost or has not been opened.
         """
-        await _retry(tries=self._retry_count, delay=self._retry_delay)(self._produce)(message)
+        await _retry(tries=self._retry_count, delay=self._retry_delay)(self._produce)(
+            message,
+        )
 
 
 def kafka_producer_factory(
@@ -99,4 +112,9 @@ def kafka_producer_factory(
         sasl_plain_password=password,
         loop=loop,
     )
-    return KafkaProducer(producer=producer, topics=topics, retry_count=retry_count, retry_delay=retry_delay)
+    return KafkaProducer(
+        producer=producer,
+        topics=topics,
+        retry_count=retry_count,
+        retry_delay=retry_delay,
+    )

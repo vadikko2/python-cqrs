@@ -78,7 +78,12 @@ class OutboxModel(Base):
         nullable=False,
         comment="Event name",
     )
-
+    topic = sqlalchemy.Column(
+        sqlalchemy.String(255),
+        nullable=False,
+        comment="Event topic",
+        default="",
+    )
     created_at = sqlalchemy.Column(
         sqlalchemy.DateTime,
         nullable=False,
@@ -98,7 +103,11 @@ class OutboxModel(Base):
         }
 
     @classmethod
-    def get_batch_query(cls, size: int) -> sqlalchemy.Select:
+    def get_batch_query(
+        cls,
+        size: int,
+        topic: typing.Text | None = None,
+    ) -> sqlalchemy.Select:
         return (
             sqlalchemy.select(cls)
             .select_from(cls)
@@ -111,6 +120,7 @@ class OutboxModel(Base):
                         ],
                     ),
                     cls.flush_counter < MAX_FLUSH_COUNTER_VALUE,
+                    (cls.topic == topic) if topic is not None else sqlalchemy.true(),
                 ),
             )
             .order_by(cls.status_sorting_case().asc())
@@ -184,7 +194,12 @@ class SqlAlchemyOutboxedEventRepository(
         EventType.ECST_EVENT: ev.ECSTEvent,
     }
 
-    def add(self, session: sql_session.AsyncSession, event: repository.Event) -> None:
+    def add(
+        self,
+        session: sql_session.AsyncSession,
+        event,
+        topic: typing.Text | None = None,
+    ) -> None:
         bytes_payload = orjson.dumps(event.payload)
         if self._compressor:
             bytes_payload = self._compressor.compress(bytes_payload)
@@ -196,6 +211,7 @@ class SqlAlchemyOutboxedEventRepository(
                 event_name=event.event_name,
                 created_at=event.event_timestamp,
                 payload=bytes_payload,
+                topic=topic or "",
             ),
         )
 
@@ -215,9 +231,10 @@ class SqlAlchemyOutboxedEventRepository(
         self,
         session: sql_session.AsyncSession,
         batch_size: int = 100,
+        topic: typing.Text | None = None,
     ) -> typing.List[repository.Event]:
         events: typing.Sequence[OutboxModel] = (
-            (await session.execute(OutboxModel.get_batch_query(batch_size)))
+            (await session.execute(OutboxModel.get_batch_query(batch_size, topic)))
             .scalars()
             .all()
         )
@@ -234,7 +251,7 @@ class SqlAlchemyOutboxedEventRepository(
     async def get_one(
         self,
         session: sql_session.AsyncSession,
-        event_id: uuid.UUID,
+        event_id,
     ) -> repository.Event | None:
         event: OutboxModel | None = (
             await session.execute(OutboxModel.get_event_query(event_id))

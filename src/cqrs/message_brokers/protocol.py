@@ -19,4 +19,4 @@ class MessageBroker(typing.Protocol):
     """
 
     async def send_message(self, message: Message) -> None:
-        ...
+        raise NotImplementedError
