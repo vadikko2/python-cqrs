@@ -34,7 +34,12 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
         """end transaction"""
 
     @abc.abstractmethod
-    def add(self, session: Session, event: Event) -> None:
+    def add(
+        self,
+        session: Session,
+        event: Event,
+        topic: typing.Text | None = None,
+    ) -> None:
         """Add an event to the repository."""
 
     @abc.abstractmethod
@@ -46,6 +51,7 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
         self,
         session: Session,
         batch_size: int = 100,
+        topic: typing.Text | None = None,
     ) -> typing.List[Event]:
         """Get many events from the repository."""
 

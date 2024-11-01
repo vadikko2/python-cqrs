@@ -27,7 +27,8 @@ _EventHandler: typing.TypeAlias = (
 )
 
 
-class RequestHandlerDoesNotExist(Exception): ...
+class RequestHandlerDoesNotExist(Exception):
+    pass
 
 
 class RequestDispatchResult(pydantic.BaseModel, typing.Generic[_Resp]):

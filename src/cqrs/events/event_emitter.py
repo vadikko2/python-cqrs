@@ -30,7 +30,8 @@ class EventEmitter:
         self._message_broker = message_broker
 
     @functools.singledispatchmethod
-    async def emit(self, event: event_model.Event) -> None: ...
+    async def emit(self, event: event_model.Event) -> None:
+        pass
 
     @emit.register
     async def _(self, event: event_model.DomainEvent) -> None:
