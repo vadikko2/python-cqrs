@@ -53,7 +53,7 @@ class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
                 cqrs.NotificationEvent[UserJoinedNotificationPayload](
                     event_name="UserJoined",
                     topic="user_notification_events",
-                    payload=dict(
+                    payload=UserJoinedNotificationPayload(
                         user_id=request.user_id,
                         meeting_id=request.meeting_id,
                     ),
