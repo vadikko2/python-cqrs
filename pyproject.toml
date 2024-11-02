@@ -44,6 +44,11 @@ dev = [
   "cryptography==42.0.2",
   "asyncmy==0.2.9"
 ]
+examples = [
+  "aiokafka==0.10.0",
+  "fastapi==0.109.*",
+  "uvicorn==0.32.0"
+]
 kafka = ["aiokafka==0.10.0"]
 
 [project.urls]

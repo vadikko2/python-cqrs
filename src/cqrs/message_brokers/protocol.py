@@ -1,3 +1,4 @@
+import abc
 import typing
 import uuid
 
@@ -12,12 +13,13 @@ class Message(pydantic.BaseModel):
     payload: typing.Dict
 
 
-class MessageBroker(typing.Protocol):
+class MessageBroker(abc.ABC):
     """
     The interface over a message broker.
 
     Used for sending messages to message brokers (currently only redis supported).
     """
 
+    @abc.abstractmethod
     async def send_message(self, message: Message) -> None:
         raise NotImplementedError

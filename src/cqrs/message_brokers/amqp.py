@@ -7,7 +7,7 @@ from cqrs.adapters import amqp
 from cqrs.message_brokers import protocol
 
 
-class AMQPMessageBroker:
+class AMQPMessageBroker(protocol.MessageBroker):
     def __init__(self, dsn: str, exchange_name: str, pika_log_level: str = "ERROR"):
         self.publisher = amqp.AMQPPublisher(url=dsn)
         self.exchange_name = exchange_name

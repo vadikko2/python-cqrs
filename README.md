@@ -1,4 +1,4 @@
-# Python CQRS pattern implementaion with Transaction Outbox supporting
+# Python CQRS pattern implementation with Transaction Outbox supporting
 
 ## Overview
 
