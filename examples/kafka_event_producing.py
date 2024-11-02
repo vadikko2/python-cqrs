@@ -1,7 +1,9 @@
 import asyncio
 import functools
 import logging
-
+import typing
+import uuid
+from collections import defaultdict
 
 import cqrs
 from cqrs.adapters import kafka as kafka_adapters
@@ -10,7 +12,10 @@ from cqrs.outbox import mock
 
 logging.basicConfig(level=logging.DEBUG)
 
-MOCK_STORAGE = dict()
+MOCK_STORAGE = defaultdict[
+    uuid.UUID,
+    typing.List[cqrs.NotificationEvent | cqrs.ECSTEvent],
+](lambda: [])
 repository = mock.MockOutboxedEventRepository(
     session_factory=functools.partial(lambda: MOCK_STORAGE),
 )

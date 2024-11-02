@@ -21,7 +21,10 @@ class DomainEvent(Event, frozen=True):
     """
 
 
-class NotificationEvent(Event, frozen=True):
+_P = typing.TypeVar("_P")
+
+
+class NotificationEvent(Event, typing.Generic[_P], frozen=True):
     """
     The base class for notification events.
 
@@ -32,12 +35,13 @@ class NotificationEvent(Event, frozen=True):
       {
           "event_id": "82a0b10e-1b3d-4c3c-9bdd-3934f8f824c2",
           "event_timestamp": "2023-03-06 12:11:35.103792",
+          "event_name": "event_name",
+          "event_type": "notification_event",
           "topic": "user_notification_events",
           "payload": {
               "changed_user_id": 987
           }
       }
-
     """
 
     event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
@@ -49,15 +53,12 @@ class NotificationEvent(Event, frozen=True):
 
     topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
 
-    payload: typing.Dict = pydantic.Field(default_factory=dict)
+    payload: _P | None = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
     def __hash__(self):
         return hash(self.event_id)
-
-
-_P = typing.TypeVar("_P")
 
 
 class ECSTEvent(Event, typing.Generic[_P], frozen=True):
@@ -73,6 +74,8 @@ class ECSTEvent(Event, typing.Generic[_P], frozen=True):
       {
           "event_id": "82a0b10e-1b3d-4c3c-9bdd-3934f8f824c2",
           "event_timestamp": "2023-03-06 12:11:35.103792",
+          "event_name": "event_name",
+          "event_type": "ecst_event",
           "topic": "user_ecst_events",
           "payload": {
               "user_id": 987,
@@ -92,7 +95,7 @@ class ECSTEvent(Event, typing.Generic[_P], frozen=True):
 
     topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
 
-    payload: _P = pydantic.Field(default=None)
+    payload: _P | None = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
