@@ -38,7 +38,6 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
         self,
         session: Session,
         event: Event,
-        topic: typing.Text | None = None,
     ) -> None:
         """Add an event to the repository."""
 

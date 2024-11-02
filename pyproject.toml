@@ -20,7 +20,8 @@ dependencies = [
   "aio-pika==9.3.0",
   "di[anyio]==0.79.2",
   "sqlalchemy[asyncio]==2.0.*",
-  "retry-async==0.1.4"
+  "retry-async==0.1.4",
+  "python-dotenv==1.0.1"
 ]
 description = "Python CQRS pattern implementation"
 maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
@@ -40,7 +41,6 @@ dev = [
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
-  "python-dotenv==1.0.1",
   "cryptography==42.0.2",
   "asyncmy==0.2.9"
 ]

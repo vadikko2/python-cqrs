@@ -51,11 +51,13 @@ class EventProducer:
                 if self.serializer
                 else event.model_dump(mode="json")
             )
+            logger.debug(f"Send event {event.event_id} into topic {event.topic}")
             await self.message_broker.send_message(
                 broker_protocol.Message(
                     message_type=event.event_type,
                     message_name=event.event_name,
                     message_id=event.event_id,
+                    topic=event.topic,
                     payload=serialized,
                 ),
             )
@@ -85,6 +87,7 @@ class EventProducer:
     async def produce_batch(self, batch_size: int = 100) -> None:
         async with self.repository as session:
             events = await self.repository.get_many(session, batch_size)
+            logger.debug(f"Got {len(events)} new events")
             for event in events:
                 await self.send_message(session, event)
             await self.repository.commit(session)

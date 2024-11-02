@@ -3,17 +3,19 @@
 ## Overview
 
 This is a package for implementing the CQRS (Command Query Responsibility Segregation) pattern in Python applications.
-It provides a set of abstractions and utilities to help separate read and write use cases, ensuring better scalability, performance, and maintainability of the application.
+It provides a set of abstractions and utilities to help separate read and write use cases, ensuring better scalability,
+performance, and maintainability of the application.
 
-This package is a fork of the [diator](https://github.com/akhundMurad/diator) project ([documentation](https://akhundmurad.github.io/diator/)) with several enhancements:
+This package is a fork of the [diator](https://github.com/akhundMurad/diator)
+project ([documentation](https://akhundmurad.github.io/diator/)) with several enhancements:
 
 1. Support for Pydantic [v2.*](https://docs.pydantic.dev/2.8/);
 2. `Kafka` support using [aiokafka](https://github.com/aio-libs/aiokafka);
 3. Added `EventMediator` for handling `Notification` and `ECST` events coming from the bus;
 4. Redesigned the event and request mapping mechanism to handlers;
 5. Added `bootstrap` for easy setup;
-6. Added support for [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html), ensuring that `Notification` and `ECST` events are sent to the broker.
-
+6. Added support for [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html), ensuring
+   that `Notification` and `ECST` events are sent to the broker.
 
 ## Request Handlers
 
@@ -21,7 +23,8 @@ Request handlers can be divided into two main types:
 
 ### Command Handler
 
-Command Handler executes the received command. The logic of the handler may include, for example, modifying the state of the domain model.
+Command Handler executes the received command. The logic of the handler may include, for example, modifying the state of
+the domain model.
 As a result of executing the command, an event may be produced to the broker.
 > [!TIP]
 > By default, the command handler does not return any result, but it is not mandatory.
@@ -61,7 +64,8 @@ class SyncJoinMeetingCommandHandler(SyncRequestHandler[JoinMeetingCommand, None]
 
 ### Query handler
 
-Query Handler returns a representation of the requested data, for example, from the [read model](https://radekmaziarka.pl/2018/01/08/cqrs-third-step-simple-read-model/#simple-read-model---to-the-rescue).
+Query Handler returns a representation of the requested data, for example, from
+the [read model](https://radekmaziarka.pl/2018/01/08/cqrs-third-step-simple-read-model/#simple-read-model---to-the-rescue).
 > [!TIP]
 > The read model can be constructed based on domain events produced by the `Command Handler`.
 
@@ -84,7 +88,6 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
           return ReadMeetingQueryResult(link=link, meeting_id=request.meeting_id)
 
 ```
-
 
 ## Event Handlers
 
@@ -115,7 +118,8 @@ class SyncUserJoinedEventHandler(SyncEventHandler[UserJoinedEventHandler]):
 
 ## Producing Notification/ECST Events
 
-During the handling of a command event, messages of type `cqrs.NotificationEvent` or `cqrs.ECSTEvent` may be generated and then sent to the broker.
+During the handling of a command event, messages of type `cqrs.NotificationEvent` or `cqrs.ECSTEvent` may be generated
+and then sent to the broker.
 
 ```python
 class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
@@ -143,9 +147,12 @@ After processing the command/request, if there are any Notification/ECST events,
 the EventEmitter is invoked to produce the events via the message broker.
 
 > [!WARNING]
-> It is important to note that producing events using the events property parameter does not guarantee message delivery to the broker.
-> In the event of broker unavailability or an exception occurring during message formation or sending, the message may be lost.
-> This issue can potentially be addressed by configuring retry attempts for sending messages to the broker, but we recommend using the [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html) pattern,
+> It is important to note that producing events using the events property parameter does not guarantee message delivery
+> to the broker.
+> In the event of broker unavailability or an exception occurring during message formation or sending, the message may
+> be lost.
+> This issue can potentially be addressed by configuring retry attempts for sending messages to the broker, but we
+> recommend using the [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html) pattern,
 > which is implemented in the current version of the python-cqrs package for this purpose.
 
 ## Kafka broker
@@ -165,8 +172,8 @@ await broker.send_message(...)
 
 ## Transactional Outbox
 
-The package implements the [Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html) pattern, which ensures that messages are produced to the broker according to the at-least-once semantics.
-
+The package implements the [Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html)
+pattern, which ensures that messages are produced to the broker according to the at-least-once semantics.
 
 ```python
 from sqlalchemy.ext.asyncio import session as sql_session
@@ -202,10 +209,13 @@ class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCom
            await self.repository.commit(session)
 ```
 
+ou can specify the name of the Outbox table using the environment variable `OUTBOX_SQLA_TABLE`.
+By default, it is set to `outbox`.
 
 ## Producing Events from Outbox to Kafka
 
-As an implementation of the Transactional Outbox pattern, the SqlAlchemyOutboxedEventRepository is available for use as an access repository to the Outbox storage.
+As an implementation of the Transactional Outbox pattern, the SqlAlchemyOutboxedEventRepository is available for use as
+an access repository to the Outbox storage.
 It can be utilized in conjunction with the KafkaMessageBroker.
 
 ```python
@@ -233,20 +243,22 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(app.periodically_task())
 ```
 
-
 ## Transaction log tailing
 
-If the Outbox polling strategy does not suit your needs, I recommend exploring the [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html) pattern.
+If the Outbox polling strategy does not suit your needs, I recommend exploring
+the [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html) pattern.
 The current version of the python-cqrs package does not support the implementation of this pattern.
 
 > [!TIP]
-> However, it can be implemented using [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html),
-> which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in Kafka (or any other broker).
-
+> However, it can be implemented
+> using [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html),
+> which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in
+> Kafka (or any other broker).
 
 ## DI container
 
-Use the following example to set up dependency injection in your command, query and event handlers. This will make dependency management simpler.
+Use the following example to set up dependency injection in your command, query and event handlers. This will make
+dependency management simpler.
 
 ```python
 import di
@@ -272,7 +284,6 @@ def setup_di() -> di.Container:
     return container
 ```
 
-
 ## Mapping
 
 To bind commands, queries and events with specific handlers, you can use the registries `EventMap` and `RequestMap`.
@@ -296,10 +307,11 @@ def init_events(mapper: events.EventMap) -> None:
     mapper.bind(events.ECSTEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
 ```
 
-
 ## Bootstrap
 
-The `python-cqrs` package implements a set of bootstrap utilities designed to simplify the initial configuration of an application.
+The `python-cqrs` package implements a set of bootstrap utilities designed to simplify the initial configuration of an
+application.
+
 ```python
 import functools
 
@@ -330,10 +342,13 @@ def event_mediator_factory():
 
 ## Integaration with presentation layers
 
->[!TIP]
-> I recommend reading the useful paper [Onion Architecture Used in Software Development](https://www.researchgate.net/publication/371006360_Onion_Architecture_Used_in_Software_Development).
+> [!TIP]
+> I recommend reading the useful
+>
+paper [Onion Architecture Used in Software Development](https://www.researchgate.net/publication/371006360_Onion_Architecture_Used_in_Software_Development).
 > Separating user interaction and use-cases into Application and Presentation layers is a good practice.
-> This can improve the `Testability`, `Maintainability`, `Scalability` of the application. It also provides benefits such as `Separation of Concerns`.
+> This can improve the `Testability`, `Maintainability`, `Scalability` of the application. It also provides benefits
+> such as `Separation of Concerns`.
 
 ### FastAPI requests handling
 
@@ -362,7 +377,8 @@ async def join_metting(
 
 ### Kafka events consuming
 
-If you build interaction by events over brocker like `Kafka`, you can to implement an event consumer on your application's side,
+If you build interaction by events over brocker like `Kafka`, you can to implement an event consumer on your
+application's side,
 which will call the appropriate handler for each event.
 An example of handling events from `Kafka` is provided below.
 
