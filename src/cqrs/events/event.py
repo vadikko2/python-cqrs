@@ -21,9 +21,6 @@ class DomainEvent(Event, frozen=True):
     """
 
 
-_P = typing.TypeVar("_P", object, None, contravariant=True)
-
-
 class NotificationEvent(Event, frozen=True):
     """
     The base class for notification events.
@@ -58,6 +55,9 @@ class NotificationEvent(Event, frozen=True):
 
     def __hash__(self):
         return hash(self.event_id)
+
+
+_P = typing.TypeVar("_P")
 
 
 class ECSTEvent(Event, typing.Generic[_P], frozen=True):

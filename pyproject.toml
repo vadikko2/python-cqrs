@@ -47,7 +47,8 @@ dev = [
 examples = [
   "aiokafka==0.10.0",
   "fastapi==0.109.*",
-  "uvicorn==0.32.0"
+  "uvicorn==0.32.0",
+  "faststream[kafka]==0.5.28"
 ]
 kafka = ["aiokafka==0.10.0"]
 

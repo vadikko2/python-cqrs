@@ -32,15 +32,17 @@ def queries_mapper(mapper: cqrs.RequestMap) -> None:
     mapper.bind(Hello, HelloWorldQueryHandler)
 
 
-mediator = bootstrap.bootstrap(
-    di_container=di.Container(),
-    queries_mapper=queries_mapper,
-)
+def mediator_factory() -> cqrs.RequestMediator:
+    return bootstrap.bootstrap(
+        di_container=di.Container(),
+        queries_mapper=queries_mapper,
+    )
 
 
 @api_router.get("/hello", status_code=fastapi.status.HTTP_200_OK)
 async def hello_world(
     msg: typing.Text = fastapi.Query(default="Hello World"),
+    mediator: cqrs.RequestMediator = fastapi.Depends(mediator_factory),
 ) -> World:
     return await mediator.send(Hello(msg=msg))
 
