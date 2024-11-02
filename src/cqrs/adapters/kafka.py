@@ -58,12 +58,12 @@ class KafkaProducer(metaclass=_Singleton):
     def __init__(
         self,
         producer: aiokafka.AIOKafkaProducer,
-        retry_count: int,
-        retry_delay: int,
+        retry_count: int | None = None,
+        retry_delay: int | None = None,
     ):
         self._producer = producer
-        self._retry_count = retry_count
-        self._retry_delay = retry_delay
+        self._retry_count = retry_count or 3
+        self._retry_delay = retry_delay or 5
 
     async def _check_connection(self):
         node_id = self._producer.client.get_random_node()

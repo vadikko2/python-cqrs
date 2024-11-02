@@ -1,5 +1,6 @@
 import abc
 import asyncio
+import logging
 import typing
 
 import di
@@ -9,6 +10,8 @@ import cqrs
 from cqrs.requests import bootstrap
 
 STACK = []
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class AbstractDependency(abc.ABC):

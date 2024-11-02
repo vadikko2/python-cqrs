@@ -1,3 +1,4 @@
+import logging
 import typing
 
 import di
@@ -6,6 +7,8 @@ import uvicorn
 
 import cqrs
 from cqrs.requests import bootstrap
+
+logging.basicConfig(level=logging.DEBUG)
 
 api_router = fastapi.APIRouter(prefix="/api")
 

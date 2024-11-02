@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import di
 import faststream
@@ -9,6 +10,9 @@ from faststream import kafka
 import cqrs
 from cqrs.events import bootstrap
 
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("aiokafka").setLevel(logging.ERROR)
+
 broker = kafka.KafkaBroker(bootstrap_servers=["localhost:9092"])
 app = faststream.FastStream(broker)
 
@@ -18,18 +22,14 @@ class HelloWorldPayload(pydantic.BaseModel):
     world: str = pydantic.Field(default="World")
 
 
-class HelloWorldECSTEvent(cqrs.ECSTEvent[HelloWorldPayload], frozen=True):
-    pass
-
-
-class HelloWorldECSTEventHandler(cqrs.EventHandler[HelloWorldECSTEvent]):
-    async def handle(self, event: HelloWorldECSTEvent) -> None:
+class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.ECSTEvent[HelloWorldPayload]]):
+    async def handle(self, event: cqrs.ECSTEvent[HelloWorldPayload]) -> None:
         print(f"{event.payload.hello} {event.payload.world}")  # type: ignore
 
 
 def events_mapper(mapper: cqrs.EventMap) -> None:
     """Maps events to handlers."""
-    mapper.bind(HelloWorldECSTEvent, HelloWorldECSTEventHandler)
+    mapper.bind(cqrs.ECSTEvent[HelloWorldPayload], HelloWorldECSTEventHandler)
 
 
 def mediator_factory() -> cqrs.EventMediator:
@@ -40,7 +40,7 @@ def mediator_factory() -> cqrs.EventMediator:
 
 
 EVENT_REGISTRY = dict(
-    HelloWorldECSTEvent=HelloWorldECSTEvent,
+    HelloWorldECSTEvent=cqrs.ECSTEvent[HelloWorldPayload],
 )
 
 
@@ -63,7 +63,7 @@ def value_deserializer(value: bytes) -> cqrs.ECSTEvent | None:
     value_deserializer=value_deserializer,
 )
 async def hello_world_event_handler(
-    body: cqrs.ECSTEvent | None,
+    body: cqrs.ECSTEvent[HelloWorldPayload] | None,
     msg: kafka.KafkaMessage,
     mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ):
@@ -73,13 +73,13 @@ async def hello_world_event_handler(
 
 
 if __name__ == "__main__":
-    ev = HelloWorldECSTEvent(
+    ev = cqrs.ECSTEvent[HelloWorldPayload](
         event_name="HelloWorldECSTEvent",
         topic="hello_world",
         payload=HelloWorldPayload(),
     )
     print(
         f"1. Run kafka infrastructure with: `docker compose -f ./docker-compose-examples.yml up -d`\n"
-        f"2. Send to kafka topic `hello_world` event: {ev.model_dump(mode='json')}",
+        f"2. Send to kafka topic `hello_world` event: {orjson.dumps(ev.model_dump(mode='json')).decode()}",
     )
     asyncio.run(app.run())
