@@ -15,7 +15,9 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 4. Redesigned the event and request mapping mechanism to handlers;
 5. Added `bootstrap` for easy setup;
 6. Added support for [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html), ensuring
-   that `Notification` and `ECST` events are sent to the broker.
+   that `Notification` and `ECST` events are sent to the broker;
+7. FastAPI supporting;
+8. FastStream supporting.
 
 ## Request Handlers
 
@@ -62,6 +64,8 @@ class SyncJoinMeetingCommandHandler(SyncRequestHandler[JoinMeetingCommand, None]
           ...
 ```
 
+A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/request_handler.py)
+
 ### Query handler
 
 Query Handler returns a representation of the requested data, for example, from
@@ -89,6 +93,8 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 
 ```
 
+A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/request_handler.py)
+
 ## Event Handlers
 
 Event handlers are designed to process `Notification` and `ECST` events that are consumed from the broker.
@@ -96,25 +102,29 @@ To configure event handling, you need to implement a broker consumer on the side
 Below is an example of `Kafka event consuming` that can be used in the Presentation Layer.
 
 ```python
-from cqrs.events import EventHandler, SyncEventHandler
+class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
+    def __init__(self):
+        self._events = []
 
-class UserJoinedEventHandler(EventHandler[UserJoinedEventHandler]):
+    @property
+    def events(self):
+        return self._events
 
-    def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
-      self._meetings_api = meetings_api
+    async def handle(self, request: JoinMeetingCommand) -> None:
+        STORAGE[request.meeting_id].append(request.user_id)
+        self._events.append(
+            UserJoined(user_id=request.user_id, meeting_id=request.meeting_id),
+        )
+        print(f"User {request.user_id} joined meeting {request.meeting_id}")
 
-    async def handle(self, event: UserJoinedEventHandler) -> None:
-      await self._meetings_api.notify_room(event.meeting_id, "New user joined!")
 
-class SyncUserJoinedEventHandler(SyncEventHandler[UserJoinedEventHandler]):
-
-    def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
-      self._meetings_api = meetings_api
-
-    def handle(self, event: UserJoinedEventHandler) -> None:
-      # do some sync logic
-      ...
+class UserJoinedEventHandler(cqrs.EventHandler[UserJoined]):
+    async def handle(self, event: UserJoined) -> None:
+        print(f"Handle user {event.user_id} joined meeting {event.meeting_id} event")
 ```
+
+Полный пример можно найти
+в [документации](https://github.com/vadikko2/cqrs/blob/master/examples/domain_event_handler.py)
 
 ## Producing Notification/ECST Events
 
@@ -122,26 +132,39 @@ During the handling of a command event, messages of type `cqrs.NotificationEvent
 and then sent to the broker.
 
 ```python
-class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
-
-    def __init__(self) -> None:
-        self._events: typing.List[events.Event] = []
+class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
+    def __init__(self):
+        self._events = []
 
     @property
-    def events(self) -> typing.List[events.Event]:
+    def events(self):
         return self._events
 
-    async def handle(self, request: CloseMeetingRoomCommand) -> None:
-        # some process
-        event = events.NotificationEvent(
-            event_topic="meeting_room_notifications",
-            event_name="meeteng_room_closed",
-            payload=dict(
-                meeting_room_id=request.meeting_room_id,
-            ),
+    async def handle(self, request: JoinMeetingCommand) -> None:
+        print(f"User {request.user_id} joined meeting {request.meeting_id}")
+        self._events.append(
+            cqrs.NotificationEvent[UserJoinedNotificationPayload](
+                event_name="UserJoined",
+                topic="user_notification_events",
+                payload=UserJoinedNotificationPayload(
+                    user_id=request.user_id,
+                    meeting_id=request.meeting_id,
+                ),
+            )
         )
-        self._events.append(event)
+        self._events.append(
+            cqrs.ECSTEvent[UserJoinedECSTPayload](
+                event_name="UserJoined",
+                topic="user_ecst_events",
+                payload=UserJoinedECSTPayload(
+                    user_id=request.user_id,
+                    meeting_id=request.meeting_id,
+                ),
+            )
+        )
 ```
+
+A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/event_producing.py)
 
 After processing the command/request, if there are any Notification/ECST events,
 the EventEmitter is invoked to produce the events via the message broker.
@@ -176,9 +199,6 @@ The package implements the [Transactional Outbox](https://microservices.io/patte
 pattern, which ensures that messages are produced to the broker according to the at-least-once semantics.
 
 ```python
-from sqlalchemy.ext.asyncio import session as sql_session
-from cqrs import events
-
 def do_some_logic(meeting_room_id: int, session: sql_session.AsyncSession):
     """
     Make changes to the database
@@ -186,31 +206,48 @@ def do_some_logic(meeting_room_id: int, session: sql_session.AsyncSession):
     session.add(...)
 
 
-class CloseMeetingRoomCommandHandler(requests.RequestHandler[CloseMeetingRoomCommand, None]):
-
-    def __init__(self, repository: cqrs.SqlAlchemyOutboxedEventRepository):
-        self._repository = repository
-        self._events: typing.List[events.Event] = []
+class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
+    def __init__(self, outbox: cqrs.OutboxedEventRepository):
+        self.outbox = outbox
 
     @property
     def events(self):
-        return self._events
+        return []
 
-    async def handle(self, request: CloseMeetingRoomCommand) -> None:
-        async with self._repository as session:
-           do_some_logic(request.meeting_room_id, session)
-           self.repository.add(
-               session,
-               events.ECSTEvent(
-                  event_name="MeetingRoomClosed",
-                  payload=dict(message="foo"),
-              ),
-           )
-           await self.repository.commit(session)
+    async def handle(self, request: JoinMeetingCommand) -> None:
+        print(f"User {request.user_id} joined meeting {request.meeting_id}")
+        async with self.outbox as session:
+            do_some_logic(request.meeting_id, session) # business logic
+            self.outbox.add(
+                session,
+                cqrs.NotificationEvent[UserJoinedNotificationPayload](
+                    event_name="UserJoined",
+                    topic="user_notification_events",
+                    payload=UserJoinedNotificationPayload(
+                        user_id=request.user_id,
+                        meeting_id=request.meeting_id,
+                    ),
+                ),
+            )
+            self.outbox.add(
+                session,
+                cqrs.ECSTEvent[UserJoinedECSTPayload](
+                    event_name="UserJoined",
+                    topic="user_ecst_events",
+                    payload=UserJoinedECSTPayload(
+                        user_id=request.user_id,
+                        meeting_id=request.meeting_id,
+                    ),
+                ),
+            )
+            await self.outbox.commit(session)
 ```
 
-ou can specify the name of the Outbox table using the environment variable `OUTBOX_SQLA_TABLE`.
-By default, it is set to `outbox`.
+A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/save_events_into_outbox.py)
+
+> [!TIP]
+> You can specify the name of the Outbox table using the environment variable `OUTBOX_SQLA_TABLE`.
+> By default, it is set to `outbox`.
 
 ## Producing Events from Outbox to Kafka
 
@@ -230,18 +267,17 @@ session_factory = async_sessionmaker(
     )
 )
 
-broker = kafka_broker.KafkaMessageBroker(
-    kafka_adapter.kafka_producer_factory(
-        dsn="localhost:9094",
-        topics=["test.topic1", "test.topic2"],
-    ),
-    "DEBUG"
+broker = kafka.KafkaMessageBroker(
+  producer=kafka_adapters.kafka_producer_factory(dsn="localhost:9092"),
 )
 
 producer = cqrs.EventProducer(cqrs.SqlAlchemyOutboxedEventRepository(session_factory, zlib.ZlibCompressor()), broker)
 loop = asyncio.get_event_loop()
 loop.run_until_complete(app.periodically_task())
 ```
+
+Полный пример можно найти
+в [документации](https://github.com/vadikko2/cqrs/blob/master/examples/kafka_outboxed_event_producing.py)
 
 ## Transaction log tailing
 
@@ -284,6 +320,9 @@ def setup_di() -> di.Container:
     return container
 ```
 
+Полный пример можно найти
+в [документации](https://github.com/vadikko2/python-cqrs/blob/master/examples/dependency_injection.py)
+
 ## Mapping
 
 To bind commands, queries and events with specific handlers, you can use the registries `EventMap` and `RequestMap`.
@@ -320,6 +359,7 @@ from cqrs.requests import bootstrap as request_bootstrap
 
 from app import dependencies, mapping, orm
 
+
 @functools.lru_cache
 def mediator_factory():
     return request_bootstrap.bootstrap(
@@ -340,7 +380,7 @@ def event_mediator_factory():
     )
 ```
 
-## Integaration with presentation layers
+## Integration with presentation layers
 
 > [!TIP]
 > I recommend reading the useful
@@ -372,35 +412,53 @@ async def join_metting(
 ):
     await mediator.send(commands.JoinMeetingCommand(meeting_id=meeting_id, user_id=user_id))
     return {"result": "ok"}
-
 ```
+
+A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/fastapi_integration.py)
 
 ### Kafka events consuming
 
-If you build interaction by events over brocker like `Kafka`, you can to implement an event consumer on your
+If you build interaction by events over broker like `Kafka`, you can to implement an event consumer on your
 application's side,
 which will call the appropriate handler for each event.
 An example of handling events from `Kafka` is provided below.
 
 ```python
-import aiokafka
 import cqrs
-import orjson
 
-from app import events
+import pydantic
+import faststream
+from faststream import kafka
 
-class OnEvent:
+broker = kafka.KafkaBroker(bootstrap_servers=["localhost:9092"])
+app = faststream.FastStream(broker)
 
-    def __init__(
-        self,
-        event_mediator: cqrs.EventMediator
-    ):
-        self._event_mediator = event_mediator
 
-    async def __call__(self, kafka_message: aiokafka.ConsumerRecord) -> None:
-        event = cqrs.ECSTEvent[events.ECSTMeetingRoomClosed].model_validate(
-            orjson.loads(kafka_message.value),
-            context={"assume_validated": True},
-        )
-        await self._event_mediator.send(event)
+class HelloWorldPayload(pydantic.BaseModel):
+    hello: str = pydantic.Field(default="Hello")
+    world: str = pydantic.Field(default="World")
+
+
+class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.ECSTEvent[HelloWorldPayload]]):
+    async def handle(self, event: cqrs.ECSTEvent[HelloWorldPayload]) -> None:
+        print(f"{event.payload.hello} {event.payload.world}")  # type: ignore
+
+
+@broker.subscriber(
+    "hello_world",
+    group_id="examples",
+    auto_commit=False,
+    value_deserializer=value_deserializer,
+)
+async def hello_world_event_handler(
+    body: cqrs.ECSTEvent[HelloWorldPayload] | None,
+    msg: kafka.KafkaMessage,
+    mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
+):
+    if body is not None:
+        await mediator.send(body)
+    await msg.ack()
 ```
+
+Полный пример можно найти
+в [документации](https://github.com/vadikko2/python-cqrs/blob/master/examples/kafka_event_consuming.py)

@@ -43,7 +43,7 @@ async def main():
 
 if __name__ == "__main__":
     print(
-        "Run kafka infrastructure with: `docker compose -f ./docker-compose-examples.yml up -d`",
+        "Run kafka infrastructure with: `docker compose -f ./docker-compose-dev.yml up -d`",
     )
     loop = asyncio.new_event_loop()
     loop.run_until_complete(main())
