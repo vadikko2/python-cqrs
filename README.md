@@ -64,7 +64,8 @@ class SyncJoinMeetingCommandHandler(SyncRequestHandler[JoinMeetingCommand, None]
           ...
 ```
 
-A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/request_handler.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/request_handler.py)
 
 ### Query handler
 
@@ -93,7 +94,8 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 
 ```
 
-A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/request_handler.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/request_handler.py)
 
 ## Event Handlers
 
@@ -123,8 +125,8 @@ class UserJoinedEventHandler(cqrs.EventHandler[UserJoined]):
         print(f"Handle user {event.user_id} joined meeting {event.meeting_id} event")
 ```
 
-Полный пример можно найти
-в [документации](https://github.com/vadikko2/cqrs/blob/master/examples/domain_event_handler.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/domain_event_handler.py)
 
 ## Producing Notification/ECST Events
 
@@ -164,7 +166,8 @@ class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
         )
 ```
 
-A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/event_producing.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/event_producing.py)
 
 After processing the command/request, if there are any Notification/ECST events,
 the EventEmitter is invoked to produce the events via the message broker.
@@ -243,7 +246,8 @@ class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
             await self.outbox.commit(session)
 ```
 
-A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/save_events_into_outbox.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/save_events_into_outbox.py)
 
 > [!TIP]
 > You can specify the name of the Outbox table using the environment variable `OUTBOX_SQLA_TABLE`.
@@ -276,8 +280,8 @@ loop = asyncio.get_event_loop()
 loop.run_until_complete(app.periodically_task())
 ```
 
-Полный пример можно найти
-в [документации](https://github.com/vadikko2/cqrs/blob/master/examples/kafka_outboxed_event_producing.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/kafka_outboxed_event_producing.py)
 
 ## Transaction log tailing
 
@@ -320,8 +324,8 @@ def setup_di() -> di.Container:
     return container
 ```
 
-Полный пример можно найти
-в [документации](https://github.com/vadikko2/python-cqrs/blob/master/examples/dependency_injection.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/python-cqrs/blob/master/examples/dependency_injection.py)
 
 ## Mapping
 
@@ -414,7 +418,8 @@ async def join_metting(
     return {"result": "ok"}
 ```
 
-A complete example can be found in the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/fastapi_integration.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/fastapi_integration.py)
 
 ### Kafka events consuming
 
@@ -460,5 +465,4 @@ async def hello_world_event_handler(
     await msg.ack()
 ```
 
-Полный пример можно найти
-в [документации](https://github.com/vadikko2/python-cqrs/blob/master/examples/kafka_event_consuming.py)
+A complete example can be found in the [documentation](https://github.com/vadikko2/python-cqrs/blob/master/examples/kafka_event_consuming.py)
