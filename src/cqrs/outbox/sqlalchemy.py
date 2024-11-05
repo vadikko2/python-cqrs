@@ -1,9 +1,11 @@
 import asyncio
 import enum
 import logging
+import os
 import typing
 import uuid
 
+import dotenv
 import orjson
 import sqlalchemy
 from sqlalchemy import func
@@ -19,6 +21,10 @@ Base = mapper_registry.generate_base()
 
 logger = logging.getLogger(__name__)
 
+dotenv.load_dotenv()
+
+OUTBOX_TABLE = os.getenv("OUTBOX_SQLA_TABLE", "outbox")
+
 
 class EventType(enum.StrEnum):
     ECST_EVENT = "ecst_event"
@@ -29,7 +35,7 @@ MAX_FLUSH_COUNTER_VALUE = 5
 
 
 class OutboxModel(Base):
-    __tablename__ = "outbox"
+    __tablename__ = OUTBOX_TABLE
 
     __table_args__ = (
         sqlalchemy.UniqueConstraint(
@@ -198,7 +204,6 @@ class SqlAlchemyOutboxedEventRepository(
         self,
         session: sql_session.AsyncSession,
         event,
-        topic: typing.Text | None = None,
     ) -> None:
         bytes_payload = orjson.dumps(event.payload)
         if self._compressor:
@@ -211,7 +216,7 @@ class SqlAlchemyOutboxedEventRepository(
                 event_name=event.event_name,
                 created_at=event.event_timestamp,
                 payload=bytes_payload,
-                topic=topic or "",
+                topic=event.topic,
             ),
         )
 

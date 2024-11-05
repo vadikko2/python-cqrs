@@ -8,9 +8,7 @@ from cqrs.events import event as event_model, event_handler, map
 
 logger = logging.getLogger("cqrs")
 
-_EventHandler: typing.TypeAlias = (
-    event_handler.EventHandler | event_handler.SyncEventHandler
-)
+_H: typing.TypeAlias = event_handler.EventHandler | event_handler.SyncEventHandler
 
 
 class EventEmitter:
@@ -33,6 +31,35 @@ class EventEmitter:
     async def emit(self, event: event_model.Event) -> None:
         pass
 
+    async def _send_to_broker(
+        self,
+        event: event_model.NotificationEvent | event_model.ECSTEvent,
+    ) -> None:
+        """
+        Sends event to the message broker.
+        """
+        if not self._message_broker:
+            raise RuntimeError(
+                f"To use {event.event_type}, message_broker argument must be specified.",
+            )
+
+        message = message_brokers.Message(
+            message_type=event.event_type,
+            message_name=type(event).__name__,
+            message_id=event.event_id,
+            topic=event.topic,
+            payload=event.model_dump(mode="json"),
+        )
+
+        logger.debug(
+            "Sending %s Event(%s) to message broker %s",
+            event.event_type,
+            event.event_id,
+            type(self._message_broker).__name__,
+        )
+
+        await self._message_broker.send_message(message)
+
     @emit.register
     async def _(self, event: event_model.DomainEvent) -> None:
         handlers_types = self._event_map.get(type(event), [])
@@ -42,7 +69,7 @@ class EventEmitter:
                 type(event).__name__,
             )
         for handler_type in handlers_types:
-            handler: _EventHandler = await self._container.resolve(
+            handler: _H = await self._container.resolve(
                 handler_type,
             )
             logger.debug(
@@ -57,47 +84,8 @@ class EventEmitter:
 
     @emit.register
     async def _(self, event: event_model.NotificationEvent) -> None:
-        if not self._message_broker:
-            raise RuntimeError(
-                "To use NotificationEvent, message_broker argument must be specified.",
-            )
-
-        message = _build_message(event)
-
-        logger.debug(
-            "Sending Notification Event(%s) to message broker %s",
-            event.event_id,
-            type(self._message_broker).__name__,
-        )
-
-        await self._message_broker.send_message(message)
+        await self._send_to_broker(event)
 
     @emit.register
     async def _(self, event: event_model.ECSTEvent) -> None:
-        if not self._message_broker:
-            raise RuntimeError(
-                "To use ECSTEvent, message_broker argument must be specified.",
-            )
-
-        message = _build_message(event)
-
-        logger.debug(
-            "Sending ECST event(%s) to message broker %s",
-            event.event_id,
-            type(self._message_broker).__name__,
-        )
-
-        await self._message_broker.send_message(message)
-
-
-def _build_message(
-    event: event_model.NotificationEvent | event_model.ECSTEvent,
-) -> message_brokers.Message:
-    payload = event.model_dump(mode="json")
-
-    return message_brokers.Message(
-        message_type=event.event_type,
-        message_name=type(event).__name__,
-        message_id=event.event_id,
-        payload=payload,
-    )
+        await self._send_to_broker(event)

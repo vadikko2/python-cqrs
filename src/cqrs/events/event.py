@@ -1,8 +1,14 @@
 import datetime
+import os
 import typing
 import uuid
 
+import dotenv
 import pydantic
+
+dotenv.load_dotenv()
+
+DEFAULT_OUTPUT_TOPIC = os.getenv("DEFAULT_OUTPUT_TOPIC", "output_topic")
 
 
 class Event(pydantic.BaseModel, frozen=True):
@@ -15,10 +21,10 @@ class DomainEvent(Event, frozen=True):
     """
 
 
-_P = typing.TypeVar("_P", object, None, contravariant=True)
+_P = typing.TypeVar("_P")
 
 
-class NotificationEvent(Event, frozen=True):
+class NotificationEvent(Event, typing.Generic[_P], frozen=True):
     """
     The base class for notification events.
 
@@ -29,12 +35,13 @@ class NotificationEvent(Event, frozen=True):
       {
           "event_id": "82a0b10e-1b3d-4c3c-9bdd-3934f8f824c2",
           "event_timestamp": "2023-03-06 12:11:35.103792",
-          "event_topic": "user_notification_events",
+          "event_name": "event_name",
+          "event_type": "notification_event",
+          "topic": "user_notification_events",
           "payload": {
               "changed_user_id": 987
           }
       }
-
     """
 
     event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
@@ -44,7 +51,9 @@ class NotificationEvent(Event, frozen=True):
     event_name: typing.Text
     event_type: typing.ClassVar[typing.Text] = "notification_event"
 
-    payload: typing.Dict = pydantic.Field(default_factory=dict)
+    topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
+
+    payload: _P | None = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
@@ -65,7 +74,9 @@ class ECSTEvent(Event, typing.Generic[_P], frozen=True):
       {
           "event_id": "82a0b10e-1b3d-4c3c-9bdd-3934f8f824c2",
           "event_timestamp": "2023-03-06 12:11:35.103792",
-          "event_topic": "user_ecst_events",
+          "event_name": "event_name",
+          "event_type": "ecst_event",
+          "topic": "user_ecst_events",
           "payload": {
               "user_id": 987,
               "new_user_last_name": "Doe",
@@ -82,7 +93,9 @@ class ECSTEvent(Event, typing.Generic[_P], frozen=True):
     event_name: typing.Text
     event_type: typing.ClassVar = "ecst_event"
 
-    payload: _P = pydantic.Field(default=None)
+    topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
+
+    payload: _P | None = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
