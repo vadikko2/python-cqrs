@@ -1,3 +1,5 @@
+# This script is required to upload proto schema to Schema Registry
+# !/bin/bash
 user_joined_proto=$(cat ./examples/proto/user_joined.proto | jq -Rs .)
 echo "Upload schema: $user_joined_proto"
 

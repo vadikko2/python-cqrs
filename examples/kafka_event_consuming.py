@@ -60,6 +60,7 @@ def value_deserializer(value: bytes) -> cqrs.ECSTEvent | None:
     "hello_world",
     group_id="examples",
     auto_commit=False,
+    auto_offset_reset="earliest",
     value_deserializer=value_deserializer,
 )
 async def hello_world_event_handler(

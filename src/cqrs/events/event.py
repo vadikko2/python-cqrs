@@ -21,7 +21,7 @@ class DomainEvent(Event, frozen=True):
     """
 
 
-_P = typing.TypeVar("_P")
+_P = typing.TypeVar("_P", typing.Any, None)
 
 
 class BaseNotificationEvent(Event, typing.Generic[_P], frozen=True):
@@ -34,7 +34,7 @@ class BaseNotificationEvent(Event, typing.Generic[_P], frozen=True):
 
     topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
 
-    payload: _P | None = pydantic.Field(default=None)
+    payload: _P = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 

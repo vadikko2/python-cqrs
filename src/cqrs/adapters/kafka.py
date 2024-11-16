@@ -41,6 +41,8 @@ SaslMechanism: typing.TypeAlias = typing.Literal[
 logger = logging.getLogger("cqrs")
 logger.setLevel(logging.DEBUG)
 
+Serializer = typing.Callable[[typing.Any], typing.ByteString | None]
+
 
 def _default_serializer(message: pydantic.BaseModel) -> typing.ByteString:
     return orjson.dumps(message.model_dump(mode="json"))
@@ -95,8 +97,7 @@ def kafka_producer_factory(
     retry_delay: int = 1,
     user: typing.Text | None = None,
     password: typing.Text | None = None,
-    value_serializer: typing.Callable[[typing.Any], typing.ByteString | None]
-    | None = None,
+    value_serializer: Serializer | None = None,
 ) -> KafkaProducer:
     loop = asyncio.get_event_loop()
     asyncio.set_event_loop(loop)
