@@ -54,7 +54,7 @@ def mediator_factory() -> cqrs.EventMediator:
 
 def common_deserializer(
     msg: typing.ByteString,
-) -> kafka_proto_event_producing.UserJoinedECST | None:
+) -> cqrs.BaseNotificationEvent | None:
     """
     Deserialize protobuf message into CQRS event model.
     """
@@ -80,7 +80,7 @@ def common_deserializer(
     value_deserializer=common_deserializer,
 )
 async def consumer(
-    body: kafka_proto_event_producing.UserJoinedECST | None,
+    body: cqrs.BaseNotificationEvent | None,
     msg: kafka.KafkaMessage,
     mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ) -> None:
