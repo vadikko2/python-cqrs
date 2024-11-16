@@ -3,7 +3,13 @@ from cqrs.compressors.zlib import ZlibCompressor
 from cqrs.container.di import DIContainer
 from cqrs.container.protocol import Container
 from cqrs.events import EventMap
-from cqrs.events.event import DomainEvent, ECSTEvent, Event, NotificationEvent
+from cqrs.events.event import (
+    BaseNotificationEvent,
+    DomainEvent,
+    ECSTEvent,
+    Event,
+    NotificationEvent,
+)
 from cqrs.events.event_emitter import EventEmitter
 from cqrs.events.event_handler import EventHandler, SyncEventHandler
 from cqrs.mediator import EventMediator, RequestMediator
@@ -21,6 +27,7 @@ __all__ = (
     "DomainEvent",
     "NotificationEvent",
     "ECSTEvent",
+    "BaseNotificationEvent",
     "Event",
     "EventEmitter",
     "EventHandler",

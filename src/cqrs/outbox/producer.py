@@ -5,7 +5,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import session as sql_session
 
-from cqrs.events import event as e
+import cqrs
 from cqrs.message_brokers import protocol as broker_protocol
 from cqrs.outbox import repository as repository_protocol
 
@@ -37,7 +37,7 @@ class EventProducer:
     async def send_message(
         self,
         session: object,
-        event: e.BaseNotificationEvent,
+        event: cqrs.BaseNotificationEvent,
     ):
         try:
             logger.debug(f"Send event {event.event_id} into topic {event.topic}")

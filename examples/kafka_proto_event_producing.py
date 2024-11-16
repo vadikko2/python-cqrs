@@ -46,7 +46,7 @@ protobuf_serializer = protobuf.ProtobufSerializer(
 )
 
 
-def serializer(event: UserJoinedECST) -> typing.ByteString | None:
+def serializer(event: cqrs.BaseNotificationEvent) -> typing.ByteString | None:
     context = serialization.SerializationContext(
         event.topic,
         serialization.MessageField.VALUE,
