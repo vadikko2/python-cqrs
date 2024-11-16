@@ -40,7 +40,7 @@ class UserJoinedECSTEventHandler(
 def events_mapper(mapper: cqrs.EventMap) -> None:
     """Maps events to handlers."""
     mapper.bind(
-        cqrs.ECSTEvent[kafka_proto_event_producing.UserJoinedECST],
+        kafka_proto_event_producing.UserJoinedECST,
         UserJoinedECSTEventHandler,
     )
 
