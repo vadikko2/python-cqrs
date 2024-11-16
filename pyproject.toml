@@ -45,12 +45,15 @@ dev = [
   "asyncmy==0.2.9"
 ]
 examples = [
-  "aiokafka==0.10.0",
   "fastapi==0.109.*",
   "uvicorn==0.32.0",
-  "faststream[kafka]==0.5.28"
+  "faststream[kafka]==0.5.28",
+  "protobuf==5.28.3"
 ]
-kafka = ["aiokafka==0.10.0"]
+kafka = [
+  "aiokafka==0.10.0",
+  "confluent-kafka==2.6.0"
+]
 
 [project.urls]
 Issues = "https://github.com/vadikko2/python-cqrs/issues"

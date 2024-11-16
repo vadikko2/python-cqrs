@@ -10,7 +10,7 @@ class Message(pydantic.BaseModel):
     message_name: typing.Text = pydantic.Field()
     message_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
     topic: typing.Text
-    payload: typing.Dict
+    payload: typing.Any
 
 
 class MessageBroker(abc.ABC):

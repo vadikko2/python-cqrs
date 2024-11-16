@@ -24,7 +24,25 @@ class DomainEvent(Event, frozen=True):
 _P = typing.TypeVar("_P")
 
 
-class NotificationEvent(Event, typing.Generic[_P], frozen=True):
+class BaseNotificationEvent(Event, typing.Generic[_P], frozen=True):
+    event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
+    event_timestamp: datetime.datetime = pydantic.Field(
+        default_factory=datetime.datetime.now,
+    )
+    event_name: typing.Text
+    event_type: typing.ClassVar[typing.Text]
+
+    topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
+
+    payload: _P | None = pydantic.Field(default=None)
+
+    model_config = pydantic.ConfigDict(from_attributes=True)
+
+    def __hash__(self):
+        return hash(self.event_id)
+
+
+class NotificationEvent(BaseNotificationEvent, typing.Generic[_P], frozen=True):
     """
     The base class for notification events.
 
@@ -44,24 +62,10 @@ class NotificationEvent(Event, typing.Generic[_P], frozen=True):
       }
     """
 
-    event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
-    event_timestamp: datetime.datetime = pydantic.Field(
-        default_factory=datetime.datetime.now,
-    )
-    event_name: typing.Text
     event_type: typing.ClassVar[typing.Text] = "notification_event"
 
-    topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
 
-    payload: _P | None = pydantic.Field(default=None)
-
-    model_config = pydantic.ConfigDict(from_attributes=True)
-
-    def __hash__(self):
-        return hash(self.event_id)
-
-
-class ECSTEvent(Event, typing.Generic[_P], frozen=True):
+class ECSTEvent(BaseNotificationEvent, typing.Generic[_P], frozen=True):
     """
     Base class for ECST events.
 
@@ -86,18 +90,4 @@ class ECSTEvent(Event, typing.Generic[_P], frozen=True):
 
     """
 
-    event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
-    event_timestamp: datetime.datetime = pydantic.Field(
-        default_factory=datetime.datetime.now,
-    )
-    event_name: typing.Text
     event_type: typing.ClassVar = "ecst_event"
-
-    topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
-
-    payload: _P | None = pydantic.Field(default=None)
-
-    model_config = pydantic.ConfigDict(from_attributes=True)
-
-    def __hash__(self):
-        return hash(self.event_id)

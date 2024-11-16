@@ -5,6 +5,7 @@ import typing
 
 import aiokafka
 import orjson
+import pydantic
 import retry_async
 from aiokafka import errors
 
@@ -41,8 +42,8 @@ logger = logging.getLogger("cqrs")
 logger.setLevel(logging.DEBUG)
 
 
-def _serializer(message: typing.Dict) -> typing.ByteString:
-    return orjson.dumps(message)
+def _default_serializer(message: pydantic.BaseModel) -> typing.ByteString:
+    return orjson.dumps(message.model_dump(mode="json"))
 
 
 class _Singleton(type):
@@ -70,12 +71,12 @@ class KafkaProducer(metaclass=_Singleton):
         if not await self._producer.client.ready(node_id=node_id):
             await self._producer.start()
 
-    async def _produce(self, topic: typing.Text, message: typing.Dict):
+    async def _produce(self, topic: typing.Text, message: typing.Any):
         await self._check_connection()
         logger.debug(f"produce message {message} to topic {topic}")
         await self._producer.send_and_wait(topic, value=message)
 
-    async def produce(self, topic: typing.Text, message: typing.Dict):
+    async def produce(self, topic: typing.Text, message: typing.Any):
         """
         Produces event to kafka broker.
         Tries to reconnect if connect has been lost or has not been opened.
@@ -94,13 +95,15 @@ def kafka_producer_factory(
     retry_delay: int = 1,
     user: typing.Text | None = None,
     password: typing.Text | None = None,
+    value_serializer: typing.Callable[[typing.Any], typing.ByteString | None]
+    | None = None,
 ) -> KafkaProducer:
     loop = asyncio.get_event_loop()
     asyncio.set_event_loop(loop)
 
     producer = aiokafka.AIOKafkaProducer(
         bootstrap_servers=dsn,
-        value_serializer=_serializer,
+        value_serializer=value_serializer or _default_serializer,
         security_protocol=security_protocol,
         sasl_mechanism=sasl_mechanism,
         sasl_plain_username=user,

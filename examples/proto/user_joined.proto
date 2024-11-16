@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+message UserJoinedECST {
+  message Payload {
+    string user_id = 1;
+    string meeting_id = 2;
+  }
+  string event_id = 1;
+  string event_timestamp = 2;
+  string event_name = 3;
+  string event_type = 4;
+  string topic = 5;
+  Payload payload = 6;
+}
+
+message UserJoinedNotification {
+  message Payload {
+    string user_id = 1;
+    string meeting_id = 2;
+  }
+  string event_id = 1;
+  string event_timestamp = 2;
+  string event_name = 3;
+  string event_type = 4;
+  string topic = 5;
+  Payload payload = 6;
+}
