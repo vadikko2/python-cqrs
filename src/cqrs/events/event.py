@@ -13,8 +13,9 @@ try:
     from google.protobuf.message import Message  # noqa
 except ImportError:
     logger.warning(
-        "Please install protobuf dependencies with: `pip install python-cqrs[protobuf]`",
+        "Please install protobuf dependencies with: `pip install python-cqrs[kafka]`",
     )
+
 
 dotenv.load_dotenv()
 

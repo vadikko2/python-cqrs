@@ -4,10 +4,10 @@ import logging
 import typing
 
 import aiokafka
-import orjson
-import pydantic
 import retry_async
 from aiokafka import errors
+
+from cqrs.serializers import default
 
 __all__ = (
     "KafkaProducer",
@@ -42,10 +42,6 @@ logger = logging.getLogger("cqrs")
 logger.setLevel(logging.DEBUG)
 
 Serializer = typing.Callable[[typing.Any], typing.ByteString | None]
-
-
-def _default_serializer(message: pydantic.BaseModel) -> typing.ByteString:
-    return orjson.dumps(message.model_dump(mode="json"))
 
 
 class _Singleton(type):
@@ -104,7 +100,7 @@ def kafka_producer_factory(
 
     producer = aiokafka.AIOKafkaProducer(
         bootstrap_servers=dsn,
-        value_serializer=value_serializer or _default_serializer,
+        value_serializer=value_serializer or default.default_serializer,
         security_protocol=security_protocol,
         sasl_mechanism=sasl_mechanism,
         sasl_plain_username=user,

@@ -1,28 +1,24 @@
 import asyncio
 import logging
-import typing
 
 import di
 import faststream
-from confluent_kafka.schema_registry import protobuf
 from faststream import kafka
 
 import cqrs
+from cqrs.deserializers import protobuf
 from cqrs.events import bootstrap
 from examples import kafka_proto_event_producing
 from examples.proto.user_joined_pb2 import UserJoinedECST as UserJoinedECSTProtobuf  # type: ignore
 
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("aiokafka").setLevel(logging.ERROR)
+logger = logging.getLogger("cqrs")
 
 broker = kafka.KafkaBroker(bootstrap_servers=["localhost:9092"])
-app = faststream.FastStream(broker)
+app = faststream.FastStream(broker, logger=logger)
 
 TOPIC_NAME = "user_joined_proto"
-
-EVENT_REGISTRY = dict(
-    user_joined_ecst=kafka_proto_event_producing.UserJoinedECST,
-)
 
 
 class UserJoinedECSTEventHandler(
@@ -52,35 +48,18 @@ def mediator_factory() -> cqrs.EventMediator:
     )
 
 
-def common_deserializer(
-    msg: typing.ByteString,
-) -> cqrs.BaseNotificationEvent | None:
-    """
-    Deserialize protobuf message into CQRS event model.
-    """
-    protobuf_deserializer = protobuf.ProtobufDeserializer(
-        UserJoinedECSTProtobuf,
-        {"use.deprecated.format": False},
-    )
-    proto_event = protobuf_deserializer(msg, None)
-    if proto_event is None:
-        return
-    model = EVENT_REGISTRY.get(proto_event.event_name)  # type: ignore
-    if model is None:
-        return
-
-    return model.model_validate(proto_event)
-
-
 @broker.subscriber(
     TOPIC_NAME,
     group_id="protobuf_consumers",
     auto_commit=False,
     auto_offset_reset="earliest",
-    value_deserializer=common_deserializer,
+    value_deserializer=protobuf.ProtobufValueDeserializer(
+        model=kafka_proto_event_producing.UserJoinedECST,
+        protobuf_model=UserJoinedECSTProtobuf,
+    ),
 )
 async def consumer(
-    body: cqrs.BaseNotificationEvent | None,
+    body: kafka_proto_event_producing.UserJoinedECST | None,
     msg: kafka.KafkaMessage,
     mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ) -> None:

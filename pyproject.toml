@@ -51,10 +51,9 @@ examples = [
 ]
 kafka = [
   "aiokafka==0.10.0",
+  "confluent-kafka==2.6.0",
+  "protobuf==5.28.3",
   "confluent-kafka==2.6.0"
-]
-protobuf = [
-  "protobuf==5.28.3"
 ]
 
 [project.urls]
