@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 import di
@@ -62,19 +61,13 @@ def command_mapper(mapper: cqrs.RequestMap) -> None:
     mapper.bind(JoinMeetingCommand, JoinMeetingCommandHandler)
 
 
-async def main():
+async def test_event_producing_positive():
     mediator = bootstrap.bootstrap(
         di_container=di.Container(),
         commands_mapper=command_mapper,
         message_broker=devnull.DevnullMessageBroker(),
     )
+
     await mediator.send(JoinMeetingCommand(user_id="1", meeting_id="1"))
-    await mediator.send(JoinMeetingCommand(user_id="1", meeting_id="2"))
-    await mediator.send(JoinMeetingCommand(user_id="1", meeting_id="3"))
 
-    assert len(devnull.MESSAGE_BUS) == 6  # type: ignore
-
-
-if __name__ == "__main__":
-    loop = asyncio.new_event_loop()
-    loop.run_until_complete(main())
+    assert len(devnull.MESSAGE_BUS) == 2  # type: ignore

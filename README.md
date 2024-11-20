@@ -17,7 +17,8 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 6. Added support for [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html), ensuring
    that `Notification` and `ECST` events are sent to the broker;
 7. FastAPI supporting;
-8. FastStream supporting.
+8. FastStream supporting;
+9. [Protobuf](https://protobuf.dev/) events supporting.
 
 ## Request Handlers
 
@@ -253,6 +254,11 @@ the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/save_e
 > You can specify the name of the Outbox table using the environment variable `OUTBOX_SQLA_TABLE`.
 > By default, it is set to `outbox`.
 
+> [!TIP]
+> If you use the protobuf events you should specify `OutboxedEventRepository`
+> by [protobuf serialize](https://github.com/vadikko2/cqrs/blob/master/src/cqrs/serializers/protobuf.py). A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/save_proto_events_into_outbox.py)
+
 ## Producing Events from Outbox to Kafka
 
 As an implementation of the Transactional Outbox pattern, the SqlAlchemyOutboxedEventRepository is available for use as
@@ -465,4 +471,13 @@ async def hello_world_event_handler(
     await msg.ack()
 ```
 
-A complete example can be found in the [documentation](https://github.com/vadikko2/python-cqrs/blob/master/examples/kafka_event_consuming.py)
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/python-cqrs/blob/master/examples/kafka_event_consuming.py)
+
+## Protobuf messaging
+
+The `python-cqrs` package supports integration with [protobuf](https://developers.google.com/protocol-buffers/).\
+Protocol buffers are Google’s language-neutral, platform-neutral, extensible mechanism for serializing structured data –
+think XML, but smaller, faster, and simpler. You define how you want your data to be structured once, then you can use
+special generated source code to easily write and read your structured data to and from a variety of data streams and
+using a variety of languages.

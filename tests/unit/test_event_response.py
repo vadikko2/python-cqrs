@@ -12,12 +12,15 @@ class CloseMeetingRoomEvent(pydantic.BaseModel):
 
 
 class CloseMeetingRoomEventHandler(
-    events.EventHandler[cqrs.ECSTEvent[CloseMeetingRoomEvent]],
+    events.EventHandler[cqrs.NotificationEvent[CloseMeetingRoomEvent]],
 ):
     def __init__(self) -> None:
         self.called = False
 
-    async def handle(self, event: cqrs.ECSTEvent[CloseMeetingRoomEvent]) -> None:
+    async def handle(
+        self,
+        event: cqrs.NotificationEvent[CloseMeetingRoomEvent],
+    ) -> None:
         self.called = True
 
 
@@ -33,7 +36,10 @@ class TestContainer:
 @pytest.fixture
 def mediator() -> cqrs.EventMediator:
     event_map = events.EventMap()
-    event_map.bind(cqrs.ECSTEvent[CloseMeetingRoomEvent], CloseMeetingRoomEventHandler)
+    event_map.bind(
+        cqrs.NotificationEvent[CloseMeetingRoomEvent],
+        CloseMeetingRoomEventHandler,
+    )
 
     return cqrs.EventMediator(
         event_map=event_map,
@@ -47,7 +53,7 @@ async def test_sending_event_without_response(mediator: cqrs.EventMediator) -> N
     )
 
     await mediator.send(
-        event=cqrs.ECSTEvent[CloseMeetingRoomEvent](
+        event=cqrs.NotificationEvent[CloseMeetingRoomEvent](
             event_name="CloseMeetingRoomEvent",
             payload=CloseMeetingRoomEvent(meeting_room_id=uuid4()),
         ),
