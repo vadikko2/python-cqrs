@@ -33,18 +33,17 @@ class EventEmitter:
 
     async def _send_to_broker(
         self,
-        event: event_model.NotificationEvent | event_model.ECSTEvent,
+        event: event_model.NotificationEvent,
     ) -> None:
         """
         Sends event to the message broker.
         """
         if not self._message_broker:
             raise RuntimeError(
-                f"To use {event.event_type}, message_broker argument must be specified.",
+                f"To send event {event}, message_broker argument must be specified.",
             )
 
         message = message_brokers.Message(
-            message_type=event.event_type,
             message_name=type(event).__name__,
             message_id=event.event_id,
             topic=event.topic,
@@ -52,8 +51,7 @@ class EventEmitter:
         )
 
         logger.debug(
-            "Sending %s Event(%s) to message broker %s",
-            event.event_type,
+            "Sending Event(%s) to message broker %s",
             event.event_id,
             type(self._message_broker).__name__,
         )
@@ -84,8 +82,4 @@ class EventEmitter:
 
     @emit.register
     async def _(self, event: event_model.NotificationEvent) -> None:
-        await self._send_to_broker(event)
-
-    @emit.register
-    async def _(self, event: event_model.ECSTEvent) -> None:
         await self._send_to_broker(event)

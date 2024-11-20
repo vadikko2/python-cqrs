@@ -14,22 +14,41 @@ logging.basicConfig(level=logging.DEBUG)
 
 MOCK_STORAGE = defaultdict[
     uuid.UUID,
-    typing.List[cqrs.NotificationEvent | cqrs.ECSTEvent],
+    typing.List[cqrs.NotificationEvent],
 ](lambda: [])
+
+cqrs.OutboxedEventMap.register(
+    "empty_event",
+    cqrs.NotificationEvent[typing.Dict],
+)
+
 repository = mock.MockOutboxedEventRepository(
     session_factory=functools.partial(lambda: MOCK_STORAGE),
 )
+
 repository.add(
     MOCK_STORAGE,
-    cqrs.NotificationEvent(event_name="TestEvent", topic="TestTopic"),
+    cqrs.NotificationEvent[typing.Dict](
+        event_name="empty_event",
+        topic="empty_topic",
+        payload={},
+    ),
 )
 repository.add(
     MOCK_STORAGE,
-    cqrs.NotificationEvent(event_name="TestEvent", topic="TestTopic"),
+    cqrs.NotificationEvent[typing.Dict](
+        event_name="empty_event",
+        topic="empty_topic",
+        payload={},
+    ),
 )
 repository.add(
     MOCK_STORAGE,
-    cqrs.NotificationEvent(event_name="TestEvent", topic="TestTopic"),
+    cqrs.NotificationEvent[typing.Dict](
+        event_name="empty_event",
+        topic="empty_topic",
+        payload={},
+    ),
 )
 
 

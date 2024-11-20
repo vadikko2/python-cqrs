@@ -6,7 +6,6 @@ import pydantic
 
 
 class Message(pydantic.BaseModel):
-    message_type: typing.Text = pydantic.Field()
     message_name: typing.Text = pydantic.Field()
     message_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
     topic: typing.Text

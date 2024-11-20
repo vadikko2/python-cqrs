@@ -17,7 +17,7 @@ class ProtobufValueDeserializer:
 
     def __init__(
         self,
-        model: typing.Type[cqrs.BaseNotificationEvent],
+        model: typing.Type[cqrs.NotificationEvent],
         protobuf_model: typing.Type[Message],
     ):
         self._model = model
@@ -26,7 +26,7 @@ class ProtobufValueDeserializer:
     def __call__(
         self,
         msg: typing.ByteString,
-    ) -> cqrs.BaseNotificationEvent | None:
+    ) -> cqrs.NotificationEvent | None:
         protobuf_deserializer = protobuf.ProtobufDeserializer(
             self._protobuf_model,
             {"use.deprecated.format": False},

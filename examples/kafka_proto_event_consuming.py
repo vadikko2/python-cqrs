@@ -22,11 +22,11 @@ TOPIC_NAME = "user_joined_proto"
 
 
 class UserJoinedECSTEventHandler(
-    cqrs.EventHandler[cqrs.ECSTEvent[kafka_proto_event_producing.UserJoinedECST]],
+    cqrs.EventHandler[kafka_proto_event_producing.UserJoinedECST],
 ):
     async def handle(
         self,
-        event: cqrs.ECSTEvent[kafka_proto_event_producing.UserJoinedECST],
+        event: kafka_proto_event_producing.UserJoinedECST,
     ) -> None:
         print(
             f"Handle user {event.payload.user_id} joined meeting {event.payload.meeting_id} event",

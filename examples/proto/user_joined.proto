@@ -8,8 +8,6 @@ message UserJoinedECST {
   string event_id = 1;
   string event_timestamp = 2;
   string event_name = 3;
-  string event_type = 4;
-  string topic = 5;
   Payload payload = 6;
 }
 
@@ -21,7 +19,5 @@ message UserJoinedNotification {
   string event_id = 1;
   string event_timestamp = 2;
   string event_name = 3;
-  string event_type = 4;
-  string topic = 5;
   Payload payload = 6;
 }

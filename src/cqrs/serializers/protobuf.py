@@ -16,7 +16,7 @@ KAFKA_SCHEMA_REGISTRY_URL = os.getenv(
 
 
 def protobuf_value_serializer(
-    event: cqrs.BaseNotificationEvent,
+    event: cqrs.NotificationEvent,
 ) -> typing.ByteString | None:
     """
     Serialize CQRS event model into protobuf message.
@@ -36,4 +36,4 @@ def protobuf_value_serializer(
         serialization.MessageField.VALUE,
     )
 
-    return protobuf_serializer(event.proto(), context)
+    return protobuf_serializer(protobuf_event, context)

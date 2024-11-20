@@ -22,14 +22,16 @@ class HelloWorldPayload(pydantic.BaseModel):
     world: str = pydantic.Field(default="World")
 
 
-class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.ECSTEvent[HelloWorldPayload]]):
-    async def handle(self, event: cqrs.ECSTEvent[HelloWorldPayload]) -> None:
+class HelloWorldECSTEventHandler(
+    cqrs.EventHandler[cqrs.NotificationEvent[HelloWorldPayload]],
+):
+    async def handle(self, event: cqrs.NotificationEvent[HelloWorldPayload]) -> None:
         print(f"{event.payload.hello} {event.payload.world}")  # type: ignore
 
 
 def events_mapper(mapper: cqrs.EventMap) -> None:
     """Maps events to handlers."""
-    mapper.bind(cqrs.ECSTEvent[HelloWorldPayload], HelloWorldECSTEventHandler)
+    mapper.bind(cqrs.NotificationEvent[HelloWorldPayload], HelloWorldECSTEventHandler)
 
 
 def mediator_factory() -> cqrs.EventMediator:
@@ -40,20 +42,25 @@ def mediator_factory() -> cqrs.EventMediator:
 
 
 EVENT_REGISTRY = dict(
-    HelloWorldECSTEvent=cqrs.ECSTEvent[HelloWorldPayload],
+    HelloWorldECSTEvent=cqrs.NotificationEvent[HelloWorldPayload],
 )
 
 
-def value_deserializer(value: bytes) -> cqrs.ECSTEvent | None:
+def value_deserializer(value: bytes) -> cqrs.NotificationEvent | None:
     try:
         event_body = orjson.loads(value)
-    except orjson.JSONDecodeError:
+        event_type = EVENT_REGISTRY.get(event_body.get("event_name"))
+        if event_type is None:
+            return
+    except Exception as error:
+        print(f"Value JSON decode error: {error}")
         return
 
-    event_type = EVENT_REGISTRY.get(event_body.get("event_name"))
-    if event_type is None:
+    try:
+        return event_type.model_validate(event_body)
+    except pydantic.ValidationError:
+        print(f"Validation error: {value}")
         return
-    return event_type.model_validate(event_body)
 
 
 @broker.subscriber(
@@ -64,7 +71,7 @@ def value_deserializer(value: bytes) -> cqrs.ECSTEvent | None:
     value_deserializer=value_deserializer,
 )
 async def hello_world_event_handler(
-    body: cqrs.ECSTEvent[HelloWorldPayload] | None,
+    body: cqrs.NotificationEvent[HelloWorldPayload] | None,
     msg: kafka.KafkaMessage,
     mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ):
@@ -74,7 +81,7 @@ async def hello_world_event_handler(
 
 
 if __name__ == "__main__":
-    ev = cqrs.ECSTEvent[HelloWorldPayload](
+    ev = cqrs.NotificationEvent[HelloWorldPayload](
         event_name="HelloWorldECSTEvent",
         topic="hello_world",
         payload=HelloWorldPayload(),
