@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n examples/proto/user_joined.proto"\xcc\x01\n\x0eUserJoinedECST\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\t\x12\x17\n\x0f\x65vent_timestamp\x18\x02 \x01(\t\x12\x12\n\nevent_name\x18\x03 \x01(\t\x12\x12\n\nevent_type\x18\x04 \x01(\t\x12\r\n\x05topic\x18\x05 \x01(\t\x12(\n\x07payload\x18\x06 \x01(\x0b\x32\x17.UserJoinedECST.Payload\x1a.\n\x07Payload\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x12\n\nmeeting_id\x18\x02 \x01(\t"\xdc\x01\n\x16UserJoinedNotification\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\t\x12\x17\n\x0f\x65vent_timestamp\x18\x02 \x01(\t\x12\x12\n\nevent_name\x18\x03 \x01(\t\x12\x12\n\nevent_type\x18\x04 \x01(\t\x12\r\n\x05topic\x18\x05 \x01(\t\x12\x30\n\x07payload\x18\x06 \x01(\x0b\x32\x1f.UserJoinedNotification.Payload\x1a.\n\x07Payload\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x12\n\nmeeting_id\x18\x02 \x01(\tb\x06proto3',
+    b'\n examples/proto/user_joined.proto"\xa9\x01\n\x0eUserJoinedECST\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\t\x12\x17\n\x0f\x65vent_timestamp\x18\x02 \x01(\t\x12\x12\n\nevent_name\x18\x03 \x01(\t\x12(\n\x07payload\x18\x06 \x01(\x0b\x32\x17.UserJoinedECST.Payload\x1a.\n\x07Payload\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x12\n\nmeeting_id\x18\x02 \x01(\t"\xb9\x01\n\x16UserJoinedNotification\x12\x10\n\x08\x65vent_id\x18\x01 \x01(\t\x12\x17\n\x0f\x65vent_timestamp\x18\x02 \x01(\t\x12\x12\n\nevent_name\x18\x03 \x01(\t\x12\x30\n\x07payload\x18\x06 \x01(\x0b\x32\x1f.UserJoinedNotification.Payload\x1a.\n\x07Payload\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x12\n\nmeeting_id\x18\x02 \x01(\tb\x06proto3',
 )
 
 _globals = globals()
@@ -38,11 +38,11 @@ _builder.BuildTopDescriptorsAndMessages(
 if not _descriptor._USE_C_DESCRIPTORS:
     DESCRIPTOR._loaded_options = None
     _globals["_USERJOINEDECST"]._serialized_start = 37
-    _globals["_USERJOINEDECST"]._serialized_end = 241
-    _globals["_USERJOINEDECST_PAYLOAD"]._serialized_start = 195
-    _globals["_USERJOINEDECST_PAYLOAD"]._serialized_end = 241
-    _globals["_USERJOINEDNOTIFICATION"]._serialized_start = 244
-    _globals["_USERJOINEDNOTIFICATION"]._serialized_end = 464
-    _globals["_USERJOINEDNOTIFICATION_PAYLOAD"]._serialized_start = 195
-    _globals["_USERJOINEDNOTIFICATION_PAYLOAD"]._serialized_end = 241
+    _globals["_USERJOINEDECST"]._serialized_end = 206
+    _globals["_USERJOINEDECST_PAYLOAD"]._serialized_start = 160
+    _globals["_USERJOINEDECST_PAYLOAD"]._serialized_end = 206
+    _globals["_USERJOINEDNOTIFICATION"]._serialized_start = 209
+    _globals["_USERJOINEDNOTIFICATION"]._serialized_end = 394
+    _globals["_USERJOINEDNOTIFICATION_PAYLOAD"]._serialized_start = 160
+    _globals["_USERJOINEDNOTIFICATION_PAYLOAD"]._serialized_end = 206
 # @@protoc_insertion_point(module_scope)
