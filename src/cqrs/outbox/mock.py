@@ -1,34 +1,38 @@
 import typing
-import uuid
 
+import cqrs
 from cqrs.outbox import repository
 
 
-class MockOutboxedEventRepository(repository.OutboxedEventRepository):
+class MockOutboxedEventRepository(repository.OutboxedEventRepository[typing.Dict]):
+    COUNTER: typing.ClassVar = 0
+
+    def __init__(self, session_factory: typing.Callable[[], typing.Dict]):
+        self.session = session_factory()
+
     async def __aenter__(self) -> typing.Dict:
-        return self._session_factory()
+        return self.session
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def add(self, session: typing.Dict, event: repository.Event) -> None:
-        session[event.event_id] = event
-
-    async def get_one(
-        self,
-        session: typing.Dict,
-        event_id: uuid.UUID,
-    ) -> repository.Event | None:
-        return session.get(event_id)
+    def add(self, session: typing.Dict, event: cqrs.NotificationEvent) -> None:
+        MockOutboxedEventRepository.COUNTER += 1
+        session[MockOutboxedEventRepository.COUNTER] = repository.OutboxedEvent(
+            id=MockOutboxedEventRepository.COUNTER,
+            event=event,
+            topic=event.topic,
+            status=repository.EventStatus.NEW,
+        )
 
     async def get_many(
         self,
         session: typing.Dict,
         batch_size: int = 100,
         topic: typing.Text | None = None,
-    ) -> typing.List[repository.Event]:
+    ) -> typing.List[repository.OutboxedEvent]:
         return list(
-            filter(lambda e: e.topic == topic, session.values())
+            filter(lambda e: topic == e.topic, session.values())
             if topic
             else list(session.values()),
         )
@@ -36,13 +40,13 @@ class MockOutboxedEventRepository(repository.OutboxedEventRepository):
     async def update_status(
         self,
         session: typing.Dict,
-        event_id: uuid.UUID,
+        outboxed_event_id: int,
         new_status: repository.EventStatus,
     ):
-        if event_id not in session:
+        if outboxed_event_id not in session:
             return
         if new_status is repository.EventStatus.PRODUCED:
-            del session[event_id]
+            del session[outboxed_event_id]
 
     async def commit(self, session: typing.Dict):
         pass

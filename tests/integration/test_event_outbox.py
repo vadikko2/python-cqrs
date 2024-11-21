@@ -1,14 +1,29 @@
 import typing
 
+import pydantic
+
 import cqrs
 from cqrs import events, requests
-from cqrs.outbox import repository as repository_protocol
-from cqrs.outbox import sqlalchemy
+from cqrs.outbox import (
+    repository as outbox_repository,
+    repository as repository_protocol,
+    sqlalchemy,
+)
 
 
 class OutboxRequest(requests.Request):
     message: typing.Text
     count: int
+
+
+class ECSTPayload(pydantic.BaseModel):
+    message: typing.Text
+
+
+cqrs.OutboxedEventMap.register(
+    "OutboxRequestHandler",
+    events.NotificationEvent[ECSTPayload],
+)
 
 
 class OutboxRequestHandler(requests.RequestHandler[OutboxRequest, None]):
@@ -25,9 +40,9 @@ class OutboxRequestHandler(requests.RequestHandler[OutboxRequest, None]):
                 map(
                     lambda e: self.repository.add(session, e),
                     [
-                        events.ECSTEvent(
+                        events.NotificationEvent[ECSTPayload](
                             event_name=OutboxRequestHandler.__name__,
-                            payload=dict(message=request.message),
+                            payload=ECSTPayload(message=request.message),
                         )
                         for _ in range(request.count)
                     ],
@@ -48,19 +63,21 @@ class TestOutbox:
         request = OutboxRequest(message="test_outbox_add_3_event_positive", count=3)
         await OutboxRequestHandler(repository).handle(request)
 
-        not_produced_events = await repository.get_many(session, 3)
+        not_produced_events: typing.List[
+            outbox_repository.OutboxedEvent
+        ] = await repository.get_many(session, 3)
         await repository.commit(session)
 
         assert len(not_produced_events) == 3
         assert all(
             filter(
-                lambda e: e.payload["message"] == "test_outbox_add_3_event_positive",
+                lambda e: e.event.payload.message == "test_outbox_add_3_event_positive",
                 not_produced_events,
             ),
         )
         assert all(
             filter(
-                lambda e: e.event_name == OutboxRequestHandler.__name__,
+                lambda e: e.event.event_name == "OutboxRequestHandler",  # type: ignore
                 not_produced_events,
             ),
         )
@@ -100,7 +117,7 @@ class TestOutbox:
         events_list = await repository.get_many(session, 3)
         await repository.update_status(
             session,
-            events_list[-1].event_id,
+            events_list[-1].id,
             repository_protocol.EventStatus.PRODUCED,
         )
         await repository.commit(session)
@@ -125,14 +142,19 @@ class TestOutbox:
         await OutboxRequestHandler(repository).handle(request)
         [event_over_get_all_events_method] = await repository.get_many(session, 1)
 
-        event: cqrs.ECSTEvent[typing.Dict] | None = await repository.get_one(
-            session,
-            event_over_get_all_events_method.event_id,
+        event: outbox_repository.OutboxedEvent | None = next(
+            iter(
+                await repository.get_many(
+                    session,
+                    batch_size=1,
+                ),
+            ),
+            None,
         )
         await repository.commit(session)
 
         assert event
-        assert event.event_id == event_over_get_all_events_method.event_id  # noqa
+        assert event.id == event_over_get_all_events_method.id  # noqa
 
     async def test_get_new_event_negative(self, session):
         """
@@ -150,18 +172,18 @@ class TestOutbox:
         [event_over_get_all_events_method] = await repository.get_many(session, 1)
         await repository.update_status(
             session,
-            event_over_get_all_events_method.event_id,
+            event_over_get_all_events_method.id,
             repository_protocol.EventStatus.PRODUCED,
         )
         await repository.commit(session)
 
-        event = await repository.get_one(
+        event = await repository.get_many(
             session,
-            event_over_get_all_events_method.event_id,
+            batch_size=1,
         )
         await repository.commit(session)
 
-        assert event is None
+        assert not event
 
     async def test_mark_as_failure_positive(self, session):
         """checks reading failure produced event successfully"""
@@ -179,7 +201,7 @@ class TestOutbox:
         # mark FIRST event as failure
         await repository.update_status(
             session,
-            failure_event.event_id,
+            failure_event.id,
             repository_protocol.EventStatus.NOT_PRODUCED,
         )
         await repository.commit(session)
@@ -188,8 +210,8 @@ class TestOutbox:
 
         assert len(produce_candidates) == 2
         # check events order by status
-        assert produce_candidates[0].event_id == success_event.event_id
-        assert produce_candidates[1].event_id == failure_event.event_id
+        assert produce_candidates[0].id == success_event.id
+        assert produce_candidates[1].id == failure_event.id
 
     async def test_mark_as_failure_negative(self, session):
         """checks reading failure produced events with flush_counter speeding"""
@@ -207,7 +229,7 @@ class TestOutbox:
         for _ in range(sqlalchemy.MAX_FLUSH_COUNTER_VALUE):
             await repository.update_status(
                 session,
-                failure_event.event_id,
+                failure_event.id,
                 repository_protocol.EventStatus.NOT_PRODUCED,
             )
 

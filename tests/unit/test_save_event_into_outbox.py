@@ -1,4 +1,3 @@
-import asyncio
 import functools
 import typing
 import uuid
@@ -100,13 +99,12 @@ def setup_di() -> di.Container:
     return container
 
 
-async def main():
+async def test_save_events_into_outbox_positive():
     mediator = bootstrap.bootstrap(
         di_container=setup_di(),
         commands_mapper=command_mapper,
     )
     repository = mock_repository_factory()
-
     await mediator.send(JoinMeetingCommand(user_id="1", meeting_id="1"))
     await mediator.send(JoinMeetingCommand(user_id="2", meeting_id="1"))
     await mediator.send(JoinMeetingCommand(user_id="3", meeting_id="1"))
@@ -124,11 +122,3 @@ async def main():
     assert len(OUTBOX_STORAGE) == 8
     assert len(notification_events) == 4
     assert len(ecst_events) == 4
-
-    print("There are {} users in the room".format(len(OUTBOX_STORAGE)))
-    print(f"There are {len(notification_events)} notification events in the outbox")
-    print(f"There are {len(ecst_events)} ecst events in the outbox")
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
