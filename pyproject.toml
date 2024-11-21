@@ -55,7 +55,7 @@ kafka = [
   "confluent-kafka==2.6.0"
 ]
 protobuf = [
-  "protobuf==5.0"
+  "protobuf==4.25.5"
 ]
 
 [project.urls]
