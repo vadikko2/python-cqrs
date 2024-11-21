@@ -12,7 +12,7 @@ class JsonDeserializer(typing.Generic[_T]):
     def __init__(self, model: typing.Type[_T]):
         self._model: typing.Type[_T] = model
 
-    def deserialize(self, data: typing.AnyStr | None) -> _T | None:
+    def __call__(self, data: typing.AnyStr | None) -> _T | None:
         if data is None:
             return
 

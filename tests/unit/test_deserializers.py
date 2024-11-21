@@ -17,7 +17,7 @@ def test_json_deserializer_from_none_positive():
         model=cqrs.NotificationEvent,
     )
 
-    assert deserializer.deserialize(None) is None
+    assert deserializer(None) is None
 
 
 def test_json_deserializer_from_bytes_positive():
@@ -30,9 +30,7 @@ def test_json_deserializer_from_bytes_positive():
         payload=DeserializedModelPayload(foo="foo", bar=1),
     )
 
-    assert (
-        deserializer.deserialize(orjson.dumps(events.model_dump(mode="json"))) == events
-    )
+    assert deserializer(orjson.dumps(events.model_dump(mode="json"))) == events
 
 
 def test_json_deserializer_from_str_positive():
@@ -45,10 +43,7 @@ def test_json_deserializer_from_str_positive():
         payload=DeserializedModelPayload(foo="foo", bar=1),
     )
 
-    assert (
-        deserializer.deserialize(orjson.dumps(events.model_dump(mode="json")).decode())
-        == events
-    )
+    assert deserializer(orjson.dumps(events.model_dump(mode="json")).decode()) == events
 
 
 def test_deserializer_negative():
@@ -56,6 +51,6 @@ def test_deserializer_negative():
         model=cqrs.NotificationEvent[DeserializedModelPayload],
     )
 
-    result = deserializer.deserialize("not json")
+    result = deserializer("not json")
 
     assert result is None
