@@ -25,14 +25,6 @@ class OutboxedEvent(pydantic.BaseModel, frozen=True):
 
 class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
     @abc.abstractmethod
-    async def __aenter__(self) -> Session:
-        """start transaction"""
-
-    @abc.abstractmethod
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """end transaction"""
-
-    @abc.abstractmethod
     def add(
         self,
         session: Session,
@@ -57,11 +49,3 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
         new_status: EventStatus,
     ):
         """Update the event status"""
-
-    @abc.abstractmethod
-    async def commit(self, session: Session):
-        """Commit the changes to the repository."""
-
-    @abc.abstractmethod
-    async def rollback(self, session: Session):
-        """Rollback the changes to the repository."""

@@ -70,9 +70,7 @@ async def test_read_event_from_mock_outbox_positive():
 
 
 async def test_read_event_from_sqlalchemy_outbox_positive(session):
-    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(
-        lambda: session,
-    )
+    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
     repository.add(
         session,
         cqrs.NotificationEvent[RegisteredTestPayload](
@@ -97,7 +95,7 @@ async def test_read_event_from_sqlalchemy_outbox_positive(session):
             payload=RegisteredTestPayload(),
         ),
     )
-    await repository.commit(session)
+    await session.commit()
 
     events = await repository.get_many(session, 3)
 
@@ -106,9 +104,7 @@ async def test_read_event_from_sqlalchemy_outbox_positive(session):
 
 
 async def test_add_unregistered_event_negative(session):
-    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(
-        lambda: session,
-    )
+    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
 
     with pytest.raises(TypeError, match="Unknown event name for not_registered_event"):
         repository.add(
@@ -122,9 +118,7 @@ async def test_add_unregistered_event_negative(session):
 
 
 async def test_add_registered_event_name_negative(session):
-    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(
-        lambda: session,
-    )
+    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
 
     with pytest.raises(TypeError):
         repository.add(
