@@ -9,7 +9,6 @@ from cqrs.outbox import (
     repository as repository_protocol,
     sqlalchemy,
 )
-from sqlalchemy.ext.asyncio import session as sql_session
 
 
 class OutboxRequest(requests.Request):
@@ -28,9 +27,8 @@ cqrs.OutboxedEventMap.register(
 
 
 class OutboxRequestHandler(requests.RequestHandler[OutboxRequest, None]):
-    def __init__(self, session: sql_session.AsyncSession):
-        self.session = session
-        self.repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+    def __init__(self, repository: cqrs.OutboxedEventRepository):
+        self.repository = repository
 
     @property
     def events(self) -> list[events.Event]:
@@ -39,7 +37,7 @@ class OutboxRequestHandler(requests.RequestHandler[OutboxRequest, None]):
     async def handle(self, request: OutboxRequest) -> None:
         list(
             map(
-                lambda e: self.repository.add(self.session, e),
+                lambda e: self.repository.add(e),
                 [
                     events.NotificationEvent[ECSTPayload](
                         event_name=OutboxRequestHandler.__name__,
@@ -49,7 +47,7 @@ class OutboxRequestHandler(requests.RequestHandler[OutboxRequest, None]):
                 ],
             ),
         )
-        await self.session.commit()
+        await self.repository.commit()
 
 
 class TestOutbox:
@@ -57,13 +55,13 @@ class TestOutbox:
         """
         checks positive save events to outbox case
         """
-        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
         request = OutboxRequest(message="test_outbox_add_3_event_positive", count=3)
-        await OutboxRequestHandler(session).handle(request)
+        await OutboxRequestHandler(repository).handle(request)
 
         not_produced_events: typing.List[
             outbox_repository.OutboxedEvent
-        ] = await repository.get_many(session, 3)
+        ] = await repository.get_many(3)
         await session.commit()
 
         assert len(not_produced_events) == 3
@@ -84,14 +82,14 @@ class TestOutbox:
         """
         checks getting many new events
         """
-        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
         request = OutboxRequest(
             message="test_outbox_mark_event_as_produced_positive",
             count=3,
         )
-        await OutboxRequestHandler(session).handle(request)
+        await OutboxRequestHandler(repository).handle(request)
 
-        events_list = await repository.get_many(session, 3)
+        events_list = await repository.get_many(3)
         await session.commit()
 
         assert len(events_list) == 3
@@ -100,21 +98,20 @@ class TestOutbox:
         """
         checks getting many new events, but not produced
         """
-        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
         request = OutboxRequest(
             message="test_outbox_mark_event_as_produced_positive",
             count=3,
         )
-        await OutboxRequestHandler(session).handle(request)
-        events_list = await repository.get_many(session, 3)
+        await OutboxRequestHandler(repository).handle(request)
+        events_list = await repository.get_many(3)
         await repository.update_status(
-            session,
             events_list[-1].id,
             repository_protocol.EventStatus.PRODUCED,
         )
         await session.commit()
 
-        new_events_list = await repository.get_many(session, 3)
+        new_events_list = await repository.get_many(3)
         await session.commit()
 
         assert len(new_events_list) == 2
@@ -123,18 +120,17 @@ class TestOutbox:
         """
         checks getting one event positive
         """
-        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
         request = OutboxRequest(
             message="test_outbox_mark_event_as_produced_positive",
             count=1,
         )
-        await OutboxRequestHandler(session).handle(request)
-        [event_over_get_all_events_method] = await repository.get_many(session, 1)
+        await OutboxRequestHandler(repository).handle(request)
+        [event_over_get_all_events_method] = await repository.get_many(1)
 
         event: outbox_repository.OutboxedEvent | None = next(
             iter(
                 await repository.get_many(
-                    session,
                     batch_size=1,
                 ),
             ),
@@ -149,22 +145,20 @@ class TestOutbox:
         """
         checks getting one event positive, but not produced
         """
-        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
         request = OutboxRequest(
             message="test_outbox_mark_event_as_produced_positive",
             count=1,
         )
-        await OutboxRequestHandler(session).handle(request)
-        [event_over_get_all_events_method] = await repository.get_many(session, 1)
+        await OutboxRequestHandler(repository).handle(request)
+        [event_over_get_all_events_method] = await repository.get_many(1)
         await repository.update_status(
-            session,
             event_over_get_all_events_method.id,
             repository_protocol.EventStatus.PRODUCED,
         )
         await session.commit()
 
         event = await repository.get_many(
-            session,
             batch_size=1,
         )
         await session.commit()
@@ -174,22 +168,21 @@ class TestOutbox:
     async def test_mark_as_failure_positive(self, session):
         """checks reading failure produced event successfully"""
 
-        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
         request = OutboxRequest(
             message="test_outbox_mark_event_as_produced_positive",
             count=2,
         )
-        await OutboxRequestHandler(session).handle(request)
-        [failure_event, success_event] = await repository.get_many(session, 2)
+        await OutboxRequestHandler(repository).handle(request)
+        [failure_event, success_event] = await repository.get_many(2)
         # mark FIRST event as failure
         await repository.update_status(
-            session,
             failure_event.id,
             repository_protocol.EventStatus.NOT_PRODUCED,
         )
         await session.commit()
 
-        produce_candidates = await repository.get_many(session, batch_size=2)
+        produce_candidates = await repository.get_many(batch_size=2)
 
         assert len(produce_candidates) == 2
         # check events order by status
@@ -199,22 +192,21 @@ class TestOutbox:
     async def test_mark_as_failure_negative(self, session):
         """checks reading failure produced events with flush_counter speeding"""
 
-        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+        repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
         request = OutboxRequest(
             message="test_outbox_mark_event_as_produced_positive",
             count=1,
         )
-        await OutboxRequestHandler(session).handle(request)
-        [failure_event] = await repository.get_many(session, 1)
+        await OutboxRequestHandler(repository).handle(request)
+        [failure_event] = await repository.get_many(1)
         for _ in range(sqlalchemy.MAX_FLUSH_COUNTER_VALUE):
             await repository.update_status(
-                session,
                 failure_event.id,
                 repository_protocol.EventStatus.NOT_PRODUCED,
             )
 
         await session.commit()
 
-        produce_candidates = await repository.get_many(session, batch_size=1)
+        produce_candidates = await repository.get_many(batch_size=1)
 
         assert not len(produce_candidates)

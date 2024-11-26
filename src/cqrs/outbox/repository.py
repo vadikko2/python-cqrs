@@ -27,7 +27,6 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
     @abc.abstractmethod
     def add(
         self,
-        session: Session,
         event: ev.NotificationEvent,
     ) -> None:
         """Add an event to the repository."""
@@ -35,7 +34,6 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
     @abc.abstractmethod
     async def get_many(
         self,
-        session: Session,
         batch_size: int = 100,
         topic: typing.Text | None = None,
     ) -> typing.List[OutboxedEvent]:
@@ -44,8 +42,15 @@ class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
     @abc.abstractmethod
     async def update_status(
         self,
-        session: Session,
         outboxed_event_id: int,
         new_status: EventStatus,
     ):
         """Update the event status"""
+
+    @abc.abstractmethod
+    async def commit(self):
+        pass
+
+    @abc.abstractmethod
+    async def rollback(self):
+        pass

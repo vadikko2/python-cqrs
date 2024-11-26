@@ -70,9 +70,8 @@ async def test_read_event_from_mock_outbox_positive():
 
 
 async def test_read_event_from_sqlalchemy_outbox_positive(session):
-    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
     repository.add(
-        session,
         cqrs.NotificationEvent[RegisteredTestPayload](
             event_name="empty_event",
             topic="empty_topic",
@@ -80,7 +79,6 @@ async def test_read_event_from_sqlalchemy_outbox_positive(session):
         ),
     )
     repository.add(
-        session,
         cqrs.NotificationEvent[RegisteredTestPayload](
             event_name="empty_event",
             topic="empty_topic",
@@ -88,7 +86,6 @@ async def test_read_event_from_sqlalchemy_outbox_positive(session):
         ),
     )
     repository.add(
-        session,
         cqrs.NotificationEvent[RegisteredTestPayload](
             event_name="empty_event",
             topic="empty_topic",
@@ -97,18 +94,17 @@ async def test_read_event_from_sqlalchemy_outbox_positive(session):
     )
     await session.commit()
 
-    events = await repository.get_many(session, 3)
+    events = await repository.get_many(3)
 
     assert len(events) == 3
     assert isinstance(events[0].event.payload, RegisteredTestPayload)
 
 
 async def test_add_unregistered_event_negative(session):
-    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
 
     with pytest.raises(TypeError, match="Unknown event name for not_registered_event"):
         repository.add(
-            session,
             cqrs.NotificationEvent[NotRegisteredTestPayload](
                 event_name="not_registered_event",
                 topic="empty_topic",
@@ -118,11 +114,10 @@ async def test_add_unregistered_event_negative(session):
 
 
 async def test_add_registered_event_name_negative(session):
-    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository()
+    repository = sqlalchemy.SqlAlchemyOutboxedEventRepository(session)
 
     with pytest.raises(TypeError):
         repository.add(
-            session,
             cqrs.NotificationEvent[NotRegisteredTestPayload](
                 event_name="empty_event",
                 topic="empty_topic",

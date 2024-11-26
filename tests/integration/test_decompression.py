@@ -7,6 +7,7 @@ from cqrs.outbox import repository as outbox_repository
 async def test_decompression_positive(session):
     """Проверяет что декомпрессия происходит корректно"""
     repository = cqrs.SqlAlchemyOutboxedEventRepository(
+        session,
         cqrs.ZlibCompressor(),
     )
     event = cqrs.NotificationEvent[typing.Dict](
@@ -15,13 +16,12 @@ async def test_decompression_positive(session):
     )
     cqrs.OutboxedEventMap.register("TestEvent", cqrs.NotificationEvent[typing.Dict])
 
-    repository.add(session, event)
+    repository.add(event)
     await session.commit()
 
     read_event: outbox_repository.OutboxedEvent | None = next(
         iter(
             await repository.get_many(
-                session,
                 batch_size=1,
             ),
         ),

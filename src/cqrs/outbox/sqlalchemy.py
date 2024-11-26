@@ -155,13 +155,14 @@ class SqlAlchemyOutboxedEventRepository(
 ):
     def __init__(
         self,
+        session: sql_session.AsyncSession,
         compressor: compressors.Compressor | None = None,
     ):
+        self.session = session
         self._compressor = compressor
 
     def add(
         self,
-        session: sql_session.AsyncSession,
         event: cqrs.NotificationEvent,
     ) -> None:
         registered_event = map.OutboxedEventMap.get(event.event_name)
@@ -177,7 +178,7 @@ class SqlAlchemyOutboxedEventRepository(
         if self._compressor is not None:
             bytes_payload = self._compressor.compress(bytes_payload)
 
-        session.add(
+        self.session.add(
             OutboxModel(
                 event_id=event.event_id,
                 event_id_bin=func.UUID_TO_BIN(event.event_id),
@@ -208,12 +209,11 @@ class SqlAlchemyOutboxedEventRepository(
 
     async def get_many(
         self,
-        session: sql_session.AsyncSession,
         batch_size: int = 100,
         topic: typing.Text | None = None,
     ) -> typing.List[repository.OutboxedEvent]:
         events: typing.Sequence[OutboxModel] = (
-            (await session.execute(OutboxModel.get_batch_query(batch_size, topic)))
+            (await self.session.execute(OutboxModel.get_batch_query(batch_size, topic)))
             .scalars()
             .all()
         )
@@ -230,10 +230,15 @@ class SqlAlchemyOutboxedEventRepository(
 
     async def update_status(
         self,
-        session: sql_session.AsyncSession,
         outboxed_event_id: int,
         new_status: repository.EventStatus,
     ) -> None:
-        await session.execute(
+        await self.session.execute(
             statement=OutboxModel.update_status_query(outboxed_event_id, new_status),
         )
+
+    async def commit(self):
+        await self.session.commit()
+
+    async def rollback(self):
+        await self.session.rollback()
