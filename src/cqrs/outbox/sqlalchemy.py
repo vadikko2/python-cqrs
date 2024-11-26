@@ -155,10 +155,8 @@ class SqlAlchemyOutboxedEventRepository(
 ):
     def __init__(
         self,
-        session_factory: typing.Callable[[], sql_session.AsyncSession],
         compressor: compressors.Compressor | None = None,
     ):
-        self._session_factory = session_factory
         self._compressor = compressor
 
     def add(
@@ -239,19 +237,3 @@ class SqlAlchemyOutboxedEventRepository(
         await session.execute(
             statement=OutboxModel.update_status_query(outboxed_event_id, new_status),
         )
-
-    async def commit(self, session: sql_session.AsyncSession):
-        await session.commit()
-
-    async def rollback(self, session: sql_session.AsyncSession):
-        await session.rollback()
-
-    async def __aenter__(self):
-        self.session = self._session_factory()
-        return self.session
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        if self.session:
-            await self.session.rollback()
-            await self.session.close()
-            self.session = None
