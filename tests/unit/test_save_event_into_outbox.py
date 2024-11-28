@@ -56,30 +56,27 @@ class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
 
     async def handle(self, request: JoinMeetingCommand) -> None:
         print(f"User {request.user_id} joined meeting {request.meeting_id}")
-        async with self.outbox as session:
-            self.outbox.add(
-                session,
-                cqrs.NotificationEvent[UserJoinedNotificationPayload](
-                    event_name="user_joined_notification",
-                    topic="user_notification_events",
-                    payload=UserJoinedNotificationPayload(
-                        user_id=request.user_id,
-                        meeting_id=request.meeting_id,
-                    ),
+        self.outbox.add(
+            cqrs.NotificationEvent[UserJoinedNotificationPayload](
+                event_name="user_joined_notification",
+                topic="user_notification_events",
+                payload=UserJoinedNotificationPayload(
+                    user_id=request.user_id,
+                    meeting_id=request.meeting_id,
                 ),
-            )
-            self.outbox.add(
-                session,
-                cqrs.NotificationEvent[UserJoinedECSTPayload](
-                    event_name="user_joined_ecst",
-                    topic="user_ecst_events",
-                    payload=UserJoinedECSTPayload(
-                        user_id=request.user_id,
-                        meeting_id=request.meeting_id,
-                    ),
+            ),
+        )
+        self.outbox.add(
+            cqrs.NotificationEvent[UserJoinedECSTPayload](
+                event_name="user_joined_ecst",
+                topic="user_ecst_events",
+                payload=UserJoinedECSTPayload(
+                    user_id=request.user_id,
+                    meeting_id=request.meeting_id,
                 ),
-            )
-            await self.outbox.commit(session)
+            ),
+        )
+        await self.outbox.commit()
 
 
 def command_mapper(mapper: cqrs.RequestMap) -> None:
@@ -111,11 +108,9 @@ async def test_save_events_into_outbox_positive():
     await mediator.send(JoinMeetingCommand(user_id="4", meeting_id="1"))
 
     notification_events = await repository.get_many(
-        session=OUTBOX_STORAGE,
         topic="user_notification_events",
     )
     ecst_events = await repository.get_many(
-        session=OUTBOX_STORAGE,
         topic="user_ecst_events",
     )
 
