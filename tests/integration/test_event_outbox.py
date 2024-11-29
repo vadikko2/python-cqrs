@@ -1,6 +1,7 @@
 import typing
 
 import pydantic
+from sqlalchemy.orm import registry
 
 import cqrs
 from cqrs import events, requests
@@ -9,6 +10,7 @@ from cqrs.outbox import (
     repository as repository_protocol,
     sqlalchemy,
 )
+import sqlalchemy as sqla
 
 
 class OutboxRequest(requests.Request):
@@ -210,3 +212,12 @@ class TestOutbox:
         produce_candidates = await repository.get_many(batch_size=1)
 
         assert not len(produce_candidates)
+
+
+async def test_rebind_outbox_model_positive(init_orm, session):
+    custom_base = registry().generate_base()
+    sqlalchemy.rebind_outbox_model(sqlalchemy.OutboxModel, custom_base, "rebind_outbox")
+    await init_orm.run_sync(custom_base.metadata.create_all)
+
+    async with session.begin():
+        await session.execute(sqla.text("SELECT * FROM rebind_outbox WHERE True;"))
