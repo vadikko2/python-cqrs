@@ -1,5 +1,4 @@
 import logging
-import os
 import typing
 
 import dotenv
@@ -8,7 +7,7 @@ import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy.dialects import mysql
 from sqlalchemy.ext.asyncio import session as sql_session
-from sqlalchemy.orm import registry
+from sqlalchemy.orm import DeclarativeMeta, registry
 
 import cqrs
 from cqrs import compressors
@@ -20,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 dotenv.load_dotenv()
 
-OUTBOX_TABLE = os.getenv("OUTBOX_SQLA_TABLE", "outbox")
+DEFAULT_OUTBOX_TABLE_NAME = "outbox"
 
 MAX_FLUSH_COUNTER_VALUE = 5
 
 
 class OutboxModel(Base):
-    __tablename__ = OUTBOX_TABLE
+    __tablename__ = DEFAULT_OUTBOX_TABLE_NAME
 
     __table_args__ = (
         sqlalchemy.UniqueConstraint(
@@ -222,7 +221,7 @@ class SqlAlchemyOutboxedEventRepository(
         for event in events:
             outboxed_event = self._process_events(event)
             if outboxed_event is None:
-                logger.warning(f"Unknown event name for {event.name}")
+                logger.warning(f"Unknown event name for {event.event_name}")
                 continue
             result.append(outboxed_event)
 
@@ -242,3 +241,17 @@ class SqlAlchemyOutboxedEventRepository(
 
     async def rollback(self):
         await self.session.rollback()
+
+
+def rebind_outbox_model(
+    model: typing.Any,
+    new_base: DeclarativeMeta,
+    table_name: typing.Text | None = None,
+):
+    model.__bases__ = (new_base,)
+    model.__table__.name = table_name or model.__table__.name
+    new_base.metadata._add_table(
+        model.__table__.name,
+        model.__table__.schema,
+        model.__table__,
+    )

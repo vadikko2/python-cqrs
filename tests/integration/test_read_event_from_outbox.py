@@ -39,7 +39,6 @@ async def test_read_event_from_mock_outbox_positive():
         session_factory=functools.partial(lambda: mock_storage),
     )
     repository.add(
-        mock_storage,
         cqrs.NotificationEvent[RegisteredTestPayload](
             event_name="empty_event",
             topic="empty_topic",
@@ -47,7 +46,6 @@ async def test_read_event_from_mock_outbox_positive():
         ),
     )
     repository.add(
-        mock_storage,
         cqrs.NotificationEvent[RegisteredTestPayload](
             event_name="empty_event",
             topic="empty_topic",
@@ -55,7 +53,6 @@ async def test_read_event_from_mock_outbox_positive():
         ),
     )
     repository.add(
-        mock_storage,
         cqrs.NotificationEvent[RegisteredTestPayload](
             event_name="empty_event",
             topic="empty_topic",
@@ -63,7 +60,7 @@ async def test_read_event_from_mock_outbox_positive():
         ),
     )
 
-    events = await repository.get_many(mock_storage)
+    events = await repository.get_many()
 
     assert len(events) == 3
     assert isinstance(events[0].event.payload, RegisteredTestPayload)

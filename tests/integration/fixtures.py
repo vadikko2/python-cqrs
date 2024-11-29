@@ -24,19 +24,16 @@ async def init_orm():
     async with engine.begin() as connect:
         await connect.run_sync(sqlalchemy.Base.metadata.drop_all)
         await connect.run_sync(sqlalchemy.Base.metadata.create_all)
+        yield connect
 
 
 @pytest.fixture(scope="function")
-def engine_factory(init_orm):
-    return functools.partial(
+async def session(init_orm):
+    engine_factory = functools.partial(
         create_async_engine,
         DATABASE_DSN,
         isolation_level="REPEATABLE READ",
     )
-
-
-@pytest.fixture(scope="function")
-async def session(engine_factory):
     session = async_sessionmaker(engine_factory())()
     async with contextlib.aclosing(session):
         yield session
