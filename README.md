@@ -129,10 +129,9 @@ class UserJoinedEventHandler(cqrs.EventHandler[UserJoined]):
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/domain_event_handler.py)
 
-## Producing Notification/ECST Events
+## Producing Notification Events
 
-During the handling of a command event, messages of type `cqrs.NotificationEvent` or `cqrs.ECSTEvent` may be generated
-and then sent to the broker.
+During the handling of a command, `cqrs.NotificationEvent` events may be generated and then sent to the broker.
 
 ```python
 class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
@@ -156,7 +155,7 @@ class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
             )
         )
         self._events.append(
-            cqrs.ECSTEvent[UserJoinedECSTPayload](
+            cqrs.NotificationEvent[UserJoinedECSTPayload](
                 event_name="UserJoined",
                 topic="user_ecst_events",
                 payload=UserJoinedECSTPayload(
@@ -235,7 +234,7 @@ class JoinMeetingCommandHandler(cqrs.RequestHandler[JoinMeetingCommand, None]):
             )
             self.outbox.add(
                 session,
-                cqrs.ECSTEvent[UserJoinedECSTPayload](
+                cqrs.NotificationEvent[UserJoinedECSTPayload](
                     event_name="UserJoined",
                     topic="user_ecst_events",
                     payload=UserJoinedECSTPayload(
@@ -353,7 +352,7 @@ def init_queries(mapper: requests.RequestMap) -> None:
 
 def init_events(mapper: events.EventMap) -> None:
     mapper.bind(events.NotificationEvent[events_models.NotificationMeetingRoomClosed], event_handlers.MeetingRoomClosedNotificationHandler)
-    mapper.bind(events.ECSTEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
+    mapper.bind(events.NotificationEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
 ```
 
 ## Bootstrap
@@ -450,8 +449,8 @@ class HelloWorldPayload(pydantic.BaseModel):
     world: str = pydantic.Field(default="World")
 
 
-class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.ECSTEvent[HelloWorldPayload]]):
-    async def handle(self, event: cqrs.ECSTEvent[HelloWorldPayload]) -> None:
+class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.NotificationEvent[HelloWorldPayload]]):
+    async def handle(self, event: cqrs.NotificationEvent[HelloWorldPayload]) -> None:
         print(f"{event.payload.hello} {event.payload.world}")  # type: ignore
 
 
@@ -462,7 +461,7 @@ class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.ECSTEvent[HelloWorldPayl
     value_deserializer=value_deserializer,
 )
 async def hello_world_event_handler(
-    body: cqrs.ECSTEvent[HelloWorldPayload] | None,
+    body: cqrs.NotificationEvent[HelloWorldPayload] | None,
     msg: kafka.KafkaMessage,
     mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ):
