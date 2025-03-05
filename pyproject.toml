@@ -4,7 +4,8 @@ requires = ["setuptools>=42", "wheel"]
 
 [project]
 authors = [
-  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}
+  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"},
+  {name = "Dmitry Kutlubaev", email = "kutlubaev00@mail.ru"}
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
