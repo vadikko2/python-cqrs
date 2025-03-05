@@ -459,6 +459,7 @@ class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.NotificationEvent[HelloW
     group_id="examples",
     auto_commit=False,
     value_deserializer=value_deserializer,
+    decoder=decoder,
 )
 async def hello_world_event_handler(
     body: cqrs.NotificationEvent[HelloWorldPayload] | None,
