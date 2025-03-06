@@ -393,8 +393,7 @@ def event_mediator_factory():
 
 > [!TIP]
 > I recommend reading the useful
->
-paper [Onion Architecture Used in Software Development](https://www.researchgate.net/publication/371006360_Onion_Architecture_Used_in_Software_Development).
+> paper [Onion Architecture Used in Software Development](https://www.researchgate.net/publication/371006360_Onion_Architecture_Used_in_Software_Development).
 > Separating user interaction and use-cases into Application and Presentation layers is a good practice.
 > This can improve the `Testability`, `Maintainability`, `Scalability` of the application. It also provides benefits
 > such as `Separation of Concerns`.
@@ -459,6 +458,7 @@ class HelloWorldECSTEventHandler(cqrs.EventHandler[cqrs.NotificationEvent[HelloW
     group_id="examples",
     auto_commit=False,
     value_deserializer=value_deserializer,
+    decoder=decoder,
 )
 async def hello_world_event_handler(
     body: cqrs.NotificationEvent[HelloWorldPayload] | None,

@@ -8,6 +8,8 @@ import pydantic
 from faststream import kafka
 
 import cqrs
+from cqrs import deserializers
+from cqrs.decoders import kafka as kafka_decoders
 from cqrs.events import bootstrap
 
 logging.basicConfig(level=logging.DEBUG)
@@ -41,34 +43,15 @@ def mediator_factory() -> cqrs.EventMediator:
     )
 
 
-EVENT_REGISTRY = dict(
-    HelloWorldECSTEvent=cqrs.NotificationEvent[HelloWorldPayload],
-)
-
-
-def value_deserializer(value: bytes) -> cqrs.NotificationEvent | None:
-    try:
-        event_body = orjson.loads(value)
-        event_type = EVENT_REGISTRY.get(event_body.get("event_name"))
-        if event_type is None:
-            return
-    except Exception as error:
-        print(f"Value JSON decode error: {error}")
-        return
-
-    try:
-        return event_type.model_validate(event_body)
-    except pydantic.ValidationError:
-        print(f"Validation error: {value}")
-        return
-
-
 @broker.subscriber(
     "hello_world",
     group_id="examples",
     auto_commit=False,
     auto_offset_reset="earliest",
-    value_deserializer=value_deserializer,
+    value_deserializer=deserializers.JsonDeserializer(
+        model=cqrs.NotificationEvent[HelloWorldPayload],
+    ),
+    decoder=kafka_decoders.empty_message_decoder,
 )
 async def hello_world_event_handler(
     body: cqrs.NotificationEvent[HelloWorldPayload] | None,
