@@ -8,7 +8,8 @@ import pydantic
 from faststream import kafka
 
 import cqrs
-from cqrs import deserializers, decoders
+from cqrs import deserializers
+from cqrs.decoders import kafka as kafka_decoders
 from cqrs.events import bootstrap
 
 logging.basicConfig(level=logging.DEBUG)
@@ -50,7 +51,7 @@ def mediator_factory() -> cqrs.EventMediator:
     value_deserializer=deserializers.JsonDeserializer(
         model=cqrs.NotificationEvent[HelloWorldPayload],
     ),
-    decoder=decoders.empty_message_decoder,
+    decoder=kafka_decoders.empty_message_decoder,
 )
 async def hello_world_event_handler(
     body: cqrs.NotificationEvent[HelloWorldPayload] | None,
