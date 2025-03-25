@@ -32,11 +32,7 @@ class EventProducer:
             await asyncio.sleep(float(wait_ms) / 1000.0)
             await self.produce_batch(batch_size)
 
-    async def send_message(
-        self,
-        session: object,
-        event: repository_protocol.OutboxedEvent,
-    ):
+    async def send_message(self, event: repository_protocol.OutboxedEvent):
         try:
             logger.debug(f"Send event {event.event.event_id} into topic {event.topic}")
             await self.message_broker.send_message(
@@ -54,7 +50,6 @@ class EventProducer:
             if not self.repository:
                 return
             await self.repository.update_status(
-                session,
                 event.id,
                 repository_protocol.EventStatus.NOT_PRODUCED,
             )
@@ -62,7 +57,6 @@ class EventProducer:
             if not self.repository:
                 return
             await self.repository.update_status(
-                session,
                 event.id,
                 repository_protocol.EventStatus.PRODUCED,
             )
@@ -71,14 +65,12 @@ class EventProducer:
         if not self.repository:
             logger.debug("Repository not found")
             return
-        async with self.repository as session:
-            outboxed_events: typing.List[
-                repository_protocol.OutboxedEvent
-            ] = await self.repository.get_many(
-                session,
-                batch_size,
-            )
-            logger.debug(f"Got {len(outboxed_events)} new events")
-            for event in outboxed_events:
-                await self.send_message(session, event)
-            await self.repository.commit(session)
+        outboxed_events: typing.List[
+            repository_protocol.OutboxedEvent
+        ] = await self.repository.get_many(
+            batch_size,
+        )
+        logger.debug(f"Got {len(outboxed_events)} new events")
+        for event in outboxed_events:
+            await self.send_message(event)
+        await self.repository.commit()
