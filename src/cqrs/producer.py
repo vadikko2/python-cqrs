@@ -31,6 +31,7 @@ class EventProducer:
         while True:
             await asyncio.sleep(float(wait_ms) / 1000.0)
             await self.produce_batch(batch_size)
+            await self.repository.commit()
 
     async def send_message(self, event: repository_protocol.OutboxedEvent):
         try:
@@ -73,4 +74,3 @@ class EventProducer:
         logger.debug(f"Got {len(outboxed_events)} new events")
         for event in outboxed_events:
             await self.send_message(event)
-        await self.repository.commit()
