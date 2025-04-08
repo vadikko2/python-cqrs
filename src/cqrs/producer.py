@@ -22,7 +22,7 @@ class EventProducer:
         self.message_broker = message_broker
         self.repository = repository
 
-    async def enevt_batch_generator(
+    async def event_batch_generator(
         self,
         batch_size: int = 100,
     ) -> typing.AsyncIterator[typing.List[repository_protocol.OutboxedEvent]]:

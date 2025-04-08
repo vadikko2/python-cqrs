@@ -272,25 +272,27 @@ from cqrs.adapters import kafka as kafka_adapters
 from cqrs.compressors import zlib
 
 session_factory = async_sessionmaker(
-    create_async_engine(
-        f"mysql+asyncmy://{USER}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}",
-        isolation_level="REPEATABLE READ",
-    )
+   create_async_engine(
+      f"mysql+asyncmy://{USER}:{PASSWORD}@{HOSTNAME}:{PORT}/{DATABASE}",
+      isolation_level="REPEATABLE READ",
+   )
 )
 
 broker = kafka.KafkaMessageBroker(
-  producer=kafka_adapters.kafka_producer_factory(dsn="localhost:9092"),
+   producer=kafka_adapters.kafka_producer_factory(dsn="localhost:9092"),
 )
 
 producer = cqrs.EventProducer(broker, cqrs.SqlAlchemyOutboxedEventRepository(session_factory, zlib.ZlibCompressor()))
 
+
 async def periodically_task():
-    async for messages in producer.enevt_batch_generator():
-        for message in messages:
-            await producer.send_message(message)
-        await producer.repository.commit()
-        await asyncio.sleep(10)
-   
+   async for messages in producer.event_batch_generator():
+      for message in messages:
+         await producer.send_message(message)
+      await producer.repository.commit()
+      await asyncio.sleep(10)
+
+
 loop = asyncio.get_event_loop()
 loop.run_until_complete(periodically_task())
 ```

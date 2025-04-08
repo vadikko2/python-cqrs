@@ -54,7 +54,7 @@ async def main():
         producer=kafka_adapters.kafka_producer_factory(dsn="localhost:9092"),
     )
     producer = cqrs.EventProducer(message_broker=broker, repository=repository)
-    async for messages in producer.enevt_batch_generator():
+    async for messages in producer.event_batch_generator():
         for message in messages:
             await producer.send_message(message)
         await producer.repository.commit()
