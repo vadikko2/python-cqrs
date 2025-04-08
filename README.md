@@ -189,7 +189,7 @@ from cqrs.message_brokers import kafka as kafka_broker
 
 
 producer = kafka_adapter.kafka_producer_factory(
-    dsn="localhost:9094",
+    dsn="localhost:9092",
     topics=["test.topic1", "test.topic2"],
 )
 broker = kafka_broker.KafkaMessageBroker(producer)
@@ -267,7 +267,9 @@ It can be utilized in conjunction with the KafkaMessageBroker.
 ```python
 import asyncio
 import cqrs
-from cqrs.message_brokers import kafka as kafka_broker
+from cqrs.message_brokers import kafka
+from cqrs.adapters import kafka as kafka_adapters
+from cqrs.compressors import zlib
 
 session_factory = async_sessionmaker(
     create_async_engine(
@@ -280,9 +282,17 @@ broker = kafka.KafkaMessageBroker(
   producer=kafka_adapters.kafka_producer_factory(dsn="localhost:9092"),
 )
 
-producer = cqrs.EventProducer(cqrs.SqlAlchemyOutboxedEventRepository(session_factory, zlib.ZlibCompressor()), broker)
+producer = cqrs.EventProducer(broker, cqrs.SqlAlchemyOutboxedEventRepository(session_factory, zlib.ZlibCompressor()))
+
+async def periodically_task():
+    async for messages in producer.enevt_batch_generator():
+        for message in messages:
+            await producer.send_message(message)
+        await producer.repository.commit()
+        await asyncio.sleep(10)
+   
 loop = asyncio.get_event_loop()
-loop.run_until_complete(app.periodically_task())
+loop.run_until_complete(periodically_task())
 ```
 
 A complete example can be found in

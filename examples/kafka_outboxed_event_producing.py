@@ -27,7 +27,6 @@ repository = mock.MockOutboxedEventRepository(
 )
 
 repository.add(
-    MOCK_STORAGE,
     cqrs.NotificationEvent[typing.Dict](
         event_name="empty_event",
         topic="empty_topic",
@@ -35,7 +34,6 @@ repository.add(
     ),
 )
 repository.add(
-    MOCK_STORAGE,
     cqrs.NotificationEvent[typing.Dict](
         event_name="empty_event",
         topic="empty_topic",
@@ -43,7 +41,6 @@ repository.add(
     ),
 )
 repository.add(
-    MOCK_STORAGE,
     cqrs.NotificationEvent[typing.Dict](
         event_name="empty_event",
         topic="empty_topic",
@@ -57,7 +54,11 @@ async def main():
         producer=kafka_adapters.kafka_producer_factory(dsn="localhost:9092"),
     )
     producer = cqrs.EventProducer(message_broker=broker, repository=repository)
-    await producer.periodically_task()
+    async for messages in producer.enevt_batch_generator():
+        for message in messages:
+            await producer.send_message(message)
+        await producer.repository.commit()
+        await asyncio.sleep(10)
 
 
 if __name__ == "__main__":

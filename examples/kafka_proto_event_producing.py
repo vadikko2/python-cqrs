@@ -45,7 +45,6 @@ async def main():
     )
     event_producer = cqrs.EventProducer(message_broker=broker)
     await event_producer.send_message(
-        session=None,
         event=repository.OutboxedEvent(
             id=1,
             event=event,

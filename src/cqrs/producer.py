@@ -22,15 +22,13 @@ class EventProducer:
         self.message_broker = message_broker
         self.repository = repository
 
-    async def periodically_task(
+    async def enevt_batch_generator(
         self,
         batch_size: int = 100,
-        wait_ms: int = 500,
-    ) -> None:
-        """Calls produce periodically with specified delay"""
+    ) -> typing.AsyncIterator[typing.List[repository_protocol.OutboxedEvent]]:
+        """Return messages for produce"""
         while True:
-            await asyncio.sleep(float(wait_ms) / 1000.0)
-            await self.produce_batch(batch_size)
+            yield await self.repository.get_many(batch_size)
 
     async def send_message(self, event: repository_protocol.OutboxedEvent):
         try:
@@ -60,17 +58,3 @@ class EventProducer:
                 event.id,
                 repository_protocol.EventStatus.PRODUCED,
             )
-
-    async def produce_batch(self, batch_size: int = 100) -> None:
-        if not self.repository:
-            logger.debug("Repository not found")
-            return
-        outboxed_events: typing.List[
-            repository_protocol.OutboxedEvent
-        ] = await self.repository.get_many(
-            batch_size,
-        )
-        logger.debug(f"Got {len(outboxed_events)} new events")
-        for event in outboxed_events:
-            await self.send_message(event)
-        await self.repository.commit()
