@@ -8,16 +8,7 @@ import dotenv
 import pydantic
 
 logger = logging.getLogger("cqrs")
-
-try:
-    from google.protobuf.message import Message  # noqa
-except ImportError:
-    logger.warning(
-        "Please install protobuf dependencies with: `pip install python-cqrs[protobuf]`",
-    )
-
 dotenv.load_dotenv()
-
 DEFAULT_OUTPUT_TOPIC = os.getenv("DEFAULT_OUTPUT_TOPIC", "output_topic")
 
 
@@ -52,7 +43,7 @@ class NotificationEvent(Event, typing.Generic[_P], frozen=True):
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
-    def proto(self) -> "Message":
+    def proto(self):
         raise NotImplementedError("Method not implemented")
 
     def __hash__(self):
