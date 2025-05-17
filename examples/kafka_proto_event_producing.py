@@ -4,7 +4,7 @@ import pydantic
 
 import cqrs
 from cqrs.adapters import kafka as kafka_adapters
-from cqrs.message_brokers import kafka
+from cqrs.message_brokers import kafka, protocol as broker_protocol
 from cqrs.outbox import repository
 from cqrs.serializers import protobuf
 from examples.proto.user_joined_pb2 import UserJoinedECST as UserJoinedECSTProtobuf  # type: ignore
@@ -43,13 +43,17 @@ async def main():
     broker = kafka.KafkaMessageBroker(
         producer=kafka_producer,
     )
-    event_producer = cqrs.EventProducer(message_broker=broker)
-    await event_producer.send_message(
-        event=repository.OutboxedEvent(
-            id=1,
-            event=event,
-            status=repository.EventStatus.NEW,
+    await broker.send_message(
+        message=broker_protocol.Message(
+            message_name=event.event_name,
+            message_id=event.event_id,
             topic=event.topic,
+            payload=repository.OutboxedEvent(
+                id=1,
+                event=event,
+                status=repository.EventStatus.NEW,
+                topic=event.topic,
+            ),
         ),
     )
 

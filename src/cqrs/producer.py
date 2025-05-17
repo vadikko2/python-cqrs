@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import typing
 
@@ -17,7 +16,7 @@ class EventProducer:
     def __init__(
         self,
         message_broker: broker_protocol.MessageBroker,
-        repository: repository_protocol.OutboxedEventRepository | None = None,
+        repository: repository_protocol.OutboxedEventRepository,
     ):
         self.message_broker = message_broker
         self.repository = repository

@@ -43,8 +43,10 @@ repos:
   rev: v0.23.1
 - hooks:
   - id: pycln
-  repo: https://github.com/hadialqattan/pycln
-  rev: v2.4.0
+    name: pycln
+    entry: pycln ./
+    language: system
+  repo: local
 - hooks:
   - id: upgrade-type-hints
   repo: https://github.com/sondrelg/pep585-upgrade
