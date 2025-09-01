@@ -1,4 +1,5 @@
 import asyncio
+import ssl
 
 import pydantic
 
@@ -30,16 +31,32 @@ class UserJoinedECST(cqrs.NotificationEvent[UserJoinedECSTPayload], frozen=True)
         )
 
 
+def create_kafka_producer(ssl_context: ssl.SSLContext | None = None) -> kafka_adapters.KafkaProducer:
+    dsn = "localhost:9092"
+    value_serializer = protobuf.protobuf_value_serializer
+    if ssl_context is None:
+        return kafka_adapters.kafka_producer_factory(
+            security_protocol="PLAINTEXT",
+            sasl_mechanism="PLAIN",
+            dsn=dsn,
+            value_serializer=value_serializer,
+        )
+    return kafka_adapters.kafka_producer_factory(
+        security_protocol="SASL_SSL",
+        sasl_mechanism="SCRAM-SHA-256",
+        ssl_context=ssl_context,
+        dsn=dsn,
+        value_serializer=value_serializer,
+    )
+
+
 async def main():
     event = UserJoinedECST(
         event_name="user_joined_ecst",
         topic="user_joined_proto",
         payload=UserJoinedECSTPayload(user_id="123", meeting_id="456"),
     )
-    kafka_producer = kafka_adapters.kafka_producer_factory(
-        dsn="localhost:9092",
-        value_serializer=protobuf.protobuf_value_serializer,
-    )
+    kafka_producer = create_kafka_producer(ssl_context=None)
     broker = kafka.KafkaMessageBroker(
         producer=kafka_producer,
     )
