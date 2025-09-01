@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import logging
+import ssl
 import typing
 
 import aiokafka
@@ -89,6 +90,7 @@ def kafka_producer_factory(
     dsn: typing.Text,
     security_protocol: SecurityProtocol = "PLAINTEXT",
     sasl_mechanism: SaslMechanism = "PLAIN",
+    ssl_context: ssl.SSLContext | None = None,
     retry_count: int = 3,
     retry_delay: int = 1,
     user: typing.Text | None = None,
@@ -105,6 +107,7 @@ def kafka_producer_factory(
         sasl_mechanism=sasl_mechanism,
         sasl_plain_username=user,
         sasl_plain_password=password,
+        ssl_context=ssl_context,
         loop=loop,
     )
     return KafkaProducer(
