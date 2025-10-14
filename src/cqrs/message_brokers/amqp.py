@@ -3,12 +3,12 @@ import logging
 import aio_pika
 import orjson
 
-from cqrs.adapters import amqp
+from cqrs.adapters import protocol as adapters_protocol
 from cqrs.message_brokers import protocol
 
 
 class AMQPMessageBroker(protocol.MessageBroker):
-    def __init__(self, publisher: amqp.AMQPPublisher, exchange_name: str, pika_log_level: str = "ERROR"):
+    def __init__(self, publisher: adapters_protocol.AMQPPublisher, exchange_name: str, pika_log_level: str = "ERROR"):
         self.publisher = publisher
         self.exchange_name = exchange_name
         logging.getLogger("aiormq").setLevel(pika_log_level)

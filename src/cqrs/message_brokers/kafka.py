@@ -1,14 +1,14 @@
 import logging
 import typing
 
-from cqrs.adapters import kafka
+from cqrs.adapters import protocol as adapters_protocol
 from cqrs.message_brokers import protocol
 
 
 class KafkaMessageBroker(protocol.MessageBroker):
     def __init__(
         self,
-        producer: kafka.KafkaProducer,
+        producer: adapters_protocol.KafkaProducer,
         aiokafka_log_level: typing.Text = "ERROR",
     ):
         self._producer = producer
