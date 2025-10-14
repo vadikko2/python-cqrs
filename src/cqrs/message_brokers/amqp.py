@@ -8,8 +8,8 @@ from cqrs.message_brokers import protocol
 
 
 class AMQPMessageBroker(protocol.MessageBroker):
-    def __init__(self, dsn: str, exchange_name: str, pika_log_level: str = "ERROR"):
-        self.publisher = amqp.AMQPPublisher(url=dsn)
+    def __init__(self, publisher: amqp.AMQPPublisher, exchange_name: str, pika_log_level: str = "ERROR"):
+        self.publisher = publisher
         self.exchange_name = exchange_name
         logging.getLogger("aiormq").setLevel(pika_log_level)
         logging.getLogger("aio_pika").setLevel(pika_log_level)
