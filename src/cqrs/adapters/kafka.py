@@ -4,11 +4,13 @@ import logging
 import ssl
 import typing
 
+from cqrs.adapters import protocol
+from cqrs.serializers import default
+
 import aiokafka
 import retry_async
 from aiokafka import errors
 
-from cqrs.serializers import default
 
 __all__ = (
     "KafkaProducer",
@@ -45,16 +47,7 @@ logger.setLevel(logging.DEBUG)
 Serializer = typing.Callable[[typing.Any], typing.ByteString | None]
 
 
-class _Singleton(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(_Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
-
-
-class KafkaProducer(metaclass=_Singleton):
+class KafkaProducer(protocol.KafkaProducer):
     def __init__(
         self,
         producer: aiokafka.AIOKafkaProducer,

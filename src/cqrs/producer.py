@@ -37,7 +37,7 @@ class EventProducer:
                     message_name=event.event.event_name,
                     message_id=event.event.event_id,
                     topic=event.topic,
-                    payload=event.event,
+                    payload=event.event.model_dump(),
                 ),
             )
         except Exception as error:
