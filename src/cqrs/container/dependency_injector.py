@@ -1,5 +1,5 @@
 from typing import TypeVar, Type, Optional, cast
-from inspect import isclass
+import inspect
 import functools
 from dependency_injector import providers
 from dependency_injector.containers import Container as DependencyInjectorContainer
@@ -248,9 +248,22 @@ class DependencyInjectorCQRSContainer(
 
             # Map class-based providers to their types
             # Only providers with a 'cls' attribute pointing to actual classes are mapped
-            if hasattr(provider, "cls") and isclass(getattr(provider, "cls")):
-                provider_class = getattr(provider, "cls")
-                self._type_to_provider_path_map[provider_class] = tuple(current_path)
+            if not hasattr(provider, "cls"):
+                continue
+
+            # Get the class from the provider
+            c = getattr(provider, "cls")
+
+            # Map class-based providers to their types
+            if inspect.isclass(c):
+                self._type_to_provider_path_map[c] = tuple(current_path)
+
+            # Map function providers to their return types
+            # Only providers with a return type that is a class are mapped
+            elif inspect.isfunction(c):
+                return_type = inspect.signature(c).return_annotation
+                if inspect.isclass(return_type):
+                    self._type_to_provider_path_map[return_type] = tuple(current_path)
 
     def _get_provider_by_path_segments(
         self,
