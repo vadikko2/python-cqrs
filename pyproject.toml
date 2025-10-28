@@ -22,7 +22,9 @@ dependencies = [
   "di[anyio]==0.79.2",
   "sqlalchemy[asyncio]==2.0.*",
   "retry-async==0.1.4",
-  "python-dotenv==1.0.1"
+  "python-dotenv==1.0.1",
+  "dependency-injector>=4.48.2",
+  "requests>=2.32.5",
 ]
 description = "Python CQRS pattern implementation"
 maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]

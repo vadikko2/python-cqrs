@@ -1,4 +1,5 @@
 import typing
+from typing import overload
 
 import di
 
@@ -6,10 +7,27 @@ import cqrs
 from cqrs import events
 from cqrs.container import di as di_container_impl
 from cqrs.middlewares import base as mediator_middlewares, logging as logging_middleware
+from cqrs.container.protocol import Container as ICQRSContainer
+
+
+@overload
+def setup_mediator(
+    container: di_container_impl.DIContainer,
+    middlewares: typing.Iterable[mediator_middlewares.Middleware],
+    events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+) -> cqrs.EventMediator: ...
+
+
+@overload
+def setup_mediator(
+    container: ICQRSContainer,
+    middlewares: typing.Iterable[mediator_middlewares.Middleware],
+    events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+) -> cqrs.EventMediator: ...
 
 
 def setup_mediator(
-    container: di_container_impl.DIContainer,
+    container: di_container_impl.DIContainer | ICQRSContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
     events_mapper: typing.Callable[[events.EventMap], None] | None = None,
 ) -> cqrs.EventMediator:
@@ -29,8 +47,26 @@ def setup_mediator(
     )
 
 
+@overload
 def bootstrap(
     di_container: di.Container,
+    middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
+    events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    on_startup: typing.List[typing.Callable[[], None]] | None = None,
+) -> cqrs.EventMediator: ...
+
+
+@overload
+def bootstrap(
+    di_container: ICQRSContainer,
+    middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
+    events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    on_startup: typing.List[typing.Callable[[], None]] | None = None,
+) -> cqrs.EventMediator: ...
+
+
+def bootstrap(
+    di_container: di.Container | ICQRSContainer,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
     events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
@@ -41,8 +77,16 @@ def bootstrap(
     for fun in on_startup:
         fun()
 
-    container = di_container_impl.DIContainer()
-    container.attach_external_container(di_container)
+    # If the provided container is a container implemented using di package,
+    # we need to wrap it into our own container
+    if isinstance(di_container, di.Container):
+        container = di_container_impl.DIContainer()
+        container.attach_external_container(di_container)
+
+    # Otherwise, we can use the provided container directly
+    else:
+        container = di_container
+
     middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
         middlewares or [],
     )
