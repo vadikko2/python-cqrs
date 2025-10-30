@@ -7,7 +7,7 @@ import cqrs
 from cqrs import events
 from cqrs.container import di as di_container_impl
 from cqrs.middlewares import base as mediator_middlewares, logging as logging_middleware
-from cqrs.container.protocol import Container as ICQRSContainer
+from cqrs.container.protocol import Container as CQRSContainer
 
 
 @overload
@@ -20,14 +20,14 @@ def setup_mediator(
 
 @overload
 def setup_mediator(
-    container: ICQRSContainer,
+    container: CQRSContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
     events_mapper: typing.Callable[[events.EventMap], None] | None = None,
 ) -> cqrs.EventMediator: ...
 
 
 def setup_mediator(
-    container: di_container_impl.DIContainer | ICQRSContainer,
+    container: di_container_impl.DIContainer | CQRSContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
     events_mapper: typing.Callable[[events.EventMap], None] | None = None,
 ) -> cqrs.EventMediator:
@@ -58,7 +58,7 @@ def bootstrap(
 
 @overload
 def bootstrap(
-    di_container: ICQRSContainer,
+    di_container: CQRSContainer,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
     events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
@@ -66,7 +66,7 @@ def bootstrap(
 
 
 def bootstrap(
-    di_container: di.Container | ICQRSContainer,
+    di_container: di.Container | CQRSContainer,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
     events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
