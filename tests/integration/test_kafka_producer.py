@@ -64,7 +64,6 @@ async def test_produce_some_event(
     mediator: cqrs.RequestMediator,
     kafka_producer,
 ) -> None:
-    """Тестируется вызов метода KafkaProducer.produce при наличии нотификационных событий"""
 
     handler: CloseMeetingRoomCommandHandler | None = await MockContainer().resolve(
         CloseMeetingRoomCommandHandler,

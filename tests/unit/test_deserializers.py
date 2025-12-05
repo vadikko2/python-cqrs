@@ -53,4 +53,4 @@ def test_deserializer_negative():
 
     result = deserializer("not json")
 
-    assert result is None
+    assert isinstance(result, json.DeserializeJsonError)

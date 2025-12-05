@@ -63,3 +63,39 @@ async def test_handle_domain_events_positive():
     await mediator.send(JoinMeetingCommand(user_id="4", meeting_id="1"))
 
     assert len(HANDLED_EVENTS) == 4
+
+
+async def test_request_mediator_processes_events_parallel():
+    HANDLED_EVENTS.clear()
+    
+    mediator = bootstrap.bootstrap(
+        di_container=di.Container(),
+        commands_mapper=command_mapper,
+        domain_events_mapper=events_mapper,
+        max_concurrent_event_handlers=2,
+        concurrent_event_handle_enable=True,
+    )
+
+    await mediator.send(JoinMeetingCommand(user_id="1", meeting_id="1"))
+    await mediator.send(JoinMeetingCommand(user_id="2", meeting_id="1"))
+    await mediator.send(JoinMeetingCommand(user_id="3", meeting_id="1"))
+
+    assert len(HANDLED_EVENTS) == 3
+
+
+async def test_request_mediator_processes_events_sequentially():
+    HANDLED_EVENTS.clear()
+    
+    mediator = bootstrap.bootstrap(
+        di_container=di.Container(),
+        commands_mapper=command_mapper,
+        domain_events_mapper=events_mapper,
+        max_concurrent_event_handlers=2,
+        concurrent_event_handle_enable=False,
+    )
+
+    await mediator.send(JoinMeetingCommand(user_id="1", meeting_id="1"))
+    await mediator.send(JoinMeetingCommand(user_id="2", meeting_id="1"))
+    await mediator.send(JoinMeetingCommand(user_id="3", meeting_id="1"))
+
+    assert len(HANDLED_EVENTS) == 3

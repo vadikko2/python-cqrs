@@ -74,12 +74,19 @@ def setup_mediator(
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
     commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
     queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    event_map: events.EventMap | None = None,
+    max_concurrent_event_handlers: int = 1,
+    concurrent_event_handle_enable: bool = True,
 ) -> cqrs.RequestMediator:
     requests_mapper = requests.RequestMap()
     if commands_mapper:
         commands_mapper(requests_mapper)
     if queries_mapper:
         queries_mapper(requests_mapper)
+
+    # Use event_map from event_emitter if not provided
+    if event_map is None:
+        event_map = event_emitter._event_map
 
     middleware_chain = mediator_middlewares.MiddlewareChain()
 
@@ -91,6 +98,9 @@ def setup_mediator(
         container=container,
         event_emitter=event_emitter,
         middleware_chain=middleware_chain,
+        event_map=event_map,
+        max_concurrent_event_handlers=max_concurrent_event_handlers,
+        concurrent_event_handle_enable=concurrent_event_handle_enable,
     )
 
 
@@ -126,6 +136,8 @@ def bootstrap(
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
+    max_concurrent_event_handlers: int = 1,
+    concurrent_event_handle_enable: bool = False,
 ) -> cqrs.RequestMediator:
     if message_broker is None:
         message_broker = DEFAULT_MESSAGE_BROKER
@@ -159,4 +171,85 @@ def bootstrap(
         middlewares=middlewares_list + [logging_middleware.LoggingMiddleware()],
         commands_mapper=commands_mapper,
         queries_mapper=queries_mapper,
+        event_map=event_emitter._event_map,
+        max_concurrent_event_handlers=max_concurrent_event_handlers,
+        concurrent_event_handle_enable=concurrent_event_handle_enable,
+    )
+
+
+def setup_streaming_mediator(
+    event_emitter: events.EventEmitter,
+    container: di_container_impl.DIContainer,
+    middlewares: typing.Iterable[mediator_middlewares.Middleware],
+    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    max_concurrent_event_handlers: int = 10,
+    concurrent_event_handle_enable: bool = True,
+) -> cqrs.StreamingRequestMediator:
+    requests_mapper = requests.RequestMap()
+    if commands_mapper:
+        commands_mapper(requests_mapper)
+    if queries_mapper:
+        queries_mapper(requests_mapper)
+
+    event_map = events.EventMap()
+    if domain_events_mapper:
+        domain_events_mapper(event_map)
+
+    middleware_chain = mediator_middlewares.MiddlewareChain()
+
+    for middleware in middlewares:
+        middleware_chain.add(middleware)
+
+    return cqrs.StreamingRequestMediator(
+        request_map=requests_mapper,
+        container=container,
+        event_emitter=event_emitter,
+        middleware_chain=middleware_chain,
+        event_map=event_map,
+        max_concurrent_event_handlers=max_concurrent_event_handlers,
+        concurrent_event_handle_enable=concurrent_event_handle_enable,
+    )
+
+
+def bootstrap_streaming(
+    di_container: di.Container,
+    message_broker: protocol.MessageBroker | None = None,
+    middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
+    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    on_startup: typing.List[typing.Callable[[], None]] | None = None,
+    max_concurrent_event_handlers: int = 10,
+    concurrent_event_handle_enable: bool = False,
+) -> cqrs.StreamingRequestMediator:
+    if message_broker is None:
+        message_broker = DEFAULT_MESSAGE_BROKER
+    if on_startup is None:
+        on_startup = []
+
+    for fun in on_startup:
+        fun()
+
+    container = di_container_impl.DIContainer()
+    container.attach_external_container(di_container)
+
+    event_emitter = setup_event_emitter(
+        container,
+        domain_events_mapper,
+        message_broker,
+    )
+    middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
+        middlewares or [],
+    )
+    return setup_streaming_mediator(
+        event_emitter,
+        container,
+        middlewares=middlewares_list + [logging_middleware.LoggingMiddleware()],
+        commands_mapper=commands_mapper,
+        queries_mapper=queries_mapper,
+        domain_events_mapper=domain_events_mapper,
+        max_concurrent_event_handlers=max_concurrent_event_handlers,
+        concurrent_event_handle_enable=concurrent_event_handle_enable,
     )

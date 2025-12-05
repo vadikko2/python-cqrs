@@ -84,3 +84,93 @@ class SyncRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
     @abc.abstractmethod
     def handle(self, request: _Req) -> _Resp:
         raise NotImplementedError
+
+
+class StreamingRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
+    """
+    The streaming request handler interface.
+
+    The streaming request handler is an object, which gets a request as input
+    and yields responses as an async generator. After each yield, events can be
+    collected via the events property and emitted.
+
+    Streaming handler example::
+
+      class ProcessItemsCommandHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemResult])
+          def __init__(self, items_api: ItemsAPIProtocol) -> None:
+              self._items_api = items_api
+              self._events: list[Event] = []
+
+          @property
+          def events(self) -> list[Event]:
+              return self._events.copy()
+
+          async def handle(self, request: ProcessItemsCommand) -> typing.AsyncIterator[ProcessItemResult]:
+              for item_id in request.item_ids:
+                  result = await self._items_api.process_item(item_id)
+                  self._events.append(ItemProcessedEvent(item_id=item_id))
+                  yield ProcessItemResult(item_id=item_id, status=result.status)
+    """
+
+    @property
+    @abc.abstractmethod
+    def events(self) -> typing.List[event.Event]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def handle(self, request: _Req) -> typing.AsyncIterator[_Resp]:
+        raise NotImplementedError
+
+    def clear_events(self) -> None:
+        """
+        Clear events that have been processed.
+
+        This method should be called after events have been processed and emitted
+        to prevent event accumulation across multiple yields.
+        """
+        raise NotImplementedError
+
+
+class SyncStreamingRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
+    """
+    The synchronous streaming request handler interface.
+
+    The synchronous streaming request handler is an object, which gets a request as input
+    and yields responses as a generator. After each yield, events can be
+    collected via the events property and emitted.
+
+    Streaming handler example::
+
+      class ProcessItemsCommandHandler(SyncStreamingRequestHandler[ProcessItemsCommand, ProcessItemResult])
+          def __init__(self, items_api: ItemsAPIProtocol) -> None:
+              self._items_api = items_api
+              self._events: list[Event] = []
+
+          @property
+          def events(self) -> list[Event]:
+              return self._events.copy()
+
+          def handle(self, request: ProcessItemsCommand) -> typing.Iterator[ProcessItemResult]:
+              for item_id in request.item_ids:
+                  result = self._items_api.process_item(item_id)
+                  self._events.append(ItemProcessedEvent(item_id=item_id))
+                  yield ProcessItemResult(item_id=item_id, status=result.status)
+    """
+
+    @property
+    @abc.abstractmethod
+    def events(self) -> typing.List[event.Event]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def handle(self, request: _Req) -> typing.Iterator[_Resp]:
+        raise NotImplementedError
+
+    def clear_events(self) -> None:
+        """
+        Clear events that have been processed.
+
+        This method should be called after events have been processed and emitted
+        to prevent event accumulation across multiple yields.
+        """
+        raise NotImplementedError

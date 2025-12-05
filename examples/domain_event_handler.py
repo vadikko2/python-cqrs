@@ -1,3 +1,63 @@
+"""
+Example: Domain Event Handling
+
+This example demonstrates the basic pattern of domain event handling in CQRS.
+The system shows how command handlers emit domain events that are automatically
+dispatched to their corresponding event handlers.
+
+Use case: Separating command execution from side effects. When a command is executed,
+it emits domain events that represent what happened. These events are then processed
+by event handlers that perform side effects like sending notifications, updating
+read models, or triggering other workflows.
+
+================================================================================
+HOW TO RUN THIS EXAMPLE
+================================================================================
+
+Run the example:
+   python examples/domain_event_handler.py
+
+The example will:
+- Execute multiple JoinMeetingCommand commands
+- Emit UserJoined domain events for each command
+- Process events through UserJoinedEventHandler
+- Display the number of users in the meeting and events handled
+
+================================================================================
+WHAT THIS EXAMPLE DEMONSTRATES
+================================================================================
+
+1. Domain Event Definition:
+   - Create domain events as frozen dataclasses (UserJoined)
+   - Events represent something that happened in the domain
+   - Events are immutable and contain all relevant data
+
+2. Event Emission from Command Handlers:
+   - Command handlers collect events in the events property
+   - Events are emitted after command execution succeeds
+   - Multiple events can be emitted from a single command
+
+3. Event Handler Registration:
+   - Register event handlers using domain_events_mapper
+   - Map event types to their handlers
+   - Mediator automatically dispatches events to registered handlers
+
+4. Automatic Event Dispatching:
+   - Mediator collects events from command handlers
+   - Events are automatically sent to their registered handlers
+   - Event handlers process events asynchronously
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+Make sure you have installed:
+   - cqrs (this package)
+   - di (dependency injection)
+
+================================================================================
+"""
+
 import asyncio
 import logging
 import typing

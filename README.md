@@ -18,7 +18,9 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
    that `Notification` and `ECST` events are sent to the broker;
 7. FastAPI supporting;
 8. FastStream supporting;
-9. [Protobuf](https://protobuf.dev/) events supporting.
+9. [Protobuf](https://protobuf.dev/) events supporting;
+10. `StreamingRequestMediator` and `StreamingRequestHandler` for handling streaming requests with real-time progress updates;
+11. Parallel event processing with configurable concurrency limits.
 
 ## Request Handlers
 
@@ -98,6 +100,40 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/request_handler.py)
 
+### Streaming Request Handler
+
+Streaming Request Handler processes requests incrementally and yields results as they become available.
+This is particularly useful for processing large batches of items, file uploads, or any operation that benefits from
+real-time progress updates.
+
+`StreamingRequestHandler` works with `StreamingRequestMediator` that streams results to clients in real-time.
+
+```python
+import typing
+from cqrs.requests.request_handler import StreamingRequestHandler
+from cqrs.events.event import Event
+
+class ProcessFilesCommandHandler(StreamingRequestHandler[ProcessFilesCommand, FileProcessedResult]):
+    def __init__(self):
+        self._events: list[Event] = []
+
+    @property
+    def events(self) -> list[Event]:
+        return self._events.copy()
+
+    async def handle(self, request: ProcessFilesCommand) -> typing.AsyncIterator[FileProcessedResult]:
+        for file_id in request.file_ids:
+            # Process file
+            result = FileProcessedResult(file_id=file_id, status="completed", ...)
+            # Emit events
+            self._events.append(FileProcessedEvent(file_id=file_id, ...))
+            yield result
+            self._events.clear()
+```
+
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/streaming_handler_parallel_events.py)
+
 ## Event Handlers
 
 Event handlers are designed to process `Notification` and `ECST` events that are consumed from the broker.
@@ -128,6 +164,36 @@ class UserJoinedEventHandler(cqrs.EventHandler[UserJoined]):
 
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/domain_event_handler.py)
+
+### Parallel Event Processing
+
+Both `RequestMediator` and `StreamingRequestMediator` support parallel processing of domain events. You can control
+the number of event handlers that run simultaneously using the `max_concurrent_event_handlers` parameter.
+
+This feature is especially useful when:
+- Multiple event handlers need to process events independently
+- You want to improve performance by processing events concurrently
+- You need to limit resource consumption by controlling concurrency
+
+**Configuration:**
+
+```python
+from cqrs.requests import bootstrap
+
+mediator = bootstrap.bootstrap_streaming(
+    di_container=container,
+    commands_mapper=commands_mapper,
+    domain_events_mapper=domain_events_mapper,
+    message_broker=broker,
+    max_concurrent_event_handlers=3,  # Process up to 3 events in parallel
+    concurrent_event_handle_enable=True,  # Enable parallel processing
+)
+```
+
+> [!TIP]
+> - Set `max_concurrent_event_handlers` to limit the number of simultaneously running event handlers
+> - Set `concurrent_event_handle_enable=False` to disable parallel processing and process events sequentially
+> - The default value for `max_concurrent_event_handlers` is `10` for `StreamingRequestMediator` and `1` for `RequestMediator`
 
 ## Producing Notification Events
 
@@ -317,6 +383,10 @@ The current version of the python-cqrs package does not support the implementati
 Use the following example to set up dependency injection in your command, query and event handlers. This will make
 dependency management simpler.
 
+The package supports two DI container libraries:
+
+### di library
+
 ```python
 import di
 ...
@@ -342,7 +412,35 @@ def setup_di() -> di.Container:
 ```
 
 A complete example can be found in
-the [documentation](https://github.com/vadikko2/python-cqrs/blob/master/examples/dependency_injection.py)
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/dependency_injection.py)
+
+### dependency-injector library
+
+The package also supports [dependency-injector](https://github.com/ets-labs/python-dependency-injector) library.
+You can use `DependencyInjectorCQRSContainer` adapter to integrate dependency-injector containers with python-cqrs.
+
+```python
+from dependency_injector import containers, providers
+from cqrs.container.dependency_injector import DependencyInjectorCQRSContainer
+
+class ApplicationContainer(containers.DeclarativeContainer):
+    # Define your providers
+    service = providers.Factory(ServiceImplementation)
+
+# Create CQRS container adapter
+cqrs_container = DependencyInjectorCQRSContainer(ApplicationContainer())
+
+# Use with bootstrap
+mediator = bootstrap.bootstrap(
+    di_container=cqrs_container,
+    commands_mapper=commands_mapper,
+    ...
+)
+```
+
+Complete examples can be found in:
+- [Simple example](https://github.com/vadikko2/cqrs/blob/master/examples/dependency_injector_integration_simple_example.py)
+- [Practical example with FastAPI](https://github.com/vadikko2/cqrs/blob/master/examples/dependency_injector_integration_practical_example.py)
 
 ## Mapping
 
@@ -484,6 +582,54 @@ async def hello_world_event_handler(
 
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/python-cqrs/blob/master/examples/kafka_event_consuming.py)
+
+### FastAPI SSE Streaming
+
+`StreamingRequestMediator` is ready and designed for use with Server-Sent Events (SSE) in FastAPI applications.
+This allows you to stream results to clients in real-time as they are processed.
+
+**Example FastAPI endpoint with SSE:**
+
+```python
+import fastapi
+import json
+from cqrs.requests import bootstrap
+
+def streaming_mediator_factory() -> cqrs.StreamingRequestMediator:
+    return bootstrap.bootstrap_streaming(
+        di_container=container,
+        commands_mapper=commands_mapper,
+        domain_events_mapper=domain_events_mapper,
+        message_broker=broker,
+        max_concurrent_event_handlers=3,
+        concurrent_event_handle_enable=True,
+    )
+
+@app.post("/process-files")
+async def process_files_stream(
+    command: ProcessFilesCommand,
+    mediator: cqrs.StreamingRequestMediator = fastapi.Depends(streaming_mediator_factory),
+) -> fastapi.responses.StreamingResponse:
+    async def generate_sse():
+        yield f"data: {json.dumps({'type': 'start', 'message': 'Processing...'})}\n\n"
+        
+        async for result in mediator.stream(command):
+            sse_data = {
+                "type": "progress",
+                "data": result.model_dump(),
+            }
+            yield f"data: {json.dumps(sse_data)}\n\n"
+        
+        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+    
+    return fastapi.responses.StreamingResponse(
+        generate_sse(),
+        media_type="text/event-stream",
+    )
+```
+
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/fastapi_sse_streaming.py)
 
 ## Protobuf messaging
 

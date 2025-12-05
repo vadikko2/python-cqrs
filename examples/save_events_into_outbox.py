@@ -1,3 +1,68 @@
+"""
+Example: Saving Events to Outbox Pattern
+
+This example demonstrates how to save events to an outbox repository within
+command handlers, implementing the Outbox pattern for reliable event publishing.
+The system shows how to ensure transactional consistency when publishing events.
+
+Use case: Guaranteeing event persistence in the same transaction as business logic.
+Events are saved to an outbox repository within the command handler transaction.
+If the command succeeds, events are persisted and can be published later by a
+separate process. This prevents event loss and ensures eventual consistency.
+
+================================================================================
+HOW TO RUN THIS EXAMPLE
+================================================================================
+
+Run the example:
+   python examples/save_events_into_outbox.py
+
+The example will:
+- Execute multiple JoinMeetingCommand commands
+- Save events to outbox repository within each command handler
+- Commit transactions after saving events
+- Query events from outbox by topic
+- Display the number of events stored in the outbox
+
+Note: This example uses MockOutboxedEventRepository for demonstration. In production,
+you would use a real database-backed outbox repository (e.g., SQLAlchemyOutboxedEventRepository).
+
+================================================================================
+WHAT THIS EXAMPLE DEMONSTRATES
+================================================================================
+
+1. Outbox Event Registration:
+   - Register event types in OutboxedEventMap
+   - Map event names to event types for deserialization
+   - Support multiple event types in the same system
+
+2. Dependency Injection:
+   - Inject OutboxedEventRepository into command handlers
+   - Configure DI container to provide repository instances
+   - Use request scope for repository instances
+
+3. Event Persistence:
+   - Save events to outbox repository within command handlers
+   - Events are persisted in the same transaction as business logic
+   - Commit transactions after successful event saving
+
+4. Event Querying:
+   - Query events from outbox by topic
+   - Retrieve events for publishing by separate process
+   - Support filtering and batch retrieval
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+Make sure you have installed:
+   - cqrs (this package)
+   - di (dependency injection)
+   - pydantic (for typed payloads)
+
+================================================================================
+"""
+
 import asyncio
 import functools
 import typing

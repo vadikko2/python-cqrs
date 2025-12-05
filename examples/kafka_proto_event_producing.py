@@ -1,3 +1,83 @@
+"""
+Example: Producing Protobuf Events to Kafka
+
+This example demonstrates how to produce Protobuf-serialized events to Kafka.
+The system shows how to use Protobuf for efficient binary serialization in
+event-driven systems.
+
+Use case: High-throughput event publishing with efficient serialization. Protobuf
+provides compact binary format, faster serialization/deserialization, and schema
+evolution support compared to JSON. This is ideal for systems publishing large
+volumes of events.
+
+================================================================================
+HOW TO RUN THIS EXAMPLE
+================================================================================
+
+Step 1: Start Kafka Infrastructure
+-----------------------------------
+   docker compose -f ./docker-compose-dev.yml up -d
+
+Wait for Kafka to be ready (usually takes 30-60 seconds).
+
+Step 2: Run the Producer
+-------------------------
+   python examples/kafka_proto_event_producing.py
+
+The producer will:
+- Create a UserJoinedECST event with Protobuf payload
+- Convert the event to Protobuf format
+- Publish the event to Kafka topic "user_joined_proto"
+- Use Protobuf serialization for efficient binary encoding
+
+Step 3: Verify Event (Optional)
+---------------------------------
+Run the consumer example to verify the event was published:
+   python examples/kafka_proto_event_consuming.py
+
+================================================================================
+WHAT THIS EXAMPLE DEMONSTRATES
+================================================================================
+
+1. Protobuf Event Definition:
+   - Create NotificationEvent with typed payloads (Pydantic models)
+   - Implement proto() method to convert events to Protobuf format
+   - Map domain events to Protobuf schema
+
+2. Protobuf Serialization:
+   - Configure Kafka producer with protobuf_value_serializer
+   - Serialize events to compact binary format
+   - Reduce message size compared to JSON
+
+3. Kafka Producer Configuration:
+   - Set up Kafka producer with connection settings
+   - Configure security protocols (PLAINTEXT or SASL_SSL)
+   - Support for SSL/TLS and SASL authentication
+
+4. Event Publishing:
+   - Create OutboxedEvent wrapper for publishing
+   - Send events to Kafka topics using message broker
+   - Events are serialized and published asynchronously
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+Make sure you have installed:
+   - cqrs (this package)
+   - pydantic (for typed payloads)
+   - protobuf (Protobuf support)
+
+Make sure Kafka is running:
+   - Use docker-compose-dev.yml to start Kafka locally
+   - Or configure connection to existing Kafka cluster
+
+For more information about Protobuf serialization:
+   https://github.com/confluentinc/confluent-kafka-python/blob/master/examples/protobuf_producer.py
+
+================================================================================
+"""
+
 import asyncio
 import ssl
 

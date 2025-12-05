@@ -1,3 +1,56 @@
+"""
+Example: Dependency Injection with CQRS Request Handlers
+
+This example demonstrates how to use dependency injection (DI) with CQRS request handlers.
+The system shows how to integrate DI containers with CQRS mediators, allowing handlers
+to receive dependencies through constructor injection.
+
+Use case: Decoupling business logic from infrastructure dependencies. Handlers can
+declare their dependencies in constructors, and the DI container automatically resolves
+and injects them when handlers are instantiated.
+
+================================================================================
+HOW TO RUN THIS EXAMPLE
+================================================================================
+
+Run the example:
+   python examples/dependency_injection.py
+
+The example will:
+- Set up a DI container with dependency bindings
+- Create a command handler that requires a dependency
+- Execute the command and verify the dependency was injected correctly
+
+================================================================================
+WHAT THIS EXAMPLE DEMONSTRATES
+================================================================================
+
+1. Dependency Injection Setup:
+   - Define abstract dependencies (AbstractDependency) and concrete implementations
+   - Configure DI container with type bindings
+   - Use scope="request" to create new instances per request
+
+2. Constructor Injection:
+   - Command handlers receive dependencies through constructor parameters
+   - Dependencies are automatically resolved by the DI container
+   - No need for manual instantiation or service locator pattern
+
+3. DI Container Integration:
+   - Pass DI container to bootstrap.bootstrap()
+   - Mediator uses the container to resolve handler dependencies
+   - Handlers are created with all required dependencies injected
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+Make sure you have installed:
+   - cqrs (this package)
+   - di (dependency injection library)
+
+================================================================================
+"""
+
 import abc
 import asyncio
 import logging
