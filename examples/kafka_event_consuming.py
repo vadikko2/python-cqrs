@@ -90,15 +90,16 @@ Make sure Kafka is running:
 import asyncio
 import logging
 
-import cqrs
 import di
 import faststream
 import orjson
 import pydantic
+from faststream import kafka
+
+import cqrs
 from cqrs import deserializers
 from cqrs.decoders import kafka as kafka_decoders
 from cqrs.events import bootstrap
-from faststream import kafka
 
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("aiokafka").setLevel(logging.ERROR)
@@ -142,12 +143,12 @@ def mediator_factory() -> cqrs.EventMediator:
     decoder=kafka_decoders.empty_message_decoder,
 )
 async def hello_world_event_handler(
-    body: cqrs.NotificationEvent[HelloWorldPayload]
-    | deserializers.DeserializeJsonError,
-    msg: kafka.KafkaMessage,
-    mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
+        body: cqrs.NotificationEvent[HelloWorldPayload]
+              | deserializers.DeserializeJsonError | None,
+        msg: kafka.KafkaMessage,
+        mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ):
-    if not isinstance(body, deserializers.DeserializeJsonError):
+    if not isinstance(body, deserializers.DeserializeJsonError) and not body is None:
         await mediator.send(body)
     await msg.ack()
 

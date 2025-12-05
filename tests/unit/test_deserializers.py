@@ -88,7 +88,9 @@ def test_json_deserializer_missing_required_fields_negative():
 
     # JSON with payload that has wrong type for required field 'bar' (string instead of int)
     # This should cause a validation error when Pydantic tries to validate the payload
-    incomplete_json = '{"event_name": "test", "payload": {"foo": "bar", "bar": "not_an_int"}}'
+    incomplete_json = (
+        '{"event_name": "test", "payload": {"foo": "bar", "bar": "not_an_int"}}'
+    )
     result = deserializer(incomplete_json)
 
     assert isinstance(result, json.DeserializeJsonError)
@@ -181,7 +183,9 @@ def test_protobuf_deserializer_success():
             assert isinstance(result, cqrs.NotificationEvent)
             assert result.event_name == "test_event"
             # Verify that ProtobufDeserializer was called correctly
-            mock_protobuf_deserializer_instance.assert_called_once_with(b"test_bytes", None)
+            mock_protobuf_deserializer_instance.assert_called_once_with(
+                b"test_bytes", None
+            )
 
 
 def test_protobuf_deserializer_protobuf_deserialization_error():
@@ -195,7 +199,9 @@ def test_protobuf_deserializer_protobuf_deserialization_error():
     )
 
     # Mock ProtobufDeserializer to raise an exception
-    mock_protobuf_deserializer_instance = Mock(side_effect=ValueError("Invalid protobuf data"))
+    mock_protobuf_deserializer_instance = Mock(
+        side_effect=ValueError("Invalid protobuf data")
+    )
 
     with patch(
         "cqrs.deserializers.protobuf.protobuf.ProtobufDeserializer",
@@ -206,7 +212,7 @@ def test_protobuf_deserializer_protobuf_deserialization_error():
 
         assert isinstance(result, protobuf.DeserializeProtobufError)
         assert result.error_message == "Invalid protobuf data"
-        assert result.error_type == ValueError
+        assert result.error_type is ValueError
         assert result.message_data == test_bytes
 
 
@@ -232,7 +238,7 @@ def test_protobuf_deserializer_empty_message():
 
         assert isinstance(result, protobuf.DeserializeProtobufError)
         assert "empty" in result.error_message.lower()
-        assert result.error_type == ValueError
+        assert result.error_type is ValueError
         assert result.message_data == test_bytes
 
 
@@ -288,7 +294,9 @@ def test_protobuf_deserializer_generic_exception():
     )
 
     # Mock ProtobufDeserializer to raise a RuntimeError
-    mock_protobuf_deserializer_instance = Mock(side_effect=RuntimeError("Unexpected error"))
+    mock_protobuf_deserializer_instance = Mock(
+        side_effect=RuntimeError("Unexpected error")
+    )
 
     with patch(
         "cqrs.deserializers.protobuf.protobuf.ProtobufDeserializer",
@@ -299,7 +307,7 @@ def test_protobuf_deserializer_generic_exception():
 
         assert isinstance(result, protobuf.DeserializeProtobufError)
         assert result.error_message == "Unexpected error"
-        assert result.error_type == RuntimeError
+        assert result.error_type is RuntimeError
         assert result.message_data == test_bytes
 
 

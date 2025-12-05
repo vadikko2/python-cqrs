@@ -11,14 +11,14 @@ logger = logging.getLogger("cqrs")
 class DeserializeJsonError(pydantic.BaseModel):
     error_message: str
     error_type: typing.Type[Exception]
-    message_data: typing.AnyStr | None
+    message_data: str | bytes | None
 
 
 class JsonDeserializer(typing.Generic[_T]):
     def __init__(self, model: typing.Type[_T]):
         self._model: typing.Type[_T] = model
 
-    def __call__(self, data: typing.AnyStr | None) -> _T | DeserializeJsonError:
+    def __call__(self, data: str | bytes | None) -> _T | None | DeserializeJsonError:
         if data is None:
             return
 
