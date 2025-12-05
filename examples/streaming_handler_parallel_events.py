@@ -95,11 +95,13 @@ EMAIL_SENT_LOG: list[dict] = []
 
 class ProcessOrdersCommand(cqrs.Request):
     """Command to process a batch of orders."""
+
     order_ids: list[str] = pydantic.Field(description="List of order IDs to process")
 
 
 class OrderProcessedResult(cqrs.Response):
     """Response for each processed order."""
+
     order_id: str = pydantic.Field()
     status: str = pydantic.Field()
     processed_at: datetime = pydantic.Field()
@@ -113,6 +115,7 @@ class OrderProcessedResult(cqrs.Response):
 
 class OrderProcessedEvent(cqrs.DomainEvent, frozen=True):
     """Event emitted when an order is processed."""
+
     order_id: str
     customer_id: str
     total_amount: float
@@ -122,6 +125,7 @@ class OrderProcessedEvent(cqrs.DomainEvent, frozen=True):
 
 class OrderAnalyticsEvent(cqrs.DomainEvent, frozen=True):
     """Event for analytics tracking."""
+
     order_id: str
     customer_id: str
     total_amount: float
@@ -130,12 +134,16 @@ class OrderAnalyticsEvent(cqrs.DomainEvent, frozen=True):
 
 class InventoryUpdateEvent(cqrs.DomainEvent, frozen=True):
     """Event for inventory updates."""
+
     order_id: str
-    items: list[dict[str, typing.Union[str, int]]]  # [{"product_id": "prod1", "quantity": 2}]
+    items: list[
+        dict[str, typing.Union[str, int]]
+    ]  # [{"product_id": "prod1", "quantity": 2}]
 
 
 class AuditLogEvent(cqrs.DomainEvent, frozen=True):
     """Event for audit logging."""
+
     order_id: str
     action: str
     timestamp: datetime
@@ -148,11 +156,11 @@ class AuditLogEvent(cqrs.DomainEvent, frozen=True):
 
 
 class ProcessOrdersCommandHandler(
-    cqrs.StreamingRequestHandler[ProcessOrdersCommand, OrderProcessedResult]
+    cqrs.StreamingRequestHandler[ProcessOrdersCommand, OrderProcessedResult],
 ):
     """
     Streaming handler that processes orders one by one.
-    
+
     After processing each order, it emits multiple domain events that will be
     processed in parallel by different event handlers.
     """
@@ -170,11 +178,12 @@ class ProcessOrdersCommandHandler(
         self._events.clear()
 
     async def handle(  # type: ignore[override]
-        self, request: ProcessOrdersCommand
+        self,
+        request: ProcessOrdersCommand,
     ) -> typing.AsyncIterator[OrderProcessedResult]:  # type: ignore[override]
         """
         Process orders one by one, yielding results after each order.
-        
+
         For each order, multiple events are generated that will be processed
         in parallel by different event handlers.
         """
@@ -190,8 +199,7 @@ class ProcessOrdersCommandHandler(
                 "customer_id": f"customer_{order_id[-1]}",
                 "total_amount": 100.0 + float(order_id[-1]) * 10,
                 "items": [
-                    {"product_id": f"prod_{i}", "quantity": i + 1}
-                    for i in range(3)
+                    {"product_id": f"prod_{i}", "quantity": i + 1} for i in range(3)
                 ],
                 "category": "electronics" if int(order_id[-1]) % 2 == 0 else "clothing",
             }
@@ -214,7 +222,7 @@ class ProcessOrdersCommandHandler(
                     total_amount=order_data["total_amount"],
                     items_count=len(order_data["items"]),
                     processed_at=datetime.now(),
-                )
+                ),
             )
 
             self._events.append(
@@ -223,7 +231,7 @@ class ProcessOrdersCommandHandler(
                     customer_id=order_data["customer_id"],
                     total_amount=order_data["total_amount"],
                     category=order_data["category"],
-                )
+                ),
             )
 
             self._events.append(
@@ -233,7 +241,7 @@ class ProcessOrdersCommandHandler(
                         {"product_id": item["product_id"], "quantity": item["quantity"]}
                         for item in order_data["items"]
                     ],
-                )
+                ),
             )
 
             self._events.append(
@@ -242,10 +250,12 @@ class ProcessOrdersCommandHandler(
                     action="order_processed",
                     timestamp=datetime.now(),
                     metadata={"total_amount": order_data["total_amount"]},
-                )
+                ),
             )
 
-            logger.info(f"Processed order {order_id}, emitted {len(self._events)} events")
+            logger.info(
+                f"Processed order {order_id}, emitted {len(self._events)} events",
+            )
             yield result
 
             # Clear events after they've been processed
@@ -260,7 +270,7 @@ class ProcessOrdersCommandHandler(
 class OrderProcessedEventHandler(cqrs.EventHandler[OrderProcessedEvent]):
     """
     Handler for OrderProcessedEvent - sends email notifications.
-    
+
     This handler simulates sending email notifications to customers.
     """
 
@@ -279,14 +289,14 @@ class OrderProcessedEventHandler(cqrs.EventHandler[OrderProcessedEvent]):
         EMAIL_SENT_LOG.append(email_data)
         logger.info(
             f"📧 Email sent for order {event.order_id} "
-            f"to customer {event.customer_id}"
+            f"to customer {event.customer_id}",
         )
 
 
 class OrderAnalyticsEventHandler(cqrs.EventHandler[OrderAnalyticsEvent]):
     """
     Handler for OrderAnalyticsEvent - updates analytics.
-    
+
     This handler updates analytics counters for different categories.
     """
 
@@ -301,14 +311,14 @@ class OrderAnalyticsEventHandler(cqrs.EventHandler[OrderAnalyticsEvent]):
 
         logger.info(
             f"📊 Analytics updated for order {event.order_id} "
-            f"in category {event.category}"
+            f"in category {event.category}",
         )
 
 
 class InventoryUpdateEventHandler(cqrs.EventHandler[InventoryUpdateEvent]):
     """
     Handler for InventoryUpdateEvent - updates inventory.
-    
+
     This handler updates product inventory levels.
     """
 
@@ -324,14 +334,14 @@ class InventoryUpdateEventHandler(cqrs.EventHandler[InventoryUpdateEvent]):
 
         logger.info(
             f"📦 Inventory updated for order {event.order_id}, "
-            f"items: {len(event.items)}"
+            f"items: {len(event.items)}",
         )
 
 
 class AuditLogEventHandler(cqrs.EventHandler[AuditLogEvent]):
     """
     Handler for AuditLogEvent - logs audit information.
-    
+
     This handler writes audit logs for compliance and tracking.
     """
 
@@ -377,7 +387,7 @@ def domain_events_mapper(mapper: cqrs.EventMap) -> None:
 async def main():
     """
     Demonstrate streaming handler with parallel event processing.
-    
+
     This example shows:
     1. Processing orders one by one (streaming)
     2. For each order, emitting multiple events
@@ -415,7 +425,7 @@ async def main():
             results.append(result)
             logger.info(
                 f"✅ Received result: Order {result.order_id} "
-                f"({result.items_count} items) - Status: {result.status}"
+                f"({result.items_count} items) - Status: {result.status}",
             )
 
     end_time = datetime.now()
@@ -430,11 +440,11 @@ async def main():
     logger.info(f"Emails sent: {len(EMAIL_SENT_LOG)}")
     logger.info(f"Analytics entries: {len(ANALYTICS_STORAGE)}")
     logger.info(f"Audit log entries: {len(AUDIT_LOG)}")
-    logger.info(f"\nAnalytics breakdown:")
+    logger.info("\nAnalytics breakdown:")
     for key, value in sorted(ANALYTICS_STORAGE.items()):
         logger.info(f"  {key}: {value}")
 
-    logger.info(f"\nInventory levels:")
+    logger.info("\nInventory levels:")
     for product_id, quantity in sorted(INVENTORY_STORAGE.items()):
         logger.info(f"  {product_id}: {quantity} units")
 
@@ -448,7 +458,9 @@ async def main():
     assert len(results) == len(order_ids)
     assert len(EMAIL_SENT_LOG) == len(order_ids) * 2  # Each event handler called twice
     assert len(AUDIT_LOG) == len(order_ids) * 2  # Each event handler called twice
-    assert ANALYTICS_STORAGE["total_orders"] == len(order_ids) * 2  # Each event handler called twice
+    assert (
+        ANALYTICS_STORAGE["total_orders"] == len(order_ids) * 2
+    )  # Each event handler called twice
 
 
 if __name__ == "__main__":

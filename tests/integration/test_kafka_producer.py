@@ -64,7 +64,6 @@ async def test_produce_some_event(
     mediator: cqrs.RequestMediator,
     kafka_producer,
 ) -> None:
-
     handler: CloseMeetingRoomCommandHandler | None = await MockContainer().resolve(
         CloseMeetingRoomCommandHandler,
     )  # noqa

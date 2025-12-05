@@ -43,7 +43,8 @@ class StreamingHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemR
         self._events.clear()
 
     async def handle(  # type: ignore
-        self, request: ProcessItemsCommand
+        self,
+        request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
@@ -160,7 +161,7 @@ class ItemProcessedEventHandler(EventHandler[ItemProcessedDomainEvent]):
 
 
 class EventHandlerStreamingHandler(
-    StreamingRequestHandler[ProcessItemsCommand, ProcessItemResult]
+    StreamingRequestHandler[ProcessItemsCommand, ProcessItemResult],
 ):
     def __init__(self) -> None:
         self.called = False
@@ -174,7 +175,8 @@ class EventHandlerStreamingHandler(
         self._events.clear()
 
     async def handle(  # type: ignore
-        self, request: ProcessItemsCommand
+        self,
+        request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
@@ -265,4 +267,3 @@ async def test_streaming_mediator_processes_events_sequentially() -> None:
     assert len(results) == 3
     assert len(event_handler.processed_events) == 3
     assert event_emitter.emit.call_count == 3
-

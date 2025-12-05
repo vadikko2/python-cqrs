@@ -109,8 +109,8 @@ class UserJoinedECSTEventHandler(
     cqrs.EventHandler[kafka_proto_event_producing.UserJoinedECST],
 ):
     async def handle(
-            self,
-            event: kafka_proto_event_producing.UserJoinedECST,
+        self,
+        event: kafka_proto_event_producing.UserJoinedECST,
     ) -> None:
         print(
             f"Handle user {event.payload.user_id} joined meeting {event.payload.meeting_id} event",
@@ -143,9 +143,10 @@ def mediator_factory() -> cqrs.EventMediator:
     ),
 )
 async def consumer(
-        body: kafka_proto_event_producing.UserJoinedECST | protobuf.DeserializeProtobufError,
-        msg: kafka.KafkaMessage,
-        mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
+    body: kafka_proto_event_producing.UserJoinedECST
+    | protobuf.DeserializeProtobufError,
+    msg: kafka.KafkaMessage,
+    mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ) -> None:
     if not isinstance(body, protobuf.DeserializeProtobufError):
         await mediator.send(body)

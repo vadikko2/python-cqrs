@@ -21,16 +21,16 @@ class ProtobufValueDeserializer:
     """
 
     def __init__(
-            self,
-            model: typing.Type[cqrs.NotificationEvent],
-            protobuf_model: typing.Type[Message],
+        self,
+        model: typing.Type[cqrs.NotificationEvent],
+        protobuf_model: typing.Type[Message],
     ):
         self._model = model
         self._protobuf_model = protobuf_model
 
     def __call__(
-            self,
-            msg: typing.ByteString,
+        self,
+        msg: typing.ByteString,
     ) -> cqrs.NotificationEvent | DeserializeProtobufError:
         protobuf_deserializer = protobuf.ProtobufDeserializer(
             self._protobuf_model,
@@ -45,7 +45,7 @@ class ProtobufValueDeserializer:
             return DeserializeProtobufError(
                 error_message=str(error),
                 error_type=type(error),
-                message_data=msg,
+                message_data=bytes(msg),
             )
 
         if proto_event is None:
@@ -54,7 +54,7 @@ class ProtobufValueDeserializer:
             return DeserializeProtobufError(
                 error_message=str(empty_error),
                 error_type=type(empty_error),
-                message_data=msg,
+                message_data=bytes(msg),
             )
 
         try:
@@ -66,5 +66,5 @@ class ProtobufValueDeserializer:
             return DeserializeProtobufError(
                 error_message=str(error),
                 error_type=type(error),
-                message_data=msg,
+                message_data=bytes(msg),
             )

@@ -142,9 +142,10 @@ def mediator_factory() -> cqrs.EventMediator:
     decoder=kafka_decoders.empty_message_decoder,
 )
 async def hello_world_event_handler(
-        body: cqrs.NotificationEvent[HelloWorldPayload] | deserializers.DeserializeJsonError,
-        msg: kafka.KafkaMessage,
-        mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
+    body: cqrs.NotificationEvent[HelloWorldPayload]
+    | deserializers.DeserializeJsonError,
+    msg: kafka.KafkaMessage,
+    mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ):
     if not isinstance(body, deserializers.DeserializeJsonError):
         await mediator.send(body)

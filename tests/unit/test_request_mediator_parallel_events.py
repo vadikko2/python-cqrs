@@ -1,9 +1,7 @@
-import typing
 from unittest import mock
 
 import pydantic
 
-from cqrs import events
 from cqrs.events import (
     DomainEvent,
     Event,
@@ -17,7 +15,6 @@ from cqrs.requests import (
     RequestHandler,
     RequestMap,
 )
-from cqrs.response import Response
 
 
 class ProcessItemsCommand(Request):

@@ -94,21 +94,20 @@ class RequestMediator:
             await self._event_dispatcher.dispatch(event)
 
     async def _process_events_parallel(
-        self, events: typing.List[ev.Event]
+        self,
+        events: typing.List[ev.Event],
     ) -> None:
         """Process events in parallel with semaphore limit or sequentially."""
         if not events:
             return
-        
+
         if not self._concurrent_event_handle_enable:
             # Process events sequentially
             for event in events:
                 await self._event_dispatcher.dispatch(event)
         else:
             # Process events in parallel with semaphore limit
-            tasks = [
-                self._process_event_with_semaphore(event) for event in events
-            ]
+            tasks = [self._process_event_with_semaphore(event) for event in events]
             await asyncio.gather(*tasks)
 
     async def _send_events(self, events: typing.List[ev.Event]) -> None:
@@ -219,7 +218,8 @@ class StreamingRequestMediator:
         )
 
     async def stream(
-        self, request: requests.Request
+        self,
+        request: requests.Request,
     ) -> typing.AsyncIterator[response.Response | None]:
         """
         Stream results from a generator-based handler.
@@ -245,21 +245,20 @@ class StreamingRequestMediator:
             await self._event_dispatcher.dispatch(event)
 
     async def _process_events_parallel(
-        self, events: typing.List[ev.Event]
+        self,
+        events: typing.List[ev.Event],
     ) -> None:
         """Process events in parallel with semaphore limit or sequentially."""
         if not events:
             return
-        
+
         if not self._concurrent_event_handle_enable:
             # Process events sequentially
             for event in events:
                 await self._event_dispatcher.dispatch(event)
         else:
             # Process events in parallel with semaphore limit
-            tasks = [
-                self._process_event_with_semaphore(event) for event in events
-            ]
+            tasks = [self._process_event_with_semaphore(event) for event in events]
             await asyncio.gather(*tasks)
 
     async def _send_events(self, events: typing.List[ev.Event]) -> None:

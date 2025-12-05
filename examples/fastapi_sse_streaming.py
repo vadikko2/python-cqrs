@@ -56,13 +56,13 @@ The -N flag disables buffering so you'll see events as they arrive.
 Option 4: Use Python requests library
 ---------------------------------------
    import requests
-   
+
    response = requests.post(
        "http://localhost:8000/process-files",
        json={"file_ids": ["file1", "file2"], "operation": "analyze"},
        stream=True
    )
-   
+
    for line in response.iter_lines():
        if line:
            print(line.decode('utf-8'))
@@ -140,6 +140,7 @@ app = fastapi.FastAPI(
 
 class ProcessFilesCommand(cqrs.Request):
     """Command to process a batch of files."""
+
     file_ids: list[str] = pydantic.Field(description="List of file IDs to process")
     operation: str = pydantic.Field(
         default="analyze",
@@ -149,6 +150,7 @@ class ProcessFilesCommand(cqrs.Request):
 
 class FileProcessedResult(cqrs.Response):
     """Response for each processed file."""
+
     file_id: str = pydantic.Field()
     status: str = pydantic.Field()
     processed_at: datetime = pydantic.Field()
@@ -164,6 +166,7 @@ class FileProcessedResult(cqrs.Response):
 
 class FileProcessedEvent(cqrs.DomainEvent, frozen=True):
     """Event emitted when a file is processed."""
+
     file_id: str
     operation: str
     file_size_mb: float
@@ -173,6 +176,7 @@ class FileProcessedEvent(cqrs.DomainEvent, frozen=True):
 
 class FileAnalyticsEvent(cqrs.DomainEvent, frozen=True):
     """Event for analytics tracking."""
+
     file_id: str
     operation: str
     file_size_mb: float
@@ -181,6 +185,7 @@ class FileAnalyticsEvent(cqrs.DomainEvent, frozen=True):
 
 class FileNotificationEvent(cqrs.DomainEvent, frozen=True):
     """Event for sending notifications."""
+
     file_id: str
     operation: str
     status: str
@@ -193,11 +198,11 @@ class FileNotificationEvent(cqrs.DomainEvent, frozen=True):
 
 
 class ProcessFilesCommandHandler(
-    cqrs.StreamingRequestHandler[ProcessFilesCommand, FileProcessedResult]
+    cqrs.StreamingRequestHandler[ProcessFilesCommand, FileProcessedResult],
 ):
     """
     Streaming handler that processes files one by one.
-    
+
     Simulates processing files (e.g., analyzing, compressing, validating)
     and yields results as each file is processed.
     """
@@ -214,18 +219,19 @@ class ProcessFilesCommandHandler(
         """Clear events after they have been processed and emitted."""
         self._events.clear()
 
-    async def handle(
-        self, request: ProcessFilesCommand
+    async def handle(  # type: ignore[override]
+        self,
+        request: ProcessFilesCommand,
     ) -> typing.AsyncIterator[FileProcessedResult]:
         """
         Process files one by one, yielding results after each file.
-        
+
         For each file, multiple events are generated that will be processed
         in parallel by different event handlers.
         """
         logger.info(
             f"Starting to process {len(request.file_ids)} files "
-            f"with operation: {request.operation}"
+            f"with operation: {request.operation}",
         )
 
         for idx, file_id in enumerate(request.file_ids):
@@ -263,7 +269,7 @@ class ProcessFilesCommandHandler(
                     file_size_mb=file_size_mb,
                     processed_at=datetime.now(),
                     success=True,
-                )
+                ),
             )
 
             self._events.append(
@@ -272,7 +278,7 @@ class ProcessFilesCommandHandler(
                     operation=request.operation,
                     file_size_mb=file_size_mb,
                     processing_time_ms=processing_time_ms,
-                )
+                ),
             )
 
             self._events.append(
@@ -281,11 +287,11 @@ class ProcessFilesCommandHandler(
                     operation=request.operation,
                     status="completed",
                     message=f"File {file_id} processed successfully",
-                )
+                ),
             )
 
             logger.info(
-                f"Processed file {file_id}, emitted {len(self._events)} events"
+                f"Processed file {file_id}, emitted {len(self._events)} events",
             )
             yield result
 
@@ -306,7 +312,7 @@ class FileProcessedEventHandler(cqrs.EventHandler[FileProcessedEvent]):
         await asyncio.sleep(0.05)  # Simulate processing
         logger.info(
             f"📄 File {event.file_id} processed: "
-            f"{event.operation} ({event.file_size_mb} MB)"
+            f"{event.operation} ({event.file_size_mb} MB)",
         )
 
 
@@ -318,7 +324,7 @@ class FileAnalyticsEventHandler(cqrs.EventHandler[FileAnalyticsEvent]):
         await asyncio.sleep(0.03)  # Simulate database update
         logger.info(
             f"📊 Analytics updated for file {event.file_id}: "
-            f"{event.processing_time_ms}ms processing time"
+            f"{event.processing_time_ms}ms processing time",
         )
 
 
@@ -369,16 +375,16 @@ def streaming_mediator_factory() -> cqrs.StreamingRequestMediator:
 async def process_files_stream(
     command: ProcessFilesCommand,
     mediator: cqrs.StreamingRequestMediator = fastapi.Depends(
-        streaming_mediator_factory
+        streaming_mediator_factory,
     ),
 ) -> fastapi.responses.StreamingResponse:
     """
     Process files using streaming handler and return results via SSE.
-    
+
     This endpoint processes files one by one and streams results to the client
     using Server-Sent Events (SSE). Each file processing triggers multiple
     events that are handled in parallel.
-    
+
     Example request:
         POST /process-files
         {
@@ -386,18 +392,23 @@ async def process_files_stream(
             "operation": "analyze"
         }
     """
+
     async def generate_sse():
         """Generate SSE events from streaming mediator."""
         try:
             # Send initial event
             yield f"data: {json.dumps({'type': 'start', 'message': f'Processing {len(command.file_ids)} files...'})}\n\n"
-            
+
             processed_count = 0
-            
+
             # Stream results from mediator
             async for result in mediator.stream(command):
+                if result is None:
+                    continue
+                # Type assertion: we know this is FileProcessedResult from our handler
+                result = typing.cast(FileProcessedResult, result)
                 processed_count += 1
-                
+
                 # Format result as SSE event
                 sse_data = {
                     "type": "progress",
@@ -411,16 +422,18 @@ async def process_files_stream(
                         "progress": {
                             "current": processed_count,
                             "total": len(command.file_ids),
-                            "percentage": int((processed_count / len(command.file_ids)) * 100),
+                            "percentage": int(
+                                (processed_count / len(command.file_ids)) * 100,
+                            ),
                         },
                     },
                 }
-                
+
                 yield f"data: {json.dumps(sse_data)}\n\n"
-                
+
                 # Small delay to make streaming visible
                 await asyncio.sleep(0.1)
-            
+
             # Send completion event
             completion_data = {
                 "type": "complete",
@@ -428,7 +441,7 @@ async def process_files_stream(
                 "total_processed": processed_count,
             }
             yield f"data: {json.dumps(completion_data)}\n\n"
-            
+
         except Exception as e:
             error_data = {
                 "type": "error",
@@ -477,7 +490,7 @@ async def root():
 class SSEClient:
     """
     Client for consuming Server-Sent Events from the API.
-    
+
     This client connects to the SSE endpoint and processes events in real-time,
     logging them as they arrive. Can be run in the background.
     """
@@ -493,7 +506,7 @@ class SSEClient:
     ) -> None:
         """
         Connect to the /process-files endpoint and process SSE events.
-        
+
         Args:
             file_ids: List of file IDs to process
             operation: Operation to perform (analyze, compress, or validate)
@@ -512,7 +525,7 @@ class SSEClient:
                 if response.status != 200:
                     error_text = await response.text()
                     self.logger.error(
-                        f"Failed to connect: {response.status} - {error_text}"
+                        f"Failed to connect: {response.status} - {error_text}",
                     )
                     return
 
@@ -566,13 +579,13 @@ class SSEClient:
                 f"({progress.get('current', 0)}/{progress.get('total', 0)}) - "
                 f"{progress.get('percentage', 0)}% - "
                 f"Status: {progress_data.get('status')} - "
-                f"Size: {progress_data.get('file_size_mb', 0):.2f} MB"
+                f"Size: {progress_data.get('file_size_mb', 0):.2f} MB",
             )
 
         elif event_type == "complete":
             self.logger.info(
                 f"✅ {data.get('message', 'Processing completed')} - "
-                f"Total processed: {data.get('total_processed', 0)}"
+                f"Total processed: {data.get('total_processed', 0)}",
             )
 
         elif event_type == "error":
@@ -585,7 +598,7 @@ class SSEClient:
 async def run_client_example():
     """
     Example of using the SSE client to consume events from the API.
-    
+
     This function demonstrates how to use the SSEClient to connect to the
     streaming endpoint and process events in real-time.
     """
@@ -593,7 +606,7 @@ async def run_client_example():
 
     # Example: Process some files
     file_ids = ["file_001", "file_002", "file_003", "file_004"]
-    
+
     logger.info("=" * 80)
     logger.info("SSE Client Example")
     logger.info("=" * 80)
@@ -638,7 +651,7 @@ if __name__ == "__main__":
         logger.info("To run the client example:")
         logger.info("  python examples/fastapi_sse_streaming.py client")
         logger.info("")
-        
+
         uvicorn.run(
             app,
             host="0.0.0.0",

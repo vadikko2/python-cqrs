@@ -4,8 +4,8 @@ requires = ["setuptools>=42", "wheel"]
 
 [project]
 authors = [
-  { name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru" },
-  { name = "Dmitry Kutlubaev", email = "kutlubaev00@mail.ru" },
+  {name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"},
+  {name = "Dmitry Kutlubaev", email = "kutlubaev00@mail.ru"}
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -13,7 +13,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent",
+  "Operating System :: OS Independent"
 ]
 dependencies = [
   "pydantic==2.*",
@@ -23,7 +23,7 @@ dependencies = [
   "sqlalchemy[asyncio]==2.0.*",
   "retry-async==0.1.4",
   "python-dotenv==1.0.1",
-  "dependency-injector>=4.48.2",
+  "dependency-injector>=4.48.2"
 ]
 description = "Python CQRS pattern implementation"
 maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
@@ -46,18 +46,18 @@ dev = [
   "pytest-env==0.6.2",
   "cryptography==42.0.2",
   "asyncmy==0.2.9",
-  "requests>=2.32.5",
+  "requests>=2.32.5"
 ]
 examples = [
   "fastapi==0.109.*",
   "uvicorn==0.32.0",
   "faststream[kafka]==0.5.28",
-  "faker>=37.12.0",
+  "faker>=37.12.0"
 ]
 kafka = [
   "aiokafka==0.10.0",
   # for SchemaRegistry
-  "confluent-kafka==2.6.0",
+  "confluent-kafka==2.6.0"
 ]
 protobuf = ["protobuf==4.25.5"]
 

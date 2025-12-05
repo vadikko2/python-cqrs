@@ -1,11 +1,10 @@
 import typing
-from uuid import UUID, uuid4
 
 import pydantic
 import pytest
 
 from cqrs.dispatcher import StreamingRequestDispatcher
-from cqrs.events import DomainEvent, Event, EventHandler, EventMap, NotificationEvent
+from cqrs.events import Event, NotificationEvent
 from cqrs.requests import (
     Request,
     RequestMap,
@@ -24,7 +23,9 @@ class ProcessItemResult(Response):
     status: str = pydantic.Field()
 
 
-class AsyncStreamingHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemResult]):
+class AsyncStreamingHandler(
+    StreamingRequestHandler[ProcessItemsCommand, ProcessItemResult],
+):
     def __init__(self) -> None:
         self.called = False
         self._events: list[Event] = []
@@ -36,8 +37,9 @@ class AsyncStreamingHandler(StreamingRequestHandler[ProcessItemsCommand, Process
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(
-        self, request: ProcessItemsCommand
+    async def handle(  # type: ignore[override]
+        self,
+        request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
@@ -51,7 +53,7 @@ class AsyncStreamingHandler(StreamingRequestHandler[ProcessItemsCommand, Process
 
 
 class SyncStreamingHandler(
-    SyncStreamingRequestHandler[ProcessItemsCommand, ProcessItemResult]
+    SyncStreamingRequestHandler[ProcessItemsCommand, ProcessItemResult],
 ):
     def __init__(self) -> None:
         self.called = False
@@ -64,7 +66,10 @@ class SyncStreamingHandler(
     def clear_events(self) -> None:
         self._events.clear()
 
-    def handle(self, request: ProcessItemsCommand) -> typing.Iterator[ProcessItemResult]:
+    def handle(
+        self,
+        request: ProcessItemsCommand,
+    ) -> typing.Iterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
             result = ProcessItemResult(item_id=item_id, status="processed")
@@ -175,6 +180,3 @@ async def test_streaming_dispatcher_handler_not_found() -> None:
             pass
 
     assert "StreamingRequestHandler not found" in str(exc_info.value)
-
-
-

@@ -612,16 +612,16 @@ async def process_files_stream(
 ) -> fastapi.responses.StreamingResponse:
     async def generate_sse():
         yield f"data: {json.dumps({'type': 'start', 'message': 'Processing...'})}\n\n"
-        
+
         async for result in mediator.stream(command):
             sse_data = {
                 "type": "progress",
                 "data": result.model_dump(),
             }
             yield f"data: {json.dumps(sse_data)}\n\n"
-        
+
         yield f"data: {json.dumps({'type': 'complete'})}\n\n"
-    
+
     return fastapi.responses.StreamingResponse(
         generate_sse(),
         media_type="text/event-stream",

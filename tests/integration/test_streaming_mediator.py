@@ -1,6 +1,4 @@
 import typing
-import uuid
-from unittest import mock
 
 import pydantic
 import pytest
@@ -36,7 +34,8 @@ class ProcessItemsCommandHandler(
         self._events.clear()
 
     async def handle(  # type: ignore
-        self, request: ProcessItemsCommand
+        self,
+        request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
         self.called = True
         self._processed_count = 0
@@ -72,7 +71,9 @@ class MockContainer:
 
 
 @pytest.fixture
-async def streaming_mediator(kafka_producer) -> tuple[cqrs.StreamingRequestMediator, MockContainer]:
+async def streaming_mediator(
+    kafka_producer,
+) -> tuple[cqrs.StreamingRequestMediator, MockContainer]:
     container = MockContainer()
     broker = kafka_broker.KafkaMessageBroker(kafka_producer)
     event_emitter = events.EventEmitter(
@@ -129,7 +130,7 @@ async def test_streaming_mediator_events_emitted_after_each_yield(
     kafka_producer,
 ) -> None:
     mediator, container = streaming_mediator
-    handler: ProcessItemsCommandHandler | None = await container.resolve(
+    _: ProcessItemsCommandHandler | None = await container.resolve(
         ProcessItemsCommandHandler,
     )
 
@@ -189,4 +190,3 @@ async def test_streaming_mediator_single_item(
     assert results[0].item_id == "single_item"
     assert results[0].processed_count == 1
     assert kafka_producer.produce.call_count == 1
-

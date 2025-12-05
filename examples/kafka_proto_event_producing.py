@@ -111,7 +111,9 @@ class UserJoinedECST(cqrs.NotificationEvent[UserJoinedECSTPayload], frozen=True)
         )
 
 
-def create_kafka_producer(ssl_context: ssl.SSLContext | None = None) -> kafka_adapters.KafkaProducer:
+def create_kafka_producer(
+    ssl_context: ssl.SSLContext | None = None,
+) -> kafka_adapters.KafkaProducer:
     dsn = "localhost:9092"
     value_serializer = protobuf.protobuf_value_serializer
     if ssl_context is None:

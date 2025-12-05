@@ -122,7 +122,8 @@ class StreamingRequestDispatcher:
         self._middleware_chain = middleware_chain or middlewares.MiddlewareChain()
 
     async def dispatch(
-        self, request: requests.Request
+        self,
+        request: requests.Request,
     ) -> typing.AsyncIterator[RequestDispatchResult]:
         """
         Dispatch a request to a streaming handler and yield results.
@@ -170,5 +171,5 @@ class StreamingRequestDispatcher:
         else:
             raise TypeError(
                 f"Handler {handler_type.__name__}.handle must be a generator function "
-                "(async or sync)"
+                "(async or sync)",
             )

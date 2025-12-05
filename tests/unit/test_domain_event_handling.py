@@ -67,7 +67,7 @@ async def test_handle_domain_events_positive():
 
 async def test_request_mediator_processes_events_parallel():
     HANDLED_EVENTS.clear()
-    
+
     mediator = bootstrap.bootstrap(
         di_container=di.Container(),
         commands_mapper=command_mapper,
@@ -85,7 +85,7 @@ async def test_request_mediator_processes_events_parallel():
 
 async def test_request_mediator_processes_events_sequentially():
     HANDLED_EVENTS.clear()
-    
+
     mediator = bootstrap.bootstrap(
         di_container=di.Container(),
         commands_mapper=command_mapper,
