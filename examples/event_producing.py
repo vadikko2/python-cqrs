@@ -1,3 +1,66 @@
+"""
+Example: Event Producing with Message Broker
+
+This example demonstrates how to produce and publish events to a message broker
+using NotificationEvent. The system shows how to publish events to message brokers
+for asynchronous processing in event-driven architectures.
+
+Use case: Decoupling event producers from consumers. Events are published to message
+brokers (like Kafka, RabbitMQ) where they can be consumed by multiple subscribers
+asynchronously. This enables scalable, loosely-coupled microservices.
+
+================================================================================
+HOW TO RUN THIS EXAMPLE
+================================================================================
+
+Run the example:
+   python examples/event_producing.py
+
+The example will:
+- Execute JoinMeetingCommand commands
+- Emit multiple NotificationEvent instances with different topics
+- Publish events to DevnullMessageBroker (in-memory for testing)
+- Verify that events are sent to the message broker
+
+Note: This example uses DevnullMessageBroker for testing. In production, you would
+use a real message broker like Kafka or RabbitMQ.
+
+================================================================================
+WHAT THIS EXAMPLE DEMONSTRATES
+================================================================================
+
+1. NotificationEvent Creation:
+   - Create NotificationEvent instances with typed payloads (Pydantic models)
+   - Specify event names and topics for routing
+   - Events can have different payload types for different purposes
+
+2. Multiple Events from Single Command:
+   - A single command can emit multiple events
+   - Events can be published to different topics
+   - Each event type serves a different purpose (ECST events, notifications)
+
+3. Message Broker Integration:
+   - Configure message broker in bootstrap.bootstrap()
+   - Events are automatically published to the broker after command execution
+   - Use DevnullMessageBroker for testing without external dependencies
+
+4. Event Publishing:
+   - Events are serialized and sent to message broker
+   - Broker routes events to appropriate topics
+   - Consumers can subscribe to topics to receive events
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+Make sure you have installed:
+   - cqrs (this package)
+   - di (dependency injection)
+   - pydantic (for typed payloads)
+
+================================================================================
+"""
+
 import asyncio
 import logging
 

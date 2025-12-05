@@ -3,7 +3,7 @@ repos:
   - id: check-toml
   - id: check-docstring-first
   - id: check-ast
-  - exclude: (^tests/mock/|^tests/integration/fixtures)
+  - exclude: (^tests/mock/|^tests/integration/|^tests/fixtures)
     id: trailing-whitespace
   - id: end-of-file-fixer
   - id: check-yaml
@@ -11,7 +11,7 @@ repos:
   - id: check-added-large-files
   - args:
     - --pytest-test-first
-    exclude: (^tests/mock/|^tests/integration/fixtures)
+    exclude: (^tests/mock/|^tests/integration/|^tests/fixtures)
     id: name-tests-test
   - id: check-merge-conflict
   - id: check-json
@@ -22,7 +22,6 @@ repos:
   repo: https://github.com/asottile/add-trailing-comma
   rev: v3.1.0
 - hooks:
-  - id: pretty-format-ini
   - args:
     - --autofix
     - --indent
@@ -58,7 +57,7 @@ repos:
   repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.6.1
 - repo: https://github.com/RobertCraigie/pyright-python
-  rev: v1.1.387
+  rev: v1.1.380
   hooks:
   - id: pyright
     types: [python]
