@@ -184,7 +184,8 @@ def test_protobuf_deserializer_success():
             assert result.event_name == "test_event"
             # Verify that ProtobufDeserializer was called correctly
             mock_protobuf_deserializer_instance.assert_called_once_with(
-                b"test_bytes", None
+                b"test_bytes",
+                None,
             )
 
 
@@ -200,7 +201,7 @@ def test_protobuf_deserializer_protobuf_deserialization_error():
 
     # Mock ProtobufDeserializer to raise an exception
     mock_protobuf_deserializer_instance = Mock(
-        side_effect=ValueError("Invalid protobuf data")
+        side_effect=ValueError("Invalid protobuf data"),
     )
 
     with patch(
@@ -295,7 +296,7 @@ def test_protobuf_deserializer_generic_exception():
 
     # Mock ProtobufDeserializer to raise a RuntimeError
     mock_protobuf_deserializer_instance = Mock(
-        side_effect=RuntimeError("Unexpected error")
+        side_effect=RuntimeError("Unexpected error"),
     )
 
     with patch(
