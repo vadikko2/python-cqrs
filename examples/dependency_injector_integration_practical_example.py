@@ -1,12 +1,72 @@
 """
-A practical example demonstrating the integration of [dependency-injector](https://github.com/ets-labs/python-dependency-injector) with python-cqrs framework and FastAPI.
+Example: Dependency Injector Integration (Practical / FastAPI)
+
+This example demonstrates a practical application of integrating `dependency-injector` with the CQRS framework
+within a FastAPI application. It covers domain events, repositories, and clean architecture principles.
+
+Use case: Building a web API using FastAPI and CQRS where `dependency-injector` is used for
+managing application components (repositories, handlers, services) and configuration.
+
+================================================================================
+HOW TO RUN THIS EXAMPLE
+================================================================================
+
+Run the example:
+   python examples/dependency_injector_integration_practical_example.py
+
+The example will start a FastAPI server on http://0.0.0.0:8000.
+
+You can interact with the API:
+- Open http://localhost:8000/docs in your browser to see Swagger UI
+- Use the POST /api/users endpoint to register a user (Command)
+- Use the GET /api/users endpoint to list users (Query)
+- Use the GET /api/text-stream endpoint to see direct injection in FastAPI views
+
+================================================================================
+WHAT THIS EXAMPLE DEMONSTRATES
+================================================================================
+
+1. Domain Layer:
+   - Domain entities (User) and Repository interfaces
+   - Domain Events (UserRegisteredEvent)
+
+2. Application Layer:
+   - Command Handlers using injected repositories
+   - Event Handlers for side effects (logging)
+   - Query Handlers for data retrieval
+
+3. Infrastructure / DI:
+   - `dependency-injector` wiring for FastAPI
+   - Configuration management (providers.Configuration)
+   - Resource management (logging setup)
+   - Adapting the container for CQRS using `DependencyInjectorCQRSContainer`
+
+4. FastAPI Integration:
+   - Using `Lifespan` to manage container lifecycle
+   - Injecting the `RequestMediator` into route handlers
+   - Combining CQRS with standard FastAPI dependency injection
+
+================================================================================
+REQUIREMENTS
+================================================================================
+
+Make sure you have installed:
+   - cqrs (this package)
+   - dependency-injector
+   - fastapi
+   - uvicorn
+   - faker
+
+================================================================================
 """
+
+from collections.abc import AsyncGenerator
 
 from abc import ABC, abstractmethod
 from contextlib import asynccontextmanager
 import asyncio
 import logging
-from typing import Generic, Optional, Self, TypeVar, AsyncGenerator, cast
+from typing import Generic, Optional, Self, TypeVar, cast
 import hashlib
 import functools
 import uuid
@@ -188,7 +248,7 @@ class RegisterUserCommandHandler(cqrs.RequestHandler[RegisterUserCommand, None])
                 user_id=user.id,
                 user_name=user.name,
                 user_email=user.email,
-            )
+            ),
         )
 
 
@@ -217,7 +277,7 @@ class ListUsersQueryResponse(cqrs.Response):
 
 
 class ListUsersQueryHandler(
-    cqrs.RequestHandler[ListUsersQuery, ListUsersQueryResponse]
+    cqrs.RequestHandler[ListUsersQuery, ListUsersQueryResponse],
 ):
     """Handles ListUsersQuery, returns all users."""
 
@@ -239,7 +299,7 @@ class ListUsersQueryHandler(
                     page=request.page,
                     page_size=request.page_size,
                 )
-            ]
+            ],
         )
 
 
@@ -439,7 +499,7 @@ def home() -> HTMLResponse:
                 <div>Go to <a href="/docs">docs</a> to play around with the API.</div>
             </body>
         </html>
-        """
+        """,
     )
 
 
@@ -481,7 +541,7 @@ async def list_users(
             ListUsersQuery(
                 page=page,
                 page_size=page_size,
-            )
+            ),
         )
 
         query_response = cast(ListUsersQueryResponse, query_response)
@@ -495,7 +555,7 @@ async def list_users(
                     email=user.email,
                 )
                 for user in query_response.users
-            ]
+            ],
         )
 
         return ListUsersResponse(
@@ -547,7 +607,7 @@ async def register_user(
                 name=request.name,
                 email=request.email,
                 password=request.password,
-            )
+            ),
         )
 
         # Create the response data
@@ -580,7 +640,7 @@ async def register_user(
 @inject
 async def get_text_stream(
     text_stream_generator: FakeTextStreamGenerator = Depends(
-        Provide[Container.text_stream_generator]
+        Provide[Container.text_stream_generator],
     ),
 ) -> StreamingResponse:
     async def generator() -> AsyncGenerator[str, None]:
