@@ -53,15 +53,15 @@ examples = [
   "faststream[kafka]==0.5.28",
   "faker>=37.12.0"
 ]
-rabbit = [
-  "aio-pika==9.3.0",
-]
 kafka = [
   "aiokafka==0.10.0",
   # for SchemaRegistry
   "confluent-kafka==2.6.0"
 ]
 protobuf = ["protobuf==4.25.5"]
+rabbit = [
+  "aio-pika==9.3.0"
+]
 
 [project.urls]
 Documentation = "https://vadikko2.github.io/python-cqrs-mkdocs/"

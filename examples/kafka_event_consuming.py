@@ -109,11 +109,11 @@ app = faststream.FastStream(broker)
 
 
 async def empty_message_decoder(
-        msg: kafka.KafkaMessage,
-        original_decoder: typing.Callable[
-            [kafka.KafkaMessage],
-            typing.Awaitable[types.DecodedMessage],
-        ],
+    msg: kafka.KafkaMessage,
+    original_decoder: typing.Callable[
+        [kafka.KafkaMessage],
+        typing.Awaitable[types.DecodedMessage],
+    ],
 ) -> types.DecodedMessage | None:
     """
     Decode a kafka message and return it if it is not empty.
@@ -158,11 +158,11 @@ def mediator_factory() -> cqrs.EventMediator:
     decoder=empty_message_decoder,
 )
 async def hello_world_event_handler(
-        body: cqrs.NotificationEvent[HelloWorldPayload]
-              | deserializers.DeserializeJsonError
-              | None,
-        msg: kafka.KafkaMessage,
-        mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
+    body: cqrs.NotificationEvent[HelloWorldPayload]
+    | deserializers.DeserializeJsonError
+    | None,
+    msg: kafka.KafkaMessage,
+    mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ):
     if not isinstance(body, deserializers.DeserializeJsonError) and body is not None:
         await mediator.send(body)
