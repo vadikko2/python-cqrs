@@ -89,16 +89,16 @@ Make sure Kafka is running:
 
 import asyncio
 import logging
+import typing
 
 import di
 import faststream
 import orjson
 import pydantic
-from faststream import kafka
+from faststream import kafka, types
 
 import cqrs
 from cqrs import deserializers
-from cqrs.decoders import kafka as kafka_decoders
 from cqrs.events import bootstrap
 
 logging.basicConfig(level=logging.DEBUG)
@@ -106,6 +106,21 @@ logging.getLogger("aiokafka").setLevel(logging.ERROR)
 
 broker = kafka.KafkaBroker(bootstrap_servers=["localhost:9092"])
 app = faststream.FastStream(broker)
+
+
+async def empty_message_decoder(
+        msg: kafka.KafkaMessage,
+        original_decoder: typing.Callable[
+            [kafka.KafkaMessage],
+            typing.Awaitable[types.DecodedMessage],
+        ],
+) -> types.DecodedMessage | None:
+    """
+    Decode a kafka message and return it if it is not empty.
+    """
+    if not msg.body:
+        return None
+    return await original_decoder(msg)
 
 
 class HelloWorldPayload(pydantic.BaseModel):
@@ -140,14 +155,14 @@ def mediator_factory() -> cqrs.EventMediator:
     value_deserializer=deserializers.JsonDeserializer(
         model=cqrs.NotificationEvent[HelloWorldPayload],
     ),
-    decoder=kafka_decoders.empty_message_decoder,
+    decoder=empty_message_decoder,
 )
 async def hello_world_event_handler(
-    body: cqrs.NotificationEvent[HelloWorldPayload]
-    | deserializers.DeserializeJsonError
-    | None,
-    msg: kafka.KafkaMessage,
-    mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
+        body: cqrs.NotificationEvent[HelloWorldPayload]
+              | deserializers.DeserializeJsonError
+              | None,
+        msg: kafka.KafkaMessage,
+        mediator: cqrs.EventMediator = faststream.Depends(mediator_factory),
 ):
     if not isinstance(body, deserializers.DeserializeJsonError) and body is not None:
         await mediator.send(body)

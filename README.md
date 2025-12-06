@@ -121,6 +121,9 @@ class ProcessFilesCommandHandler(StreamingRequestHandler[ProcessFilesCommand, Fi
     def events(self) -> list[Event]:
         return self._events.copy()
 
+    def clear_events(self) -> None:
+        self._events.clear()
+
     async def handle(self, request: ProcessFilesCommand) -> typing.AsyncIterator[FileProcessedResult]:
         for file_id in request.file_ids:
             # Process file
@@ -128,7 +131,6 @@ class ProcessFilesCommandHandler(StreamingRequestHandler[ProcessFilesCommand, Fi
             # Emit events
             self._events.append(FileProcessedEvent(file_id=file_id, ...))
             yield result
-            self._events.clear()
 ```
 
 A complete example can be found in

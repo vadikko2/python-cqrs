@@ -105,6 +105,9 @@ class StreamingRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
           def events(self) -> list[Event]:
               return self._events.copy()
 
+          def clear_events(self) -> None:
+              self._events.clear()
+
           async def handle(self, request: ProcessItemsCommand) -> typing.AsyncIterator[ProcessItemResult]:
               for item_id in request.item_ids:
                   result = await self._items_api.process_item(item_id)
@@ -121,6 +124,7 @@ class StreamingRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
     async def handle(self, request: _Req) -> typing.AsyncIterator[_Resp]:
         raise NotImplementedError
 
+    @abc.abstractmethod
     def clear_events(self) -> None:
         """
         Clear events that have been processed.
@@ -150,6 +154,9 @@ class SyncStreamingRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
           def events(self) -> list[Event]:
               return self._events.copy()
 
+          def clear_events(self) -> None:
+              self._events.clear()
+
           def handle(self, request: ProcessItemsCommand) -> typing.Iterator[ProcessItemResult]:
               for item_id in request.item_ids:
                   result = self._items_api.process_item(item_id)
@@ -166,6 +173,7 @@ class SyncStreamingRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
     def handle(self, request: _Req) -> typing.Iterator[_Resp]:
         raise NotImplementedError
 
+    @abc.abstractmethod
     def clear_events(self) -> None:
         """
         Clear events that have been processed.

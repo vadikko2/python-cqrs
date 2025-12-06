@@ -295,9 +295,6 @@ class ProcessFilesCommandHandler(
             )
             yield result
 
-            # Clear events after they've been processed
-            self.clear_events()
-
 
 # ============================================================================
 # Event Handlers

@@ -1,4 +1,5 @@
 import typing
+from unittest import mock
 
 import pydantic
 import pytest
@@ -180,3 +181,43 @@ async def test_streaming_dispatcher_handler_not_found() -> None:
             pass
 
     assert "StreamingRequestHandler not found" in str(exc_info.value)
+
+
+async def test_async_streaming_dispatcher_calls_clear_events() -> None:
+    handler = AsyncStreamingHandler()
+    handler.clear_events = mock.Mock(wraps=handler.clear_events)  # type: ignore
+
+    request_map = RequestMap()
+    request_map.bind(ProcessItemsCommand, AsyncStreamingHandler)
+    container = StreamingContainer(handler)
+
+    dispatcher = StreamingRequestDispatcher(
+        request_map=request_map,
+        container=container,  # type: ignore
+    )
+
+    request = ProcessItemsCommand(item_ids=["item1", "item2", "item3"])
+    async for _ in dispatcher.dispatch(request):
+        pass
+
+    assert handler.clear_events.call_count == 3
+
+
+async def test_sync_streaming_dispatcher_calls_clear_events() -> None:
+    handler = SyncStreamingHandler()
+    handler.clear_events = mock.Mock(wraps=handler.clear_events)  # type: ignore
+
+    request_map = RequestMap()
+    request_map.bind(ProcessItemsCommand, SyncStreamingHandler)
+    container = StreamingContainer(handler)
+
+    dispatcher = StreamingRequestDispatcher(
+        request_map=request_map,
+        container=container,  # type: ignore
+    )
+
+    request = ProcessItemsCommand(item_ids=["item1", "item2"])
+    async for _ in dispatcher.dispatch(request):
+        pass
+
+    assert handler.clear_events.call_count == 2

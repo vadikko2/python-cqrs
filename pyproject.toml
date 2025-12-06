@@ -18,7 +18,6 @@ classifiers = [
 dependencies = [
   "pydantic==2.*",
   "orjson==3.9.15",
-  "aio-pika==9.3.0",
   "di[anyio]==0.79.2",
   "sqlalchemy[asyncio]==2.0.*",
   "retry-async==0.1.4",
@@ -30,7 +29,7 @@ maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
 name = "python-cqrs"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "4.2.0"
+version = "4.2.1"
 
 [project.optional-dependencies]
 dev = [
@@ -53,6 +52,9 @@ examples = [
   "uvicorn==0.32.0",
   "faststream[kafka]==0.5.28",
   "faker>=37.12.0"
+]
+rabbit = [
+  "aio-pika==9.3.0",
 ]
 kafka = [
   "aiokafka==0.10.0",

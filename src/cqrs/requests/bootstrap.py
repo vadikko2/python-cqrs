@@ -18,7 +18,7 @@ def setup_event_emitter(
     container: di_container_impl.DIContainer,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     message_broker: protocol.MessageBroker | None = None,
-): ...
+) -> events.EventEmitter: ...
 
 
 @overload
@@ -33,7 +33,7 @@ def setup_event_emitter(
     container: di_container_impl.DIContainer | CQRSContainer,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     message_broker: protocol.MessageBroker | None = None,
-):
+) -> events.EventEmitter:
     if message_broker is None:
         message_broker = DEFAULT_MESSAGE_BROKER
     event_mapper = events.EventMap()
