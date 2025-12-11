@@ -20,7 +20,8 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 8. FastStream supporting;
 9. [Protobuf](https://protobuf.dev/) events supporting;
 10. `StreamingRequestMediator` and `StreamingRequestHandler` for handling streaming requests with real-time progress updates;
-11. Parallel event processing with configurable concurrency limits.
+11. Parallel event processing with configurable concurrency limits;
+12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence.
 
 ## Request Handlers
 
@@ -135,6 +136,69 @@ class ProcessFilesCommandHandler(StreamingRequestHandler[ProcessFilesCommand, Fi
 
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/streaming_handler_parallel_events.py)
+
+### Chain of Responsibility Request Handler
+
+Chain of Responsibility Request Handler implements the chain of responsibility pattern, allowing multiple handlers
+to process a request in sequence until one successfully handles it. This pattern is particularly useful when you have
+multiple processing strategies or need to implement fallback mechanisms.
+
+Each handler in the chain decides whether to process the request or pass it to the next handler. The chain stops
+when a handler successfully processes the request or when all handlers have been exhausted.
+
+```python
+import typing
+from cqrs.requests.cor_request_handler import CORRequestHandler
+from cqrs.events.event import Event
+
+class CreditCardPaymentHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult]):
+    def __init__(self, payment_service: PaymentServiceProtocol) -> None:
+        self._payment_service = payment_service
+        self._events: typing.List[Event] = []
+
+    @property
+    def events(self) -> typing.List[Event]:
+        return self._events
+
+    async def handle(self, request: ProcessPaymentCommand) -> PaymentResult | None:
+        if request.payment_method == "credit_card":
+            # Process credit card payment
+            result = await self._payment_service.process_credit_card(request)
+            self._events.append(PaymentProcessedEvent(...))
+            return PaymentResult(success=True, transaction_id=result.id)
+
+        # Pass to next handler
+        return await self.next(request)
+
+class PayPalPaymentHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult]):
+    def __init__(self, paypal_service: PayPalServiceProtocol) -> None:
+        self._paypal_service = paypal_service
+        self._events: typing.List[Event] = []
+
+    @property
+    def events(self) -> typing.List[Event]:
+        return self._events
+
+    async def handle(self, request: ProcessPaymentCommand) -> PaymentResult | None:
+        if request.payment_method == "paypal":
+            # Process PayPal payment
+            result = await self._paypal_service.process_payment(request)
+            return PaymentResult(success=True, transaction_id=result.id)
+
+        # Pass to next handler
+        return await self.next(request)
+
+# Chain registration
+def payment_mapper(mapper: cqrs.RequestMap) -> None:
+    mapper.bind(ProcessPaymentCommand, [
+        CreditCardPaymentHandler,
+        PayPalPaymentHandler,
+        DefaultPaymentHandler  # Fallback handler
+    ])
+```
+
+A complete example can be found in
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/cor_request_handler.py)
 
 ## Event Handlers
 
