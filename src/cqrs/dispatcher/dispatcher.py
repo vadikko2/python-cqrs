@@ -3,6 +3,7 @@ import functools
 import inspect
 import logging
 import typing
+from collections import abc
 
 import pydantic
 
@@ -15,13 +16,17 @@ from cqrs import (
 )
 from cqrs.events import event_handler
 from cqrs.requests import request_handler
+from cqrs.requests import cor_request_handler
 
 logger = logging.getLogger("cqrs")
 
 _Resp = typing.TypeVar("_Resp", resp.Response, None, contravariant=True)
 
 _RequestHandler: typing.TypeAlias = (
-    request_handler.RequestHandler | request_handler.SyncRequestHandler
+    request_handler.RequestHandler
+    | request_handler.SyncRequestHandler
+    | cor_request_handler.CORRequestHandler
+    | cor_request_handler.SyncCORRequestHandler
 )
 _StreamingRequestHandler: typing.TypeAlias = (
     request_handler.StreamingRequestHandler
@@ -33,6 +38,10 @@ _EventHandler: typing.TypeAlias = (
 
 
 class RequestHandlerDoesNotExist(Exception):
+    pass
+
+
+class RequestHandlerTypeError(Exception):
     pass
 
 
@@ -52,13 +61,34 @@ class RequestDispatcher:
         self._container = container
         self._middleware_chain = middleware_chain or middlewares.MiddlewareChain()
 
+    async def _resolve_handler(self, handler_type: typing.Type[_RequestHandler] | typing.List[typing.Type[_RequestHandler]]) -> _RequestHandler:
+        """
+        Resolve a single handler or build a chain from multiple handlers.
+
+        For single handlers, resolves them using the DI container.
+        For lists of handlers, validates they are COR handlers and builds a chain.
+        """
+        if isinstance(handler_type, abc.Iterable):
+            if not all(issubclass(handler_cls, (
+                    cor_request_handler.CORRequestHandler,
+                    cor_request_handler.SyncCORRequestHandler
+            )) for handler_cls in handler_type):
+                raise RequestHandlerTypeError(f"COR handler must be type CORRequestHandler or SyncCORRequestHandler")
+
+            async with asyncio.TaskGroup() as tg:
+                tasks = [tg.create_task(self._container.resolve(h)) for h in handler_type]
+            handlers = [task.result() for task in tasks]
+            return cor_request_handler.build_chain(handlers)
+
+        return await self._container.resolve(handler_type)
+
     async def dispatch(self, request: requests.Request) -> RequestDispatchResult:
         handler_type = self._request_map.get(type(request), None)
-        if handler_type is None:
+        if not handler_type:
             raise RequestHandlerDoesNotExist(
                 f"RequestHandler not found matching Request type {type(request)}",
             )
-        handler: _RequestHandler = await self._container.resolve(handler_type)
+        handler: _RequestHandler = await self._resolve_handler(handler_type)
         if asyncio.iscoroutinefunction(handler.handle):
             wrapped_handle = self._middleware_chain.wrap(handler.handle)
         else:
