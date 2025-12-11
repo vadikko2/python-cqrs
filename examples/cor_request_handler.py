@@ -66,7 +66,7 @@ import di
 
 import cqrs
 from cqrs.requests import bootstrap
-from cqrs.requests.cor_request_handler import CORRequestHandler, build_chain
+from cqrs.requests.cor_request_handler import CORRequestHandler
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -106,21 +106,23 @@ class CreditCardHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult])
             transaction_id = f"cc_{request.user_id}_{int(request.amount * 100)}"
             TRANSACTIONS["credit_card"].append(transaction_id)
 
-            self._events.append(PaymentProcessedEvent(
-                transaction_id=transaction_id,
-                amount=request.amount,
-                user_id=request.user_id
-            ))
+            self._events.append(
+                PaymentProcessedEvent(
+                    transaction_id=transaction_id,
+                    amount=request.amount,
+                    user_id=request.user_id,
+                ),
+            )
 
             print(f"CreditCard: Processed ${request.amount} for user {request.user_id}")
             return PaymentResult(
                 success=True,
                 transaction_id=transaction_id,
-                message="Payment processed via credit card"
+                message="Payment processed via credit card",
             )
 
         # Pass to next handler
-        return await super().handle(request)
+        return await self.next(request)
 
 
 class PayPalHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult]):
@@ -137,21 +139,23 @@ class PayPalHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult]):
             transaction_id = f"pp_{request.user_id}_{int(request.amount * 100)}"
             TRANSACTIONS["paypal"].append(transaction_id)
 
-            self._events.append(PaymentProcessedEvent(
-                transaction_id=transaction_id,
-                amount=request.amount,
-                user_id=request.user_id
-            ))
+            self._events.append(
+                PaymentProcessedEvent(
+                    transaction_id=transaction_id,
+                    amount=request.amount,
+                    user_id=request.user_id,
+                ),
+            )
 
             print(f"PayPal: Processed ${request.amount} for user {request.user_id}")
             return PaymentResult(
                 success=True,
                 transaction_id=transaction_id,
-                message="Payment processed via PayPal"
+                message="Payment processed via PayPal",
             )
 
         # Pass to next handler
-        return await super().handle(request)
+        return await self.next(request)
 
 
 class BankTransferHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult]):
@@ -168,21 +172,25 @@ class BankTransferHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult
             transaction_id = f"bt_{request.user_id}_{int(request.amount * 100)}"
             TRANSACTIONS["bank_transfer"].append(transaction_id)
 
-            self._events.append(PaymentProcessedEvent(
-                transaction_id=transaction_id,
-                amount=request.amount,
-                user_id=request.user_id
-            ))
+            self._events.append(
+                PaymentProcessedEvent(
+                    transaction_id=transaction_id,
+                    amount=request.amount,
+                    user_id=request.user_id,
+                ),
+            )
 
-            print(f"BankTransfer: Processed ${request.amount} for user {request.user_id}")
+            print(
+                f"BankTransfer: Processed ${request.amount} for user {request.user_id}",
+            )
             return PaymentResult(
                 success=True,
                 transaction_id=transaction_id,
-                message="Payment processed via bank transfer"
+                message="Payment processed via bank transfer",
             )
 
         # Pass to next handler
-        return await super().handle(request)
+        return await self.next(request)
 
 
 class DefaultPaymentHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResult]):
@@ -192,22 +200,27 @@ class DefaultPaymentHandler(CORRequestHandler[ProcessPaymentCommand, PaymentResu
 
     async def handle(self, request: ProcessPaymentCommand) -> PaymentResult | None:
         # Default handler always handles the request (end of chain)
-        print(f"Default: Unsupported payment method '{request.payment_method}' for user {request.user_id}")
+        print(
+            f"Default: Unsupported payment method '{request.payment_method}' for user {request.user_id}",
+        )
         return PaymentResult(
             success=False,
-            message=f"Unsupported payment method: {request.payment_method}"
+            message=f"Unsupported payment method: {request.payment_method}",
         )
 
 
 def payment_mapper(mapper: cqrs.RequestMap) -> None:
     """Register the chain of payment handlers."""
 
-    mapper.bind(ProcessPaymentCommand, [
-        CreditCardHandler,
-        PayPalHandler,
-        BankTransferHandler,
-        DefaultPaymentHandler
-    ])
+    mapper.bind(
+        ProcessPaymentCommand,
+        [
+            CreditCardHandler,
+            PayPalHandler,
+            BankTransferHandler,
+            DefaultPaymentHandler,
+        ],
+    )
 
 
 async def main():
@@ -220,40 +233,59 @@ async def main():
     print("=== Testing Chain of Responsibility Payment Processing ===\n")
 
     # Test supported payment methods
-    result1 = await mediator.send(ProcessPaymentCommand(
-        amount=100.0,
-        payment_method="credit_card",
-        user_id="user1"
-    ))
-    assert result1.success
+    print("Processing credit card payment...")
+    result1 = await mediator.send(
+        ProcessPaymentCommand(
+            amount=100.0,
+            payment_method="credit_card",
+            user_id="user1",
+        ),
+    )
+    print(f"Result: {result1.message}\n")
 
-    result2 = await mediator.send(ProcessPaymentCommand(
-        amount=50.0,
-        payment_method="paypal",
-        user_id="user2"
-    ))
-    assert result2.success
+    print("Processing PayPal payment...")
+    result2 = await mediator.send(
+        ProcessPaymentCommand(
+            amount=50.0,
+            payment_method="paypal",
+            user_id="user2",
+        ),
+    )
+    print(f"Result: {result2.message}\n")
 
-    result3 = await mediator.send(ProcessPaymentCommand(
-        amount=200.0,
-        payment_method="bank_transfer",
-        user_id="user3"
-    ))
-    assert result3.success
+    print("Processing bank transfer payment...")
+    result3 = await mediator.send(
+        ProcessPaymentCommand(
+            amount=200.0,
+            payment_method="bank_transfer",
+            user_id="user3",
+        ),
+    )
+    print(f"Result: {result3.message}\n")
 
     # Test unsupported payment method (goes to default handler)
-    result4 = await mediator.send(ProcessPaymentCommand(
-        amount=75.0,
-        payment_method="crypto",
-        user_id="user4"
-    ))
-    assert not result4.success
+    print("Processing unsupported payment method...")
+    result4 = await mediator.send(
+        ProcessPaymentCommand(
+            amount=75.0,
+            payment_method="crypto",
+            user_id="user4",
+        ),
+    )
+    print(f"Result: {result4.message}\n")
 
-    print(f"\n=== Summary ===")
+    print("=== Summary ===")
     print(f"Total credit card transactions: {len(TRANSACTIONS['credit_card'])}")
     print(f"Total PayPal transactions: {len(TRANSACTIONS['paypal'])}")
     print(f"Total bank transfer transactions: {len(TRANSACTIONS['bank_transfer'])}")
-    print(f"All handlers processed requests correctly!")
+
+    # Verify results
+    assert result1.success and result1.transaction_id.startswith("cc_")
+    assert result2.success and result2.transaction_id.startswith("pp_")
+    assert result3.success and result3.transaction_id.startswith("bt_")
+    assert not result4.success and result4.transaction_id is None
+
+    print("All handlers processed requests correctly!")
 
 
 if __name__ == "__main__":

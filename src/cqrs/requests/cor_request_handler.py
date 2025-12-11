@@ -39,6 +39,12 @@ class CORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
 
         return self._next_handler
 
+    async def next(self, request: _Req) -> _Resp:
+        if self._next_handler:
+            return await self._next_handler.handle(request)
+
+        return None
+
     @property
     @abc.abstractmethod
     def events(self) -> typing.List[event.Event]:
@@ -46,10 +52,7 @@ class CORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
 
     @abc.abstractmethod
     async def handle(self, request: _Req) -> _Resp:
-        if self._next_handler:
-            return await self._next_handler.handle(request)
-
-        return None
+        raise NotImplementedError
 
 
 class SyncCORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
@@ -80,6 +83,12 @@ class SyncCORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
 
         return self._next_handler
 
+    def next(self, request: _Req) -> _Resp:
+        if self._next_handler:
+            return self._next_handler.handle(request)
+
+        return None
+
     @property
     @abc.abstractmethod
     def events(self) -> typing.List[event.Event]:
@@ -87,13 +96,10 @@ class SyncCORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
 
     @abc.abstractmethod
     def handle(self, request: _Req) -> _Resp:
-        if self._next_handler:
-            return self._next_handler.handle(request)
-
-        return None
+        raise NotImplementedError
 
 
-_RequestHandler: typing.TypeAlias = (CORRequestHandler | SyncCORRequestHandler)
+_RequestHandler: typing.TypeAlias = CORRequestHandler | SyncCORRequestHandler
 
 
 def build_chain(handlers: typing.List[_RequestHandler]) -> _RequestHandler:
@@ -109,6 +115,7 @@ def build_chain(handlers: typing.List[_RequestHandler]) -> _RequestHandler:
     Returns:
         The first handler in the chain
     """
+
     def link(handler1, handler2):
         handler1.set_next(handler2)
         return handler2

@@ -5,9 +5,13 @@ from cqrs.requests import request, request_handler, cor_request_handler
 _KT = typing.TypeVar("_KT", bound=typing.Type[request.Request])
 _VT = typing.TypeVar(
     "_VT",
-    bound=typing.Type[request_handler.RequestHandler | request_handler.SyncRequestHandler]
-          | typing.List[typing.Type[cor_request_handler.CORRequestHandler]]
-          | typing.List[typing.Type[cor_request_handler.SyncCORRequestHandler]],
+    bound=typing.Type[
+        request_handler.RequestHandler | request_handler.SyncRequestHandler
+    ]
+    | typing.List[typing.Type[cor_request_handler.CORRequestHandler]]
+    | typing.List[typing.Type[cor_request_handler.SyncCORRequestHandler]]
+    | typing.Type[request_handler.StreamingRequestHandler]
+    | typing.Type[request_handler.SyncStreamingRequestHandler],
 )
 
 
