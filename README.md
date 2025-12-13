@@ -22,27 +22,9 @@
   <img
     src="https://raw.githubusercontent.com/vadikko2/python-cqrs-mkdocs/master/docs/img.png"
     alt="Python CQRS"
-    style="
-      max-width: 80%;
-      width: 800px;
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0, 102, 204, 0.2);
-      display: block;
-      margin: 2rem auto;
-      transition: all 0.3s ease;
-    "
+    style="max-width: 80%; width: 800px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 102, 204, 0.2); display: block; margin: 2rem auto;"
   >
 </div>
-
-<style>
-  img[alt="Python CQRS"] {
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-  }
-  img[alt="Python CQRS"]:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 40px rgba(0, 102, 204, 0.3) !important;
-  }
-</style>
 
 ## Overview
 
