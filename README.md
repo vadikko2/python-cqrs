@@ -1,4 +1,48 @@
-# Python CQRS pattern implementation with Transaction Outbox supporting
+<div align="center">
+  <h1>Python CQRS</h1>
+  <p>CQRS pattern implementation with Transaction Outbox support</p>
+  
+  <p>
+    <a href="https://pypi.org/project/python-cqrs/">
+      <img src="https://img.shields.io/pypi/v/python-cqrs?label=pypi&logo=pypi" alt="PyPI version">
+    </a>
+    <a href="https://pypi.org/project/python-cqrs/">
+      <img src="https://img.shields.io/pypi/dm/python-cqrs?label=downloads&logo=pypi" alt="PyPI downloads">
+    </a>
+    <a href="https://pypi.org/project/python-cqrs/">
+      <img src="https://img.shields.io/pypi/pyversions/python-cqrs?label=python&logo=python" alt="Python versions">
+    </a>
+    <a href="https://vadikko2.github.io/python-cqrs-mkdocs/">
+      <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
+    </a>
+  </p>
+</div>
+
+<div align="center">
+  <img 
+    src="https://raw.githubusercontent.com/vadikko2/python-cqrs-mkdocs/master/docs/img.png" 
+    alt="Python CQRS" 
+    style="
+      max-width: 80%; 
+      width: 800px; 
+      border-radius: 16px; 
+      box-shadow: 0 8px 32px rgba(0, 102, 204, 0.2);
+      display: block;
+      margin: 2rem auto;
+      transition: all 0.3s ease;
+    "
+  >
+</div>
+
+<style>
+  img[alt="Python CQRS"] {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  img[alt="Python CQRS"]:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 102, 204, 0.3) !important;
+  }
+</style>
 
 ## Overview
 
