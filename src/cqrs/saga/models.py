@@ -1,6 +1,9 @@
 import dataclasses
 import typing
 
+# Type variable for from_dict classmethod return type
+_T = typing.TypeVar("_T", bound="SagaContext")
+
 
 @dataclasses.dataclass
 class SagaContext:
@@ -29,7 +32,7 @@ class SagaContext:
         return dataclasses.asdict(self)
 
     @classmethod
-    def from_dict(cls, data: dict[str, typing.Any]) -> "SagaContext":
+    def from_dict(cls: type[_T], data: dict[str, typing.Any]) -> _T:
         """
         Deserialize context from dictionary.
 

@@ -92,7 +92,6 @@ from cqrs.response import Response
 from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
-from cqrs.saga.storage.enums import SagaStatus
 from cqrs.saga.storage.memory import MemorySagaStorage
 
 logging.basicConfig(level=logging.INFO)

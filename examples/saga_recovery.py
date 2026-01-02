@@ -301,7 +301,9 @@ class ShippingService:
 
         tracking_number = self._shipments[shipment_id]
         del self._shipments[shipment_id]
-        logger.info(f"  ↻ Cancelled shipment {shipment_id} (tracking: {tracking_number})")
+        logger.info(
+            f"  ↻ Cancelled shipment {shipment_id} (tracking: {tracking_number})"
+        )
 
 
 # ============================================================================
@@ -562,7 +564,9 @@ async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
                 # Simulate crash after first step
                 if step_name == "ReserveInventoryStep":
                     print("\n💥 SIMULATED SERVER CRASH!")
-                    print("   (In reality: server restart, network failure, timeout, etc.)")
+                    print(
+                        "   (In reality: server restart, network failure, timeout, etc.)"
+                    )
                     print("   Saga state has been persisted to storage.")
                     print("   Current state: RUNNING, 1 step completed")
                     # Break out of loop to simulate interruption

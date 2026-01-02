@@ -29,8 +29,8 @@ class MiddlewareChain:
         return handle
 
 
-# Contravariant TypeVar for SagaMiddleware protocol
-SagaContextT = typing.TypeVar("SagaContextT", bound=SagaContext, contravariant=True)
+# TypeVar for SagaMiddleware protocol
+SagaContextT = typing.TypeVar("SagaContextT", bound=SagaContext)
 
 SagaHandlerType = typing.Callable[[SagaContextT], typing.Awaitable[None]]
 

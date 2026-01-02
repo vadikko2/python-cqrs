@@ -199,7 +199,7 @@ the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/cor_re
 
 ## Saga Pattern
 
-The package implements the Choreographic Saga pattern for managing distributed transactions across multiple services or operations. 
+The package implements the Choreographic Saga pattern for managing distributed transactions across multiple services or operations.
 Sagas enable eventual consistency by executing a series of steps where each step can be compensated if a subsequent step fails.
 
 ### Key Features
@@ -236,13 +236,13 @@ class ProcessPaymentResponse(Response):
 class ReserveInventoryStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
     def __init__(self, inventory_service):
         self._inventory_service = inventory_service
-    
+
     async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
         # Reserve inventory
         reservation_id = await self._inventory_service.reserve_items(context.order_id, context.items)
         context.inventory_reservation_id = reservation_id
         return self._generate_step_result(ReserveInventoryResponse(reservation_id=reservation_id))
-    
+
     async def compensate(self, context: OrderContext) -> None:
         # Release inventory if saga fails
         if context.inventory_reservation_id:
@@ -251,13 +251,13 @@ class ReserveInventoryStep(SagaStepHandler[OrderContext, ReserveInventoryRespons
 class ProcessPaymentStep(SagaStepHandler[OrderContext, ProcessPaymentResponse]):
     def __init__(self, payment_service):
         self._payment_service = payment_service
-    
+
     async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ProcessPaymentResponse]:
         # Process payment
         payment_id = await self._payment_service.charge(context.order_id, context.total_amount)
         context.payment_id = payment_id
         return self._generate_step_result(ProcessPaymentResponse(payment_id=payment_id))
-    
+
     async def compensate(self, context: OrderContext) -> None:
         # Refund payment if saga fails
         if context.payment_id:
@@ -281,8 +281,8 @@ async with saga.transaction(context=context, saga_id=saga_id) as transaction:
         # If any step fails, compensation happens automatically
 ```
 
-The saga state and step history are persisted to `SagaStorage`. The `SagaLog` maintains a complete audit trail 
-of all step executions (both `act` and `compensate` operations) with timestamps and status information. 
+The saga state and step history are persisted to `SagaStorage`. The `SagaLog` maintains a complete audit trail
+of all step executions (both `act` and `compensate` operations) with timestamps and status information.
 This enables the recovery mechanism to restore saga state and ensure eventual consistency even after system failures.
 
 If a saga is interrupted (e.g., due to a crash), you can recover it using the recovery mechanism:

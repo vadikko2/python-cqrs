@@ -463,7 +463,9 @@ async def process_order(
             yield f"data: {json.dumps(start_data)}\n\n"
 
             # Execute saga with saga_id for persistence
-            async with saga.transaction(context=context, saga_id=saga_id) as transaction:
+            async with saga.transaction(
+                context=context, saga_id=saga_id
+            ) as transaction:
                 async for step_result in transaction:
                     completed_steps += 1
                     step_name = step_result.step_type.__name__
