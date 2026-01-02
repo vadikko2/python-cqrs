@@ -5,9 +5,7 @@ import typing
 import pydantic
 
 import cqrs
-from cqrs.events import event as ev
-
-Session = typing.TypeVar("Session")
+from cqrs.events.event import NotificationEvent
 
 
 class EventStatus(enum.StrEnum):
@@ -23,11 +21,11 @@ class OutboxedEvent(pydantic.BaseModel, frozen=True):
     status: EventStatus
 
 
-class OutboxedEventRepository(abc.ABC, typing.Generic[Session]):
+class OutboxedEventRepository(abc.ABC):
     @abc.abstractmethod
     def add(
         self,
-        event: ev.NotificationEvent,
+        event: NotificationEvent,
     ) -> None:
         """Add an event to the repository."""
 

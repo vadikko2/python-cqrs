@@ -14,6 +14,7 @@ DATABASE_DSN = os.environ.get("DATABASE_DSN", "")
 
 @pytest.fixture(scope="function")
 async def init_orm():
+    """Initialize outbox tables - drops and creates tables before each test."""
     engine = create_async_engine(
         DATABASE_DSN,
         pool_pre_ping=True,
@@ -37,3 +38,51 @@ async def session(init_orm):
     session = async_sessionmaker(engine_factory())()
     async with contextlib.aclosing(session):
         yield session
+
+
+# Saga storage fixtures
+@pytest.fixture(scope="session")
+async def init_saga_orm():
+    """Initialize saga storage tables - drops and creates tables BEFORE test only."""
+    from cqrs.saga.storage.sqlalchemy import Base
+
+    engine = create_async_engine(
+        DATABASE_DSN,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=30,
+        echo=False,
+    )
+    # Drop and create tables BEFORE test (not after)
+    # Use begin() to ensure tables are created, but don't keep transaction open
+    async with engine.begin() as connect:
+        await connect.run_sync(Base.metadata.drop_all)
+        await connect.run_sync(Base.metadata.create_all)
+
+    # Yield engine so it can be used for sessions
+    # Data will persist after test because we don't drop tables in cleanup
+    yield engine
+
+    # Cleanup: dispose engine but DON'T drop tables - keep data in DB
+    await engine.dispose()
+
+
+@pytest.fixture(scope="session")
+async def saga_session(init_saga_orm):
+    """Create a session for saga storage tests - commits data to persist."""
+    engine = init_saga_orm
+    # Use autocommit=False but ensure we commit explicitly
+    session = async_sessionmaker(engine, expire_on_commit=False, autocommit=False)()
+
+    async with contextlib.aclosing(session):
+        try:
+            yield session
+            # Final commit before closing to ensure data persists
+            if session.in_transaction():
+                await session.commit()
+        except Exception:
+            # Only rollback on exception
+            if session.in_transaction():
+                await session.rollback()
+            raise
+        # No cleanup that would delete data - data persists in DB

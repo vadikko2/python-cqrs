@@ -1,21 +1,17 @@
 import typing
 
-from cqrs.events import event, event_handler
+from cqrs.events.event import Event
+from cqrs.events import event_handler
 
-TEventHandler = typing.TypeVar(
-    "TEventHandler",
-    bound=typing.Type[event_handler.EventHandler | event_handler.SyncEventHandler],
-)
-
-_KT = typing.TypeVar("_KT", bound=typing.Type[event.Event])
-_VT: typing.TypeAlias = typing.List[TEventHandler]
+_KT = typing.TypeVar("_KT", bound=typing.Type[Event])
+_VT: typing.TypeAlias = typing.List[typing.Type[event_handler.EventHandler]]
 
 
 class EventMap(typing.Dict[_KT, _VT]):
     def bind(
         self,
         event_type: _KT,
-        handler_type: TEventHandler,
+        handler_type: typing.Type[event_handler.EventHandler],
     ) -> None:
         if event_type not in self:
             self[event_type] = [handler_type]
@@ -29,5 +25,5 @@ class EventMap(typing.Dict[_KT, _VT]):
             raise KeyError(f"{__key} already exists in registry")
         super().__setitem__(__key, __value)
 
-    def __delitem__(self, __key_: _KT):
+    def __delitem__(self, __key_: _KT) -> typing.NoReturn:
         raise TypeError(f"{self.__class__.__name__} has no delete method")

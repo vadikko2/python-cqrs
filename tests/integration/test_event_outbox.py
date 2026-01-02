@@ -1,19 +1,19 @@
 import typing
 
 import pydantic
+import sqlalchemy as sqla
 from sqlalchemy.orm import registry
 
 import cqrs
-from cqrs import events, requests
+from cqrs import events, Request, RequestHandler
 from cqrs.outbox import (
     repository as outbox_repository,
     repository as repository_protocol,
     sqlalchemy,
 )
-import sqlalchemy as sqla
 
 
-class OutboxRequest(requests.Request):
+class OutboxRequest(Request):
     message: typing.Text
     count: int
 
@@ -28,7 +28,7 @@ cqrs.OutboxedEventMap.register(
 )
 
 
-class OutboxRequestHandler(requests.RequestHandler[OutboxRequest, None]):
+class OutboxRequestHandler(RequestHandler[OutboxRequest, None]):
     def __init__(self, repository: cqrs.OutboxedEventRepository):
         self.repository = repository
 

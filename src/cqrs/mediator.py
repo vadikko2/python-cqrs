@@ -1,17 +1,19 @@
+import asyncio
 import typing
 
-import asyncio
+from cqrs.container.protocol import Container
+from cqrs.dispatcher.event import EventDispatcher
+from cqrs.dispatcher.request import RequestDispatcher
+from cqrs.dispatcher.streaming import StreamingRequestDispatcher
+from cqrs.events.event import Event
+from cqrs.events.event_emitter import EventEmitter
+from cqrs.events.map import EventMap
+from cqrs.middlewares.base import MiddlewareChain
+from cqrs.requests.map import RequestMap
+from cqrs.requests.request import Request
+from cqrs.response import Response
 
-from cqrs import (
-    container as di_container,
-    dispatcher,
-    events as ev,
-    middlewares,
-    requests,
-    response,
-)
-
-_Resp = typing.TypeVar("_Resp", response.Response, None, contravariant=True)
+_ResponseT = typing.TypeVar("_ResponseT", Response, None, covariant=True)
 
 
 class RequestMediator:
@@ -51,24 +53,22 @@ class RequestMediator:
 
     def __init__(
         self,
-        request_map: requests.RequestMap,
-        container: di_container.Container,
-        event_emitter: ev.EventEmitter | None = None,
-        middleware_chain: middlewares.MiddlewareChain | None = None,
-        event_map: ev.EventMap | None = None,
+        request_map: RequestMap,
+        container: Container,
+        event_emitter: EventEmitter | None = None,
+        middleware_chain: MiddlewareChain | None = None,
+        event_map: EventMap | None = None,
         max_concurrent_event_handlers: int = 1,
         concurrent_event_handle_enable: bool = True,
         *,
-        dispatcher_type: typing.Type[
-            dispatcher.RequestDispatcher
-        ] = dispatcher.RequestDispatcher,
+        dispatcher_type: typing.Type[RequestDispatcher] = RequestDispatcher,
     ) -> None:
         self._event_emitter = event_emitter
-        self._event_map = event_map or ev.EventMap()
+        self._event_map = event_map or EventMap()
         self._max_concurrent_event_handlers = max_concurrent_event_handlers
         self._concurrent_event_handle_enable = concurrent_event_handle_enable
         self._event_semaphore = asyncio.Semaphore(max_concurrent_event_handlers)
-        self._event_dispatcher = dispatcher.EventDispatcher(
+        self._event_dispatcher = EventDispatcher(
             event_map=self._event_map,
             container=container,
             middleware_chain=middleware_chain,
@@ -79,7 +79,16 @@ class RequestMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, request: requests.Request) -> _Resp:
+    async def send(self, request: Request) -> _ResponseT:
+        """
+        Send a request and return the response.
+
+        The return type is inferred from the request type based on the handler
+        registered in the RequestMap. For proper type inference, ensure your
+        RequestHandler is properly typed with RequestHandler[RequestType, ResponseType].
+
+        Note: TypeVar usage here is intentional for type inference purposes.
+        """
         dispatch_result = await self._dispatcher.dispatch(request)
 
         if dispatch_result.events:
@@ -88,14 +97,14 @@ class RequestMediator:
 
         return dispatch_result.response
 
-    async def _process_event_with_semaphore(self, event: ev.Event) -> None:
+    async def _process_event_with_semaphore(self, event: Event) -> None:
         """Process a single event with semaphore limit."""
         async with self._event_semaphore:
             await self._event_dispatcher.dispatch(event)
 
     async def _process_events_parallel(
         self,
-        events: typing.List[ev.Event],
+        events: typing.List[Event],
     ) -> None:
         """Process events in parallel with semaphore limit or sequentially."""
         if not events:
@@ -110,7 +119,7 @@ class RequestMediator:
             tasks = [self._process_event_with_semaphore(event) for event in events]
             await asyncio.gather(*tasks)
 
-    async def _send_events(self, events: typing.List[ev.Event]) -> None:
+    async def _send_events(self, events: typing.List[Event]) -> None:
         if not self._event_emitter:
             return
 
@@ -137,13 +146,11 @@ class EventMediator:
 
     def __init__(
         self,
-        event_map: ev.EventMap,
-        container: di_container.Container,
-        middleware_chain: middlewares.MiddlewareChain | None = None,
+        event_map: EventMap,
+        container: Container,
+        middleware_chain: MiddlewareChain | None = None,
         *,
-        dispatcher_type: typing.Type[
-            dispatcher.EventDispatcher
-        ] = dispatcher.EventDispatcher,
+        dispatcher_type: typing.Type[EventDispatcher] = EventDispatcher,
     ):
         self._dispatcher = dispatcher_type(
             event_map=event_map,  # type: ignore
@@ -151,7 +158,7 @@ class EventMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, event: ev.Event) -> None:
+    async def send(self, event: Event) -> None:
         await self._dispatcher.dispatch(event)
 
 
@@ -189,24 +196,24 @@ class StreamingRequestMediator:
 
     def __init__(
         self,
-        request_map: requests.RequestMap,
-        container: di_container.Container,
-        event_emitter: ev.EventEmitter | None = None,
-        middleware_chain: middlewares.MiddlewareChain | None = None,
-        event_map: ev.EventMap | None = None,
+        request_map: RequestMap,
+        container: Container,
+        event_emitter: EventEmitter | None = None,
+        middleware_chain: MiddlewareChain | None = None,
+        event_map: EventMap | None = None,
         max_concurrent_event_handlers: int = 1,
         concurrent_event_handle_enable: bool = True,
         *,
         dispatcher_type: typing.Type[
-            dispatcher.StreamingRequestDispatcher
-        ] = dispatcher.StreamingRequestDispatcher,
+            StreamingRequestDispatcher
+        ] = StreamingRequestDispatcher,
     ) -> None:
         self._event_emitter = event_emitter
-        self._event_map = event_map or ev.EventMap()
+        self._event_map = event_map or EventMap()
         self._max_concurrent_event_handlers = max_concurrent_event_handlers
         self._concurrent_event_handle_enable = concurrent_event_handle_enable
         self._event_semaphore = asyncio.Semaphore(max_concurrent_event_handlers)
-        self._event_dispatcher = dispatcher.EventDispatcher(
+        self._event_dispatcher = EventDispatcher(
             event_map=self._event_map,
             container=container,
             middleware_chain=middleware_chain,
@@ -219,8 +226,8 @@ class StreamingRequestMediator:
 
     async def stream(
         self,
-        request: requests.Request,
-    ) -> typing.AsyncIterator[response.Response | None]:
+        request: Request,
+    ) -> typing.AsyncIterator[Response | None]:
         """
         Stream results from a generator-based handler.
 
@@ -239,15 +246,12 @@ class StreamingRequestMediator:
 
             yield dispatch_result.response
 
-    async def _process_event_with_semaphore(self, event: ev.Event) -> None:
+    async def _process_event_with_semaphore(self, event: Event) -> None:
         """Process a single event with semaphore limit."""
         async with self._event_semaphore:
             await self._event_dispatcher.dispatch(event)
 
-    async def _process_events_parallel(
-        self,
-        events: typing.List[ev.Event],
-    ) -> None:
+    async def _process_events_parallel(self, events: typing.List[Event]) -> None:
         """Process events in parallel with semaphore limit or sequentially."""
         if not events:
             return
@@ -261,7 +265,7 @@ class StreamingRequestMediator:
             tasks = [self._process_event_with_semaphore(event) for event in events]
             await asyncio.gather(*tasks)
 
-    async def _send_events(self, events: typing.List[ev.Event]) -> None:
+    async def _send_events(self, events: typing.List[Event]) -> None:
         if not self._event_emitter:
             return
 

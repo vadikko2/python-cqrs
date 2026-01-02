@@ -149,9 +149,7 @@ class OutboxModel(Base):
         )
 
 
-class SqlAlchemyOutboxedEventRepository(
-    repository.OutboxedEventRepository[sql_session.AsyncSession],
-):
+class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
     def __init__(
         self,
         session: sql_session.AsyncSession,

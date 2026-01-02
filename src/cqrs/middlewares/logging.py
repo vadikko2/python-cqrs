@@ -1,18 +1,15 @@
 import logging
-import typing
 
-from cqrs import requests, response
 from cqrs.middlewares import base
-
-Req = typing.TypeVar("Req", bound=requests.Request, contravariant=True)
-Res = typing.TypeVar("Res", response.Response, None, covariant=True)
-HandleType = typing.Callable[[Req], typing.Awaitable[Res]]
+from cqrs.middlewares.base import HandleType
+from cqrs.requests.request import Request
+from cqrs.response import Response
 
 logger = logging.getLogger("cqrs")
 
 
 class LoggingMiddleware(base.Middleware):
-    async def __call__(self, request: requests.Request, handle: HandleType) -> Res:
+    async def __call__(self, request: Request, handle: HandleType) -> Response | None:
         logger.debug(
             "Handle %s request",
             type(request).__name__,

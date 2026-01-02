@@ -60,36 +60,37 @@ Make sure you have installed:
 ================================================================================
 """
 
-from collections.abc import AsyncGenerator
-
-from abc import ABC, abstractmethod
-from contextlib import asynccontextmanager
 import asyncio
-import logging
-from typing import Generic, Optional, Self, TypeVar, cast
-import hashlib
 import functools
+import hashlib
+import logging
 import uuid
-from fastapi import FastAPI, Depends, Query
-from fastapi.responses import HTMLResponse, StreamingResponse
-from pydantic import BaseModel
-from faker import Faker
-import uvicorn
+from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import Generic, Optional, Self, TypeVar
 
-import cqrs
-from cqrs.requests import bootstrap
+import uvicorn
 
 # The dependency-injector library
 from dependency_injector import containers, providers
 from dependency_injector.wiring import inject, Provide
+from faker import Faker
+from fastapi import Depends, FastAPI, Query
+from fastapi.responses import HTMLResponse, StreamingResponse
+from pydantic import BaseModel
 
-# The container protocol from this package
-from cqrs.container.protocol import Container as CQRSContainer
+import cqrs
 
 # The CQRS container adapter for containers implemented using dependency-injector
 from cqrs.container.dependency_injector import DependencyInjectorCQRSContainer
 
+# The container protocol from this package
+from cqrs.container.protocol import Container as CQRSContainer
+from cqrs.requests import bootstrap
+
 logger = logging.getLogger(__name__)
+
 
 # ==============================
 # Domain Layer
@@ -537,14 +538,12 @@ async def list_users(
     mediator: cqrs.RequestMediator = Depends(request_mediator_factory),
 ):
     try:
-        query_response = await mediator.send(
+        query_response: ListUsersQueryResponse = await mediator.send(
             ListUsersQuery(
                 page=page,
                 page_size=page_size,
             ),
         )
-
-        query_response = cast(ListUsersQueryResponse, query_response)
 
         # Create the response data
         response_data = ListUsersResponseData(

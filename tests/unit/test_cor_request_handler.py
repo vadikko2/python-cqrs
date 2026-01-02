@@ -7,18 +7,18 @@ from cqrs.requests import bootstrap
 from cqrs.requests.cor_request_handler import CORRequestHandler
 
 
-class TestRequest(cqrs.Request):
+class TRequest(cqrs.Request):
     method: str
     user_id: str
 
 
-class TestResult(cqrs.Response):
+class TResult(cqrs.Response):
     success: bool
     handler_name: str
     message: str = ""
 
 
-class TestHandlerA(CORRequestHandler[TestRequest, TestResult | None]):
+class TestHandlerA(CORRequestHandler[TRequest, TResult | None]):
     """Test handler that processes method_a and tracks calls."""
 
     call_count: int = 0
@@ -27,11 +27,11 @@ class TestHandlerA(CORRequestHandler[TestRequest, TestResult | None]):
     def events(self) -> typing.List[cqrs.Event]:
         return []
 
-    async def handle(self, request: TestRequest) -> TestResult | None:
+    async def handle(self, request: TRequest) -> TResult | None:
         TestHandlerA.call_count += 1
 
         if request.method == "method_a":
-            return TestResult(
+            return TResult(
                 success=True,
                 handler_name="TestHandlerA",
                 message=f"Processed method_a for user {request.user_id}",
@@ -40,7 +40,7 @@ class TestHandlerA(CORRequestHandler[TestRequest, TestResult | None]):
         return await self.next(request)
 
 
-class TestHandlerB(CORRequestHandler[TestRequest, TestResult | None]):
+class TestHandlerB(CORRequestHandler[TRequest, TResult | None]):
     """Test handler that processes method_b and tracks calls."""
 
     call_count: int = 0
@@ -49,11 +49,11 @@ class TestHandlerB(CORRequestHandler[TestRequest, TestResult | None]):
     def events(self) -> typing.List[cqrs.Event]:
         return []
 
-    async def handle(self, request: TestRequest) -> TestResult | None:
+    async def handle(self, request: TRequest) -> TResult | None:
         TestHandlerB.call_count += 1
 
         if request.method == "method_b":
-            return TestResult(
+            return TResult(
                 success=True,
                 handler_name="TestHandlerB",
                 message=f"Processed method_b for user {request.user_id}",
@@ -62,7 +62,7 @@ class TestHandlerB(CORRequestHandler[TestRequest, TestResult | None]):
         return await self.next(request)
 
 
-class TestHandlerC(CORRequestHandler[TestRequest, TestResult | None]):
+class TestHandlerC(CORRequestHandler[TRequest, TResult | None]):
     """Test handler that processes method_c and tracks calls."""
 
     call_count: int = 0
@@ -71,11 +71,11 @@ class TestHandlerC(CORRequestHandler[TestRequest, TestResult | None]):
     def events(self) -> typing.List[cqrs.Event]:
         return []
 
-    async def handle(self, request: TestRequest) -> TestResult | None:
+    async def handle(self, request: TRequest) -> TResult | None:
         TestHandlerC.call_count += 1
 
         if request.method == "method_c":
-            return TestResult(
+            return TResult(
                 success=True,
                 handler_name="TestHandlerC",
                 message=f"Processed method_c for user {request.user_id}",
@@ -84,7 +84,7 @@ class TestHandlerC(CORRequestHandler[TestRequest, TestResult | None]):
         return await self.next(request)
 
 
-class DefaultTestHandler(CORRequestHandler[TestRequest, TestResult | None]):
+class DefaultTestHandler(CORRequestHandler[TRequest, TResult | None]):
     """Default handler that always handles the request (end of chain)."""
 
     call_count: int = 0
@@ -93,9 +93,9 @@ class DefaultTestHandler(CORRequestHandler[TestRequest, TestResult | None]):
     def events(self) -> typing.List[cqrs.Event]:
         return []
 
-    async def handle(self, request: TestRequest) -> TestResult | None:
+    async def handle(self, request: TRequest) -> TResult | None:
         DefaultTestHandler.call_count += 1
-        return TestResult(
+        return TResult(
             success=False,
             handler_name="DefaultTestHandler",
             message=f"Unsupported method: {request.method}",
@@ -105,7 +105,7 @@ class DefaultTestHandler(CORRequestHandler[TestRequest, TestResult | None]):
 def cor_mapper(mapper: cqrs.RequestMap) -> None:
     """Register the chain of test handlers."""
     mapper.bind(
-        TestRequest,
+        TRequest,
         [
             TestHandlerA,
             TestHandlerB,
@@ -132,7 +132,7 @@ async def test_cor_chain_stops_after_first_handler():
     )
 
     # Send request that should be handled by TestHandlerA (first in chain)
-    result = await mediator.send(TestRequest(method="method_a", user_id="user1"))
+    result: TResult = await mediator.send(TRequest(method="method_a", user_id="user1"))
 
     # Verify result
     assert result.success is True
@@ -154,7 +154,7 @@ async def test_cor_chain_continues_to_second_handler():
     )
 
     # Send request that should be handled by TestHandlerB (second in chain)
-    result = await mediator.send(TestRequest(method="method_b", user_id="user2"))
+    result: TResult = await mediator.send(TRequest(method="method_b", user_id="user2"))
 
     # Verify result
     assert result.success is True
@@ -176,7 +176,7 @@ async def test_cor_chain_continues_to_third_handler():
     )
 
     # Send request that should be handled by TestHandlerC (third in chain)
-    result = await mediator.send(TestRequest(method="method_c", user_id="user3"))
+    result: TResult = await mediator.send(TRequest(method="method_c", user_id="user3"))
 
     # Verify result
     assert result.success is True
@@ -198,8 +198,8 @@ async def test_cor_chain_reaches_default_handler():
     )
 
     # Send request with unsupported method
-    result = await mediator.send(
-        TestRequest(method="unsupported_method", user_id="user4"),
+    result: TResult = await mediator.send(
+        TRequest(method="unsupported_method", user_id="user4"),
     )
 
     # Verify result
@@ -222,9 +222,9 @@ async def test_cor_multiple_requests_independent():
     )
 
     # Send multiple requests in sequence
-    result1 = await mediator.send(TestRequest(method="method_a", user_id="user1"))
-    result2 = await mediator.send(TestRequest(method="method_b", user_id="user2"))
-    result3 = await mediator.send(TestRequest(method="method_a", user_id="user3"))
+    result1 = await mediator.send(TRequest(method="method_a", user_id="user1"))
+    result2 = await mediator.send(TRequest(method="method_b", user_id="user2"))
+    result3 = await mediator.send(TRequest(method="method_a", user_id="user3"))
 
     # Verify results
     assert result1.success is True and result1.handler_name == "TestHandlerA"

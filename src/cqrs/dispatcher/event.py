@@ -1,0 +1,42 @@
+import logging
+import typing
+
+from cqrs.container.protocol import Container
+from cqrs.events.event import Event
+from cqrs.events.event_handler import EventHandler
+from cqrs.events.map import EventMap
+from cqrs.middlewares.base import MiddlewareChain
+
+_EventHandler: typing.TypeAlias = EventHandler
+
+logger = logging.getLogger("cqrs")
+
+
+class EventDispatcher:
+    def __init__(
+        self,
+        event_map: EventMap,
+        container: Container,
+        middleware_chain: MiddlewareChain | None = None,
+    ) -> None:
+        self._event_map = event_map
+        self._container = container
+        self._middleware_chain = middleware_chain or MiddlewareChain()
+
+    async def _handle_event(
+        self,
+        event: Event,
+        handle_type: typing.Type[_EventHandler],
+    ):
+        handler: _EventHandler = await self._container.resolve(handle_type)
+        await handler.handle(event)
+
+    async def dispatch(self, event: Event) -> None:
+        handler_types = self._event_map.get(type(event), [])
+        if not handler_types:
+            logger.warning(
+                "Handlers for event %s not found",
+                type(event).__name__,
+            )
+        for h_type in handler_types:
+            await self._handle_event(event, h_type)

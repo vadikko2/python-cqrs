@@ -1,14 +1,14 @@
-import asyncio
 import functools
 import logging
 import typing
 
 from cqrs import container as di_container, message_brokers
-from cqrs.events import event as event_model, event_handler, map
+from cqrs.events.event import DomainEvent, Event, NotificationEvent
+from cqrs.events import event_handler, map
 
 logger = logging.getLogger("cqrs")
 
-_H: typing.TypeAlias = event_handler.EventHandler | event_handler.SyncEventHandler
+_H: typing.TypeAlias = event_handler.EventHandler
 
 
 class EventEmitter:
@@ -28,12 +28,12 @@ class EventEmitter:
         self._message_broker = message_broker
 
     @functools.singledispatchmethod
-    async def emit(self, event: event_model.Event) -> None:
+    async def emit(self, event: Event) -> None:
         pass
 
     async def _send_to_broker(
         self,
-        event: event_model.NotificationEvent,
+        event: NotificationEvent,
     ) -> None:
         """
         Sends event to the message broker.
@@ -59,7 +59,7 @@ class EventEmitter:
         await self._message_broker.send_message(message)
 
     @emit.register
-    async def _(self, event: event_model.DomainEvent) -> None:
+    async def _(self, event: DomainEvent) -> None:
         handlers_types = self._event_map.get(type(event), [])
         if not handlers_types:
             logger.warning(
@@ -75,11 +75,8 @@ class EventEmitter:
                 type(event).__name__,
                 handler_type.__name__,
             )
-            if asyncio.iscoroutinefunction(handler.handle):
-                await handler.handle(event)
-            else:
-                await asyncio.to_thread(handler.handle, event)
+            await handler.handle(event)
 
     @emit.register
-    async def _(self, event: event_model.NotificationEvent) -> None:
+    async def _(self, event: NotificationEvent) -> None:
         await self._send_to_broker(event)

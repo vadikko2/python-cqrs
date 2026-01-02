@@ -1,5 +1,4 @@
 import datetime
-import logging
 import os
 import typing
 import uuid
@@ -7,9 +6,11 @@ import uuid
 import dotenv
 import pydantic
 
-logger = logging.getLogger("cqrs")
 dotenv.load_dotenv()
 DEFAULT_OUTPUT_TOPIC = os.getenv("DEFAULT_OUTPUT_TOPIC", "output_topic")
+
+# Type variable for generic payload types
+PayloadT = typing.TypeVar("PayloadT", bound=typing.Any)
 
 
 class Event(pydantic.BaseModel, frozen=True):
@@ -24,10 +25,7 @@ class DomainEvent(Event, frozen=True):
     """
 
 
-_P = typing.TypeVar("_P", typing.Any, None)
-
-
-class NotificationEvent(Event, typing.Generic[_P], frozen=True):
+class NotificationEvent(Event, typing.Generic[PayloadT], frozen=True):
     """
     The base class for notification events
     """
@@ -39,7 +37,7 @@ class NotificationEvent(Event, typing.Generic[_P], frozen=True):
     event_name: typing.Text
     topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
 
-    payload: _P = pydantic.Field(default=None)
+    payload: PayloadT = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
@@ -48,3 +46,6 @@ class NotificationEvent(Event, typing.Generic[_P], frozen=True):
 
     def __hash__(self):
         return hash(self.event_id)
+
+
+__all__ = ("Event", "DomainEvent", "NotificationEvent")

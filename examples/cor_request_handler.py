@@ -86,7 +86,7 @@ class PaymentResult(cqrs.Response):
     message: str = ""
 
 
-class PaymentProcessedEvent(cqrs.Event):
+class PaymentProcessedEvent(cqrs.Event, frozen=True):
     transaction_id: str
     amount: float
     user_id: str
@@ -234,7 +234,7 @@ async def main():
 
     # Test supported payment methods
     print("Processing credit card payment...")
-    result1 = await mediator.send(
+    result1: PaymentResult = await mediator.send(
         ProcessPaymentCommand(
             amount=100.0,
             payment_method="credit_card",
@@ -244,7 +244,7 @@ async def main():
     print(f"Result: {result1.message}\n")
 
     print("Processing PayPal payment...")
-    result2 = await mediator.send(
+    result2: PaymentResult = await mediator.send(
         ProcessPaymentCommand(
             amount=50.0,
             payment_method="paypal",
@@ -254,7 +254,7 @@ async def main():
     print(f"Result: {result2.message}\n")
 
     print("Processing bank transfer payment...")
-    result3 = await mediator.send(
+    result3: PaymentResult = await mediator.send(
         ProcessPaymentCommand(
             amount=200.0,
             payment_method="bank_transfer",
@@ -265,7 +265,7 @@ async def main():
 
     # Test unsupported payment method (goes to default handler)
     print("Processing unsupported payment method...")
-    result4 = await mediator.send(
+    result4: PaymentResult = await mediator.send(
         ProcessPaymentCommand(
             amount=75.0,
             payment_method="crypto",
@@ -280,10 +280,17 @@ async def main():
     print(f"Total bank transfer transactions: {len(TRANSACTIONS['bank_transfer'])}")
 
     # Verify results
-    assert result1.success and result1.transaction_id.startswith("cc_")
-    assert result2.success and result2.transaction_id.startswith("pp_")
-    assert result3.success and result3.transaction_id.startswith("bt_")
-    assert not result4.success and result4.transaction_id is None
+    assert result1.success
+    assert result1.transaction_id is not None
+    assert result1.transaction_id.startswith("cc_")
+    assert result2.success
+    assert result2.transaction_id is not None
+    assert result2.transaction_id.startswith("pp_")
+    assert result3.success
+    assert result3.transaction_id is not None
+    assert result3.transaction_id.startswith("bt_")
+    assert not result4.success
+    assert result4.transaction_id is None
 
     print("All handlers processed requests correctly!")
 

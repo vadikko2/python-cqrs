@@ -6,13 +6,9 @@ import pydantic
 from confluent_kafka.schema_registry import protobuf
 from google.protobuf.message import Message
 
+from cqrs.deserializers.exceptions import DeserializeProtobufError
+
 logger = logging.getLogger("cqrs")
-
-
-class DeserializeProtobufError(pydantic.BaseModel):
-    error_message: str
-    error_type: typing.Type[Exception]
-    message_data: bytes
 
 
 class ProtobufValueDeserializer:

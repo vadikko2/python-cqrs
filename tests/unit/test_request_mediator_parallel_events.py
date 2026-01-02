@@ -10,11 +10,9 @@ from cqrs.events import (
     EventMap,
 )
 from cqrs.mediator import RequestMediator
-from cqrs.requests import (
-    Request,
-    RequestHandler,
-    RequestMap,
-)
+from cqrs.requests.map import RequestMap
+from cqrs.requests.request import Request
+from cqrs.requests.request_handler import RequestHandler
 
 
 class ProcessItemsCommand(Request):
@@ -40,7 +38,7 @@ class ProcessItemsCommandHandler(RequestHandler[ProcessItemsCommand, None]):
             self._events.append(event)
 
 
-class ItemProcessedDomainEvent(DomainEvent):  # type: ignore[misc]
+class ItemProcessedDomainEvent(DomainEvent, frozen=True):
     item_id: str = pydantic.Field()
 
 

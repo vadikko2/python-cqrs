@@ -5,20 +5,26 @@ import pydantic
 import pytest
 
 import cqrs
-from cqrs import events, requests
+from cqrs import (
+    Event,
+    EventEmitter,
+    EventMap,
+    NotificationEvent,
+    Request,
+    RequestHandler,
+    RequestMap,
+)
 from cqrs.message_brokers import kafka as kafka_broker
 
 
-class CloseMeetingRoomCommand(requests.Request):
+class CloseMeetingRoomCommand(Request):
     meeting_room_id: uuid.UUID = pydantic.Field()
 
 
-class CloseMeetingRoomCommandHandler(
-    requests.RequestHandler[CloseMeetingRoomCommand, None],
-):
+class CloseMeetingRoomCommandHandler(RequestHandler[CloseMeetingRoomCommand, None]):
     def __init__(self) -> None:
         self.called = False
-        self._events: typing.List[events.Event] = []
+        self._events: typing.List[Event] = []
 
     @property
     def events(self) -> typing.List:
@@ -26,7 +32,7 @@ class CloseMeetingRoomCommandHandler(
 
     async def handle(self, request: CloseMeetingRoomCommand) -> None:
         self.called = True
-        event = events.NotificationEvent(
+        event = NotificationEvent(
             event_name="",
             payload=dict(
                 meeting_room_id=request.meeting_room_id,
@@ -46,12 +52,12 @@ class MockContainer:
 @pytest.fixture
 async def mediator(kafka_producer) -> cqrs.RequestMediator:
     broker = kafka_broker.KafkaMessageBroker(kafka_producer)
-    event_emitter = events.EventEmitter(
-        event_map=events.EventMap(),
+    event_emitter = EventEmitter(
+        event_map=EventMap(),
         container=MockContainer(),  # type: ignore
         message_broker=broker,
     )
-    request_map = requests.RequestMap()
+    request_map = RequestMap()
     request_map.bind(CloseMeetingRoomCommand, CloseMeetingRoomCommandHandler)
     return cqrs.RequestMediator(
         request_map=request_map,

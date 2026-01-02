@@ -1,0 +1,179 @@
+from __future__ import annotations
+
+import abc
+import typing
+
+import pydantic
+
+from cqrs.events.event import Event
+from cqrs.response import Response
+from cqrs.saga.models import ContextT
+
+Resp = typing.TypeVar("Resp", bound=Response | None, covariant=True)
+
+
+class SagaStepResult(pydantic.BaseModel, typing.Generic[ContextT, Resp]):
+    """
+    Result of a saga step execution.
+
+    Contains the response from the step's act method and metadata about the step.
+    The step_type field uses typing.Any for Pydantic validation compatibility,
+    but the actual runtime type is Type[SagaStepHandler[ContextT, Resp]].
+    """
+
+    response: Resp
+    step_type: typing.Any  # type: ignore[assignment]  # Actual type: Type[SagaStepHandler[ContextT, Resp]]
+
+    with_error: bool = False
+    error_message: str | None = None
+    error_traceback: list[str] | None = None
+    error_type: typing.Type[Exception] | None = None
+
+
+class SagaStepHandler(abc.ABC, typing.Generic[ContextT, Resp]):
+    """
+    The saga step handler interface.
+
+    A saga step handler represents a single step in a distributed transaction saga.
+    Each step can perform an action and provide compensation logic to rollback
+    the action if a subsequent step fails. This enables distributed transactions
+    without requiring two-phase commit.
+
+    The saga pattern is useful when you need to coordinate multiple operations
+    across different services or systems, where each operation can be compensated
+    if the overall transaction fails.
+
+    Usage::
+
+      class ReserveInventoryStep(SagaStepHandler[OrderContext]):
+          def __init__(self, inventory_api: InventoryAPIProtocol) -> None:
+              self._inventory_api = inventory_api
+              self._events: list[Event] = []
+
+          @property
+          def events(self) -> list[Event]:
+              return self._events.copy()
+
+          async def act(self, context: OrderContext) -> None:
+              await self._inventory_api.reserve_items(
+                  order_id=context.order_id,
+                  items=context.items
+              )
+              self._events.append(InventoryReservedEvent(order_id=context.order_id))
+
+          async def compensate(self, context: OrderContext) -> None:
+              await self._inventory_api.release_items(
+                  order_id=context.order_id,
+                  items=context.items
+              )
+
+      class ProcessPaymentStep(SagaStepHandler[OrderContext]):
+          def __init__(self, payment_api: PaymentAPIProtocol) -> None:
+              self._payment_api = payment_api
+              self._events: list[Event] = []
+
+          @property
+          def events(self) -> list[Event]:
+              return self._events.copy()
+
+          async def act(self, context: OrderContext) -> None:
+              await self._payment_api.charge(
+                  order_id=context.order_id,
+                  amount=context.total_amount
+              )
+              self._events.append(PaymentProcessedEvent(order_id=context.order_id))
+
+          async def compensate(self, context: OrderContext) -> None:
+              await self._payment_api.refund(
+                  order_id=context.order_id,
+                  amount=context.total_amount
+              )
+
+    """
+
+    def _generate_step_result(
+        self,
+        response: Response | None,
+        with_error: bool = False,
+        error_message: str | None = None,
+        error_traceback: list[str] | None = None,
+        error_type: typing.Type[Exception] | None = None,
+    ) -> SagaStepResult[ContextT, Resp]:
+        """
+        Generate a SagaStepResult with proper typing from the class.
+
+        Args:
+            response: The response object (can be None)
+            with_error: Whether the step resulted in an error
+            error_message: Error message if with_error is True
+            error_traceback: Error traceback lines if with_error is True
+            error_type: Type of exception if with_error is True
+
+        Returns:
+            A properly typed SagaStepResult instance
+        """
+        return SagaStepResult(
+            response=typing.cast(Resp, response),
+            step_type=typing.cast(
+                typing.Type[SagaStepHandler[ContextT, Resp]],
+                self.__class__,
+            ),
+            with_error=with_error,
+            error_message=error_message,
+            error_traceback=error_traceback,
+            error_type=error_type,
+        )
+
+    @property
+    @abc.abstractmethod
+    def events(self) -> typing.List[Event]:
+        """
+        Get the list of domain events produced by this step.
+
+        Returns:
+            A list of domain events that were generated during the execution
+            of the act method. These events can be emitted after the step
+            completes successfully.
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def act(self, context: ContextT) -> SagaStepResult[ContextT, Resp]:
+        """
+        Execute the action for this saga step.
+
+        This method performs the actual work of the step. If this step or any
+        subsequent step fails, the compensate method will be called for all
+        completed steps in reverse order.
+
+        Args:
+            context: The saga context object that contains shared state
+                     across all steps in the saga.
+
+        Raises:
+            Exception: Any exception raised during execution will cause the
+                      saga to fail and trigger compensation for all completed steps.
+
+        """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    async def compensate(self, context: ContextT) -> None:
+        """
+        Compensate (rollback) the action performed by this step.
+
+        This async method is called when a saga fails and needs to rollback completed
+        steps. It should undo the effects of the act method. Compensation is
+        called in reverse order of step execution.
+
+        Args:
+            context: The saga context object that contains shared state
+                     across all steps in the saga.
+
+        Note:
+            Compensation should be idempotent - it should be safe to call
+            multiple times with the same context.
+
+        """
+        raise NotImplementedError

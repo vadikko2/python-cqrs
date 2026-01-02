@@ -4,7 +4,7 @@ from cqrs.container.protocol import Container
 from cqrs.events import EventMap
 from cqrs.events.event import DomainEvent, Event, NotificationEvent
 from cqrs.events.event_emitter import EventEmitter
-from cqrs.events.event_handler import EventHandler, SyncEventHandler
+from cqrs.events.event_handler import EventHandler
 from cqrs.mediator import (
     EventMediator,
     RequestMediator,
@@ -17,15 +17,16 @@ from cqrs.outbox.sqlalchemy import (
     SqlAlchemyOutboxedEventRepository,
 )
 from cqrs.producer import EventProducer
-from cqrs.requests import RequestMap
+from cqrs.requests.map import RequestMap
 from cqrs.requests.request import Request
 from cqrs.requests.request_handler import (
     RequestHandler,
     StreamingRequestHandler,
-    SyncRequestHandler,
-    SyncStreamingRequestHandler,
 )
 from cqrs.response import Response
+from cqrs.saga.models import ContextT, SagaResult
+from cqrs.saga.saga import Saga
+from cqrs.saga.step import SagaStepHandler
 
 __all__ = (
     "RequestMediator",
@@ -38,13 +39,10 @@ __all__ = (
     "EventHandler",
     "EventMap",
     "OutboxedEventMap",
-    "SyncEventHandler",
     "Request",
     "RequestHandler",
     "StreamingRequestHandler",
     "RequestMap",
-    "SyncRequestHandler",
-    "SyncStreamingRequestHandler",
     "Response",
     "OutboxedEventRepository",
     "SqlAlchemyOutboxedEventRepository",
@@ -54,4 +52,8 @@ __all__ = (
     "Compressor",
     "ZlibCompressor",
     "rebind_outbox_model",
+    "Saga",
+    "SagaStepHandler",
+    "SagaResult",
+    "ContextT",
 )

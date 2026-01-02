@@ -1,17 +1,14 @@
 from __future__ import annotations
+
 import abc
 import functools
 import typing
 
-from cqrs import response
-from cqrs.events import event
-from cqrs.requests import request as r
-
-_Req = typing.TypeVar("_Req", bound=r.Request, contravariant=True)
-_Resp = typing.TypeVar("_Resp", response.Response, None, covariant=True)
+from cqrs.events.event import Event
+from cqrs.types import ReqT, ResT
 
 
-class CORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
+class CORRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
     """
     The chain of responsibility request handler interface.
 
@@ -31,78 +28,37 @@ class CORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
               return await super().handle(request)
     """
 
-    _next_handler: "CORRequestHandler" = None
+    _next_handler: "CORRequestHandler[ReqT, ResT] | None" = None
 
-    def set_next(self, handler: "CORRequestHandler") -> "CORRequestHandler":
+    def set_next(
+        self,
+        handler: "CORRequestHandler[ReqT, ResT]",
+    ) -> "CORRequestHandler[ReqT, ResT]":
         if self._next_handler is None:
             self._next_handler = handler
 
         return self._next_handler
 
-    async def next(self, request: _Req) -> _Resp:
+    async def next(self, request: ReqT) -> ResT | None:
         if self._next_handler:
             return await self._next_handler.handle(request)
 
-        return None
+        return typing.cast(ResT, None)
 
     @property
     @abc.abstractmethod
-    def events(self) -> typing.List[event.Event]:
+    def events(self) -> typing.List[Event]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def handle(self, request: _Req) -> _Resp:
+    async def handle(self, request: ReqT) -> ResT | None:
         raise NotImplementedError
 
 
-class SyncCORRequestHandler(abc.ABC, typing.Generic[_Req, _Resp]):
-    """
-    The synchronous chain of responsibility request handler interface.
-
-    Implements the chain of responsibility pattern, allowing multiple handlers
-    to process a request in sequence until one handles it successfully.
-
-    Chain handler example::
-
-      class AuthenticationHandler(SyncCORRequestHandler[LoginCommand, None]):
-          def __init__(self, auth_service: AuthServiceProtocol) -> None:
-              self._auth_service = auth_service
-              self.events: typing.List[Event] = []
-
-          def handle(self, request: LoginCommand) -> None | None:
-              if self._auth_service.can_authenticate(request):
-                  return self._auth_service.authenticate(request)
-              return super().handle(request)
-    """
-
-    _next_handler: "SyncCORRequestHandler" = None
-
-    def set_next(self, handler: "SyncCORRequestHandler") -> "SyncCORRequestHandler":
-        if self._next_handler is None:
-            self._next_handler = handler
-
-        return self._next_handler
-
-    def next(self, request: _Req) -> _Resp:
-        if self._next_handler:
-            return self._next_handler.handle(request)
-
-        return None
-
-    @property
-    @abc.abstractmethod
-    def events(self) -> typing.List[event.Event]:
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def handle(self, request: _Req) -> _Resp:
-        raise NotImplementedError
+CORRequestHandlerT: typing.TypeAlias = CORRequestHandler
 
 
-_RequestHandler: typing.TypeAlias = CORRequestHandler | SyncCORRequestHandler
-
-
-def build_chain(handlers: typing.List[_RequestHandler]) -> _RequestHandler:
+def build_chain(handlers: typing.List[CORRequestHandlerT]) -> CORRequestHandlerT:
     """
     Build a chain of responsibility from a list of handlers.
 

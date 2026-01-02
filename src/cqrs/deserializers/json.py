@@ -3,15 +3,11 @@ import typing
 
 import pydantic
 
+from cqrs.deserializers.exceptions import DeserializeJsonError
+
 _T = typing.TypeVar("_T", bound=pydantic.BaseModel)
 
 logger = logging.getLogger("cqrs")
-
-
-class DeserializeJsonError(pydantic.BaseModel):
-    error_message: str
-    error_type: typing.Type[Exception]
-    message_data: str | bytes | None
 
 
 class JsonDeserializer(typing.Generic[_T]):

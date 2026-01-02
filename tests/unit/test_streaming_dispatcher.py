@@ -6,12 +6,9 @@ import pytest
 
 from cqrs.dispatcher import StreamingRequestDispatcher
 from cqrs.events import Event, NotificationEvent
-from cqrs.requests import (
-    Request,
-    RequestMap,
-    StreamingRequestHandler,
-    SyncStreamingRequestHandler,
-)
+from cqrs.requests.map import RequestMap
+from cqrs.requests.request import Request
+from cqrs.requests.request_handler import StreamingRequestHandler
 from cqrs.response import Response
 
 
@@ -42,35 +39,6 @@ class AsyncStreamingHandler(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
-        self.called = True
-        for item_id in request.item_ids:
-            result = ProcessItemResult(item_id=item_id, status="processed")
-            event = NotificationEvent(
-                event_name="ItemProcessed",
-                payload={"item_id": item_id},
-            )
-            self._events.append(event)
-            yield result
-
-
-class SyncStreamingHandler(
-    SyncStreamingRequestHandler[ProcessItemsCommand, ProcessItemResult],
-):
-    def __init__(self) -> None:
-        self.called = False
-        self._events: list[Event] = []
-
-    @property
-    def events(self) -> list[Event]:
-        return self._events.copy()
-
-    def clear_events(self) -> None:
-        self._events.clear()
-
-    def handle(
-        self,
-        request: ProcessItemsCommand,
-    ) -> typing.Iterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
             result = ProcessItemResult(item_id=item_id, status="processed")
@@ -117,32 +85,6 @@ async def test_async_streaming_dispatcher_logic() -> None:
     assert results[0].events[0].payload["item_id"] == "item1"  # type: ignore
     assert results[1].events[0].payload["item_id"] == "item2"  # type: ignore
     assert results[2].events[0].payload["item_id"] == "item3"  # type: ignore
-
-
-async def test_sync_streaming_dispatcher_logic() -> None:
-    handler = SyncStreamingHandler()
-    request_map = RequestMap()
-    request_map.bind(ProcessItemsCommand, SyncStreamingHandler)
-    container = StreamingContainer(handler)
-
-    dispatcher = StreamingRequestDispatcher(
-        request_map=request_map,
-        container=container,  # type: ignore
-    )
-
-    request = ProcessItemsCommand(item_ids=["item1", "item2"])
-    results = []
-    async for result in dispatcher.dispatch(request):
-        results.append(result)
-
-    assert handler.called
-    assert len(results) == 2
-    assert results[0].response.item_id == "item1"
-    assert results[1].response.item_id == "item2"
-    assert len(results[0].events) == 1
-    assert len(results[1].events) == 1
-    assert results[0].events[0].payload["item_id"] == "item1"  # type: ignore
-    assert results[1].events[0].payload["item_id"] == "item2"  # type: ignore
 
 
 async def test_streaming_dispatcher_empty_generator() -> None:
@@ -201,23 +143,3 @@ async def test_async_streaming_dispatcher_calls_clear_events() -> None:
         pass
 
     assert handler.clear_events.call_count == 3
-
-
-async def test_sync_streaming_dispatcher_calls_clear_events() -> None:
-    handler = SyncStreamingHandler()
-    handler.clear_events = mock.Mock(wraps=handler.clear_events)  # type: ignore
-
-    request_map = RequestMap()
-    request_map.bind(ProcessItemsCommand, SyncStreamingHandler)
-    container = StreamingContainer(handler)
-
-    dispatcher = StreamingRequestDispatcher(
-        request_map=request_map,
-        container=container,  # type: ignore
-    )
-
-    request = ProcessItemsCommand(item_ids=["item1", "item2"])
-    async for _ in dispatcher.dispatch(request):
-        pass
-
-    assert handler.clear_events.call_count == 2

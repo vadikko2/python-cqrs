@@ -5,7 +5,9 @@ import pydantic
 from cqrs.dispatcher import RequestDispatcher
 from cqrs.events import Event
 from cqrs.middlewares import MiddlewareChain
-from cqrs.requests import Request, RequestHandler, RequestMap
+from cqrs.requests.map import RequestMap
+from cqrs.requests.request import Request
+from cqrs.requests.request_handler import RequestHandler
 from cqrs.response import Response
 
 

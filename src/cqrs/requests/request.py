@@ -8,3 +8,6 @@ class Request(pydantic.BaseModel):
     The request is an input of the request handler.
     Often Request is used for defining queries or commands.
     """
+
+
+__all__ = ("Request",)

@@ -1,21 +1,6 @@
 <div align="center">
   <h1>Python CQRS</h1>
-  <p>CQRS pattern implementation with Transaction Outbox support</p>
-
-  <p>
-    <a href="https://pypi.org/project/python-cqrs/">
-      <img src="https://img.shields.io/pypi/v/python-cqrs?label=pypi&logo=pypi" alt="PyPI version">
-    </a>
-    <a href="https://pypi.org/project/python-cqrs/">
-      <img src="https://img.shields.io/pypi/dm/python-cqrs?label=downloads&logo=pypi" alt="PyPI downloads">
-    </a>
-    <a href="https://pypi.org/project/python-cqrs/">
-      <img src="https://img.shields.io/pypi/pyversions/python-cqrs?label=python&logo=python" alt="Python versions">
-    </a>
-    <a href="https://vadikko2.github.io/python-cqrs-mkdocs/">
-      <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
-    </a>
-  </p>
+  <p>Event-Driven Architecture Framework for Distributed Systems</p>
 </div>
 
 <div align="center">
@@ -47,7 +32,8 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 9. [Protobuf](https://protobuf.dev/) events supporting;
 10. `StreamingRequestMediator` and `StreamingRequestHandler` for handling streaming requests with real-time progress updates;
 11. Parallel event processing with configurable concurrency limits;
-12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence.
+12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence;
+13. Choreographic Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms.
 
 ## Request Handlers
 
@@ -62,7 +48,7 @@ As a result of executing the command, an event may be produced to the broker.
 > By default, the command handler does not return any result, but it is not mandatory.
 
 ```python
-from cqrs.requests.request_handler import RequestHandler, SyncRequestHandler
+from cqrs.requests.request_handler import RequestHandler
 from cqrs.events.event import Event
 
 class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None]):
@@ -77,21 +63,6 @@ class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None]):
 
       async def handle(self, request: JoinMeetingCommand) -> None:
           await self._meetings_api.join_user(request.user_id, request.meeting_id)
-
-
-class SyncJoinMeetingCommandHandler(SyncRequestHandler[JoinMeetingCommand, None]):
-
-      def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
-          self._meetings_api = meetings_api
-          self.events: list[Event] = []
-
-      @property
-      def events(self) -> typing.List[events.Event]:
-          return self._events
-
-      def handle(self, request: JoinMeetingCommand) -> None:
-          # do some sync logic
-          ...
 ```
 
 A complete example can be found in
@@ -225,6 +196,120 @@ def payment_mapper(mapper: cqrs.RequestMap) -> None:
 
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/cor_request_handler.py)
+
+## Saga Pattern
+
+The package implements the Choreographic Saga pattern for managing distributed transactions across multiple services or operations. 
+Sagas enable eventual consistency by executing a series of steps where each step can be compensated if a subsequent step fails.
+
+### Key Features
+
+- **SagaStorage**: Persists saga state and execution history, enabling recovery of interrupted sagas
+- **SagaLog**: Tracks all step executions (act/compensate) with status and timestamps
+- **Recovery Mechanism**: Automatically recovers interrupted sagas from storage, ensuring eventual consistency
+- **Automatic Compensation**: If any step fails, all previously completed steps are automatically compensated in reverse order
+
+### Example
+
+```python
+from cqrs.saga.saga import Saga
+from cqrs.saga.step import SagaStepHandler, SagaStepResult
+from cqrs.saga.storage.memory import MemorySagaStorage
+from cqrs.saga.models import SagaContext
+from cqrs.response import Response
+import uuid
+
+class OrderContext(SagaContext):
+    order_id: str
+    user_id: str
+    items: list[str]
+    total_amount: float
+    inventory_reservation_id: str | None = None
+    payment_id: str | None = None
+
+class ReserveInventoryResponse(Response):
+    reservation_id: str
+
+class ProcessPaymentResponse(Response):
+    payment_id: str
+
+class ReserveInventoryStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
+    def __init__(self, inventory_service):
+        self._inventory_service = inventory_service
+    
+    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
+        # Reserve inventory
+        reservation_id = await self._inventory_service.reserve_items(context.order_id, context.items)
+        context.inventory_reservation_id = reservation_id
+        return self._generate_step_result(ReserveInventoryResponse(reservation_id=reservation_id))
+    
+    async def compensate(self, context: OrderContext) -> None:
+        # Release inventory if saga fails
+        if context.inventory_reservation_id:
+            await self._inventory_service.release_items(context.inventory_reservation_id)
+
+class ProcessPaymentStep(SagaStepHandler[OrderContext, ProcessPaymentResponse]):
+    def __init__(self, payment_service):
+        self._payment_service = payment_service
+    
+    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ProcessPaymentResponse]:
+        # Process payment
+        payment_id = await self._payment_service.charge(context.order_id, context.total_amount)
+        context.payment_id = payment_id
+        return self._generate_step_result(ProcessPaymentResponse(payment_id=payment_id))
+    
+    async def compensate(self, context: OrderContext) -> None:
+        # Refund payment if saga fails
+        if context.payment_id:
+            await self._payment_service.refund(context.payment_id)
+
+# Create saga with storage
+storage = MemorySagaStorage()
+saga = Saga(
+    steps=[ReserveInventoryStep, ProcessPaymentStep],
+    container=container,  # DI container
+    storage=storage,
+)
+
+# Execute saga
+saga_id = uuid.uuid4()
+context = OrderContext(order_id="123", user_id="user_1", items=["item_1"], total_amount=100.0)
+
+async with saga.transaction(context=context, saga_id=saga_id) as transaction:
+    async for step_result in transaction:
+        print(f"Step completed: {step_result.step_type.__name__}")
+        # If any step fails, compensation happens automatically
+```
+
+The saga state and step history are persisted to `SagaStorage`. The `SagaLog` maintains a complete audit trail 
+of all step executions (both `act` and `compensate` operations) with timestamps and status information. 
+This enables the recovery mechanism to restore saga state and ensure eventual consistency even after system failures.
+
+If a saga is interrupted (e.g., due to a crash), you can recover it using the recovery mechanism:
+
+```python
+from cqrs.saga.recovery import recover_saga
+
+# Recover interrupted saga - will resume from last completed step
+# or continue compensation if saga was in compensating state
+await recover_saga(saga, saga_id, OrderContext)
+
+# Access execution history (SagaLog) for monitoring and debugging
+history = await storage.get_step_history(saga_id)
+for entry in history:
+    print(f"{entry.timestamp}: {entry.step_name} - {entry.action} - {entry.status}")
+```
+
+The recovery mechanism ensures eventual consistency by:
+- Loading the last known saga state from `SagaStorage`
+- Checking the `SagaLog` to determine which steps were completed
+- Resuming execution from the last completed step, or continuing compensation if the saga was in a compensating state
+- Preventing duplicate execution of already completed steps
+
+Complete examples can be found in:
+- [Basic Saga](https://github.com/vadikko2/cqrs/blob/master/examples/saga.py)
+- [Saga Recovery](https://github.com/vadikko2/cqrs/blob/master/examples/saga_recovery.py)
+- [Saga with FastAPI SSE](https://github.com/vadikko2/cqrs/blob/master/examples/saga_fastapi_sse.py)
 
 ## Event Handlers
 

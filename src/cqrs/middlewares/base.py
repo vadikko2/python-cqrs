@@ -1,26 +1,25 @@
 import functools
 import typing
 
-from cqrs import requests, response
+from cqrs.saga.models import SagaContext
+from cqrs.types import ReqT, ResT
 
-_Req = typing.TypeVar("_Req", bound=requests.Request, contravariant=True)
-_Res = typing.TypeVar("_Res", response.Response, None, covariant=True)
-HandleType = typing.Callable[[_Req], typing.Awaitable[_Res] | _Res]
+HandleType = typing.Callable[[ReqT], typing.Awaitable[ResT] | ResT]
 
 
-class Middleware(typing.Protocol[_Req, _Res]):
-    async def __call__(self, request: _Req, handle: HandleType) -> _Res:
+class Middleware(typing.Protocol[ReqT, ResT]):
+    async def __call__(self, request: ReqT, handle: HandleType) -> ResT | None:
         raise NotImplementedError
 
 
 class MiddlewareChain:
     def __init__(self) -> None:
-        self._chain: typing.List[Middleware] = []
+        self._chain: typing.List[Middleware[typing.Any, typing.Any]] = []
 
-    def set(self, chain: typing.List[Middleware]) -> None:
+    def set(self, chain: typing.List[Middleware[typing.Any, typing.Any]]) -> None:
         self._chain = chain
 
-    def add(self, middleware: Middleware) -> None:
+    def add(self, middleware: Middleware[typing.Any, typing.Any]) -> None:
         self._chain.append(middleware)
 
     def wrap(self, handle: HandleType) -> HandleType:
@@ -28,3 +27,23 @@ class MiddlewareChain:
             handle = functools.partial(middleware.__call__, handle=handle)
 
         return handle
+
+
+# Contravariant TypeVar for SagaMiddleware protocol
+SagaContextT = typing.TypeVar("SagaContextT", bound=SagaContext, contravariant=True)
+
+SagaHandlerType = typing.Callable[[SagaContextT], typing.Awaitable[None]]
+
+
+class SagaMiddleware(typing.Protocol[SagaContextT]):
+    async def __call__(
+        self,
+        context: SagaContextT,
+        handler: typing.Callable[[SagaContextT], typing.Awaitable[None]],
+    ) -> None:
+        pass
+
+
+class SagaMiddlewareChain:
+    def __init__(self) -> None:
+        pass

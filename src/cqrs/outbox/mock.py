@@ -4,7 +4,7 @@ import cqrs
 from cqrs.outbox import repository
 
 
-class MockOutboxedEventRepository(repository.OutboxedEventRepository[typing.Dict]):
+class MockOutboxedEventRepository(repository.OutboxedEventRepository):
     COUNTER: typing.ClassVar = 0
 
     def __init__(self, session_factory: typing.Callable[[], typing.Dict]):

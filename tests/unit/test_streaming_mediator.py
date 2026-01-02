@@ -13,11 +13,9 @@ from cqrs.events import (
     NotificationEvent,
 )
 from cqrs.mediator import StreamingRequestMediator
-from cqrs.requests import (
-    Request,
-    RequestMap,
-    StreamingRequestHandler,
-)
+from cqrs.requests.map import RequestMap
+from cqrs.requests.request import Request
+from cqrs.requests.request_handler import StreamingRequestHandler
 from cqrs.response import Response
 
 

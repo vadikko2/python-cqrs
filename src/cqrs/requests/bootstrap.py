@@ -4,11 +4,12 @@ from typing import overload
 import di
 
 import cqrs
-from cqrs import events, requests
+from cqrs import events
 from cqrs.container import di as di_container_impl
+from cqrs.container.protocol import Container as CQRSContainer
 from cqrs.message_brokers import devnull, protocol
 from cqrs.middlewares import base as mediator_middlewares, logging as logging_middleware
-from cqrs.container.protocol import Container as CQRSContainer
+from cqrs.requests.map import RequestMap
 
 DEFAULT_MESSAGE_BROKER = devnull.DevnullMessageBroker()
 
@@ -53,8 +54,8 @@ def setup_mediator(
     event_emitter: events.EventEmitter,
     container: di_container_impl.DIContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
 ) -> cqrs.RequestMediator: ...
 
 
@@ -63,8 +64,8 @@ def setup_mediator(
     event_emitter: events.EventEmitter,
     container: CQRSContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
 ) -> cqrs.RequestMediator: ...
 
 
@@ -73,8 +74,8 @@ def setup_mediator(
     event_emitter: events.EventEmitter,
     container: di_container_impl.DIContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     event_map: events.EventMap | None = None,
     max_concurrent_event_handlers: int = 1,
     concurrent_event_handle_enable: bool = True,
@@ -86,8 +87,8 @@ def setup_mediator(
     event_emitter: events.EventEmitter,
     container: CQRSContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     event_map: events.EventMap | None = None,
     max_concurrent_event_handlers: int = 1,
     concurrent_event_handle_enable: bool = True,
@@ -98,13 +99,13 @@ def setup_mediator(
     event_emitter: events.EventEmitter,
     container: di_container_impl.DIContainer | CQRSContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     event_map: events.EventMap | None = None,
     max_concurrent_event_handlers: int = 1,
     concurrent_event_handle_enable: bool = True,
 ) -> cqrs.RequestMediator:
-    requests_mapper = requests.RequestMap()
+    requests_mapper = RequestMap()
     if commands_mapper:
         commands_mapper(requests_mapper)
     if queries_mapper:
@@ -135,9 +136,9 @@ def bootstrap(
     di_container: di.Container,
     message_broker: protocol.MessageBroker | None = None,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
 ) -> cqrs.RequestMediator: ...
 
@@ -147,9 +148,9 @@ def bootstrap(
     di_container: CQRSContainer,
     message_broker: protocol.MessageBroker | None = None,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
 ) -> cqrs.RequestMediator: ...
 
@@ -159,9 +160,9 @@ def bootstrap(
     di_container: di.Container,
     message_broker: protocol.MessageBroker | None = None,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
     max_concurrent_event_handlers: int = 1,
     concurrent_event_handle_enable: bool = False,
@@ -173,9 +174,9 @@ def bootstrap(
     di_container: CQRSContainer,
     message_broker: protocol.MessageBroker | None = None,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
     max_concurrent_event_handlers: int = 1,
     concurrent_event_handle_enable: bool = False,
@@ -186,9 +187,9 @@ def bootstrap(
     di_container: di.Container | CQRSContainer,
     message_broker: protocol.MessageBroker | None = None,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
     max_concurrent_event_handlers: int = 1,
     concurrent_event_handle_enable: bool = False,
@@ -235,13 +236,13 @@ def setup_streaming_mediator(
     event_emitter: events.EventEmitter,
     container: di_container_impl.DIContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
     max_concurrent_event_handlers: int = 10,
     concurrent_event_handle_enable: bool = True,
 ) -> cqrs.StreamingRequestMediator:
-    requests_mapper = requests.RequestMap()
+    requests_mapper = RequestMap()
     if commands_mapper:
         commands_mapper(requests_mapper)
     if queries_mapper:
@@ -271,9 +272,9 @@ def bootstrap_streaming(
     di_container: di.Container,
     message_broker: protocol.MessageBroker | None = None,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
-    commands_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
     domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
-    queries_mapper: typing.Callable[[requests.RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
     on_startup: typing.List[typing.Callable[[], None]] | None = None,
     max_concurrent_event_handlers: int = 10,
     concurrent_event_handle_enable: bool = False,

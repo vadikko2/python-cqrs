@@ -4,11 +4,11 @@ import pydantic
 import pytest
 
 import cqrs
-from cqrs import events, requests
+from cqrs import events, Request, RequestMap, StreamingRequestHandler
 from cqrs.message_brokers import kafka as kafka_broker
 
 
-class ProcessItemsCommand(requests.Request):
+class ProcessItemsCommand(Request):
     item_ids: list[str] = pydantic.Field()
 
 
@@ -19,7 +19,7 @@ class ProcessItemResult(cqrs.Response):
 
 
 class ProcessItemsCommandHandler(
-    requests.StreamingRequestHandler[ProcessItemsCommand, ProcessItemResult],
+    StreamingRequestHandler[ProcessItemsCommand, ProcessItemResult],
 ):
     def __init__(self) -> None:
         self.called = False
@@ -81,7 +81,7 @@ async def streaming_mediator(
         container=container,  # type: ignore
         message_broker=broker,
     )
-    request_map = requests.RequestMap()
+    request_map = RequestMap()
     request_map.bind(ProcessItemsCommand, ProcessItemsCommandHandler)
     event_map = events.EventMap()
     mediator = cqrs.StreamingRequestMediator(

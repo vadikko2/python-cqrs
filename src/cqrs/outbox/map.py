@@ -1,16 +1,16 @@
 import typing
 
-from cqrs.events import event
+from cqrs.events.event import NotificationEvent
 
 
 class OutboxedEventMap:
-    _registry: typing.Dict[typing.Text, typing.Type[event.NotificationEvent]] = {}
+    _registry: typing.Dict[typing.Text, typing.Type[NotificationEvent]] = {}
 
     @classmethod
     def register(
         cls,
         event_name: typing.Text,
-        event_type: typing.Type[event.NotificationEvent],
+        event_type: typing.Type[NotificationEvent],
     ) -> None:
         if event_name in cls._registry:
             raise KeyError(f"Event with {event_name} already registered")
@@ -20,5 +20,5 @@ class OutboxedEventMap:
     def get(
         cls,
         event_name: typing.Text,
-    ) -> typing.Type[event.NotificationEvent] | None:
+    ) -> typing.Type[NotificationEvent] | None:
         return cls._registry.get(event_name)

@@ -5,7 +5,9 @@ import pytest
 
 import cqrs
 from cqrs.events import Event, EventEmitter, EventMap
-from cqrs.requests import Request, RequestHandler, RequestMap
+from cqrs.requests.map import RequestMap
+from cqrs.requests.request import Request
+from cqrs.requests.request_handler import RequestHandler
 from cqrs.response import Response
 
 
@@ -94,6 +96,7 @@ async def test_sending_request_with_response(mediator: cqrs.RequestMediator) -> 
     response: ReadMeetingDetailsQueryResult = await mediator.send(
         ReadMeetingDetailsQuery(meeting_room_id=uuid),
     )
+    assert response is not None, "Expected ReadMeetingDetailsQueryResult, got None"
 
     assert handler.called
     assert response
