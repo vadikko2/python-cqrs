@@ -48,7 +48,8 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 10. `StreamingRequestMediator` and `StreamingRequestHandler` for handling streaming requests with real-time progress updates;
 11. Parallel event processing with configurable concurrency limits;
 12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence;
-13. Choreographic Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms.
+13. Choreographic Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms;
+14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization.
 
 ## Request Handlers
 
@@ -212,6 +213,26 @@ def payment_mapper(mapper: cqrs.RequestMap) -> None:
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/cor_request_handler.py)
 
+#### Mermaid Diagram Generation
+
+The package includes built-in support for generating Mermaid diagrams from Chain of Responsibility handler chains.
+
+```python
+from cqrs.requests.mermaid import CoRMermaid
+
+# Create Mermaid generator from handler chain
+handlers = [CreditCardHandler, PayPalHandler, DefaultHandler]
+generator = CoRMermaid(handlers)
+
+# Generate Sequence diagram showing execution flow
+sequence_diagram = generator.sequence()
+
+# Generate Class diagram showing type structure
+class_diagram = generator.class_diagram()
+```
+
+Complete example: [CoR Mermaid Diagrams](https://github.com/vadikko2/cqrs/blob/master/examples/cor_mermaid.py)
+
 ## Saga Pattern
 
 The package implements the Choreographic Saga pattern for managing distributed transactions across multiple services or operations.
@@ -223,6 +244,7 @@ Sagas enable eventual consistency by executing a series of steps where each step
 - **SagaLog**: Tracks all step executions (act/compensate) with status and timestamps
 - **Recovery Mechanism**: Automatically recovers interrupted sagas from storage, ensuring eventual consistency
 - **Automatic Compensation**: If any step fails, all previously completed steps are automatically compensated in reverse order
+- **Mermaid Diagram Generation**: Generate Sequence and Class diagrams for documentation and visualization
 
 ### Example
 
@@ -321,10 +343,24 @@ The recovery mechanism ensures eventual consistency by:
 - Resuming execution from the last completed step, or continuing compensation if the saga was in a compensating state
 - Preventing duplicate execution of already completed steps
 
-Complete examples can be found in:
-- [Basic Saga](https://github.com/vadikko2/cqrs/blob/master/examples/saga.py)
-- [Saga Recovery](https://github.com/vadikko2/cqrs/blob/master/examples/saga_recovery.py)
-- [Saga with FastAPI SSE](https://github.com/vadikko2/cqrs/blob/master/examples/saga_fastapi_sse.py)
+#### Mermaid Diagram Generation
+
+The package includes built-in support for generating Mermaid diagrams from Saga instances.
+
+```python
+from cqrs.saga.mermaid import SagaMermaid
+
+# Create Mermaid generator from saga
+generator = SagaMermaid(saga)
+
+# Generate Sequence diagram showing execution flow
+sequence_diagram = generator.sequence()
+
+# Generate Class diagram showing type structure
+class_diagram = generator.class_diagram()
+```
+
+Complete example: [Saga Mermaid Diagrams](https://github.com/vadikko2/cqrs/blob/master/examples/saga_mermaid.py)
 
 ## Event Handlers
 
