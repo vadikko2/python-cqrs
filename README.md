@@ -1,7 +1,7 @@
 <div align="center">
   <h1>Python CQRS</h1>
   <p>Event-Driven Architecture Framework for Distributed Systems</p>
-  
+
   <p>
     <a href="https://pypi.org/project/python-cqrs/">
       <img src="https://img.shields.io/pypi/v/python-cqrs?label=pypi&logo=pypi" alt="PyPI version">
