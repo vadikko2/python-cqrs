@@ -56,23 +56,3 @@ class SagaContext:
             Dictionary representation of the context.
         """
         return self.to_dict()
-
-
-# Type variable for saga context, bound to SagaContext
-ContextT = typing.TypeVar("ContextT", bound=SagaContext)
-
-
-@dataclasses.dataclass
-class SagaResult(typing.Generic[ContextT]):
-    """
-    Result of saga execution.
-
-    Contains the context and error information if the saga failed,
-    or success status if all steps completed successfully.
-    """
-
-    context: ContextT
-    with_error: bool = False
-    error_message: str | None = None
-    error_traceback: list[str] | None = None
-    error_type: typing.Type[Exception] | None = None

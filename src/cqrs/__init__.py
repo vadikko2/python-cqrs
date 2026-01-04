@@ -27,7 +27,7 @@ from cqrs.requests.request_handler import (
 from cqrs.response import Response
 from cqrs.requests.mermaid import CoRMermaid
 from cqrs.saga.mermaid import SagaMermaid
-from cqrs.saga.models import ContextT, SagaResult
+from cqrs.saga.models import ContextT
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler
 
@@ -59,7 +59,6 @@ __all__ = (
     "rebind_outbox_model",
     "Saga",
     "SagaStepHandler",
-    "SagaResult",
     "ContextT",
     "SagaMermaid",
     "CoRMermaid",
