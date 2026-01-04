@@ -12,11 +12,12 @@ pytest_plugins = ["tests.integration.fixtures"]
 
 @pytest.fixture(scope="session")
 def event_loop():
-    loop = asyncio.get_event_loop()
+    """Create event loop for session-scoped fixtures."""
+    loop = asyncio.new_event_loop()
     try:
         yield loop
     finally:
-        if loop.is_running():
+        if not loop.is_closed():
             loop.close()
 
 

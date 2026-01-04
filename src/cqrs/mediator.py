@@ -1,17 +1,23 @@
-import asyncio
 import typing
+import uuid
 
 from cqrs.container.protocol import Container
 from cqrs.dispatcher.event import EventDispatcher
 from cqrs.dispatcher.request import RequestDispatcher
+from cqrs.dispatcher.saga import SagaDispatcher
 from cqrs.dispatcher.streaming import StreamingRequestDispatcher
 from cqrs.events.event import Event
 from cqrs.events.event_emitter import EventEmitter
+from cqrs.events.event_processor import EventProcessor
 from cqrs.events.map import EventMap
 from cqrs.middlewares.base import MiddlewareChain
-from cqrs.requests.map import RequestMap
+from cqrs.requests.map import RequestMap, SagaMap
 from cqrs.requests.request import Request
 from cqrs.response import Response
+from cqrs.saga.models import SagaContext
+from cqrs.saga.step import SagaStepResult
+from cqrs.saga.storage.memory import MemorySagaStorage
+from cqrs.saga.storage.protocol import ISagaStorage
 
 _ResponseT = typing.TypeVar("_ResponseT", Response, None, covariant=True)
 
@@ -63,15 +69,13 @@ class RequestMediator:
         *,
         dispatcher_type: typing.Type[RequestDispatcher] = RequestDispatcher,
     ) -> None:
-        self._event_emitter = event_emitter
-        self._event_map = event_map or EventMap()
-        self._max_concurrent_event_handlers = max_concurrent_event_handlers
-        self._concurrent_event_handle_enable = concurrent_event_handle_enable
-        self._event_semaphore = asyncio.Semaphore(max_concurrent_event_handlers)
-        self._event_dispatcher = EventDispatcher(
-            event_map=self._event_map,
+        self._event_processor = EventProcessor(
+            event_map=event_map or EventMap(),
             container=container,
+            event_emitter=event_emitter,
             middleware_chain=middleware_chain,
+            max_concurrent_event_handlers=max_concurrent_event_handlers,
+            concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
         self._dispatcher = dispatcher_type(
             request_map=request_map,  # type: ignore
@@ -92,40 +96,11 @@ class RequestMediator:
         dispatch_result = await self._dispatcher.dispatch(request)
 
         if dispatch_result.events:
-            await self._process_events_parallel(dispatch_result.events.copy())
-            await self._send_events(dispatch_result.events.copy())
+            await self._event_processor.process_and_emit_events(
+                dispatch_result.events.copy(),
+            )
 
         return dispatch_result.response
-
-    async def _process_event_with_semaphore(self, event: Event) -> None:
-        """Process a single event with semaphore limit."""
-        async with self._event_semaphore:
-            await self._event_dispatcher.dispatch(event)
-
-    async def _process_events_parallel(
-        self,
-        events: typing.List[Event],
-    ) -> None:
-        """Process events in parallel with semaphore limit or sequentially."""
-        if not events:
-            return
-
-        if not self._concurrent_event_handle_enable:
-            # Process events sequentially
-            for event in events:
-                await self._event_dispatcher.dispatch(event)
-        else:
-            # Process events in parallel with semaphore limit
-            tasks = [self._process_event_with_semaphore(event) for event in events]
-            await asyncio.gather(*tasks)
-
-    async def _send_events(self, events: typing.List[Event]) -> None:
-        if not self._event_emitter:
-            return
-
-        while events:
-            event = events.pop()
-            await self._event_emitter.emit(event)
 
 
 class EventMediator:
@@ -208,15 +183,13 @@ class StreamingRequestMediator:
             StreamingRequestDispatcher
         ] = StreamingRequestDispatcher,
     ) -> None:
-        self._event_emitter = event_emitter
-        self._event_map = event_map or EventMap()
-        self._max_concurrent_event_handlers = max_concurrent_event_handlers
-        self._concurrent_event_handle_enable = concurrent_event_handle_enable
-        self._event_semaphore = asyncio.Semaphore(max_concurrent_event_handlers)
-        self._event_dispatcher = EventDispatcher(
-            event_map=self._event_map,
+        self._event_processor = EventProcessor(
+            event_map=event_map or EventMap(),
             container=container,
+            event_emitter=event_emitter,
             middleware_chain=middleware_chain,
+            max_concurrent_event_handlers=max_concurrent_event_handlers,
+            concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
         self._dispatcher = dispatcher_type(
             request_map=request_map,  # type: ignore
@@ -241,34 +214,111 @@ class StreamingRequestMediator:
         """
         async for dispatch_result in self._dispatcher.dispatch(request):
             if dispatch_result.events:
-                await self._process_events_parallel(dispatch_result.events.copy())
-                await self._send_events(dispatch_result.events.copy())
+                await self._event_processor.process_and_emit_events(
+                    dispatch_result.events.copy(),
+                )
 
             yield dispatch_result.response
 
-    async def _process_event_with_semaphore(self, event: Event) -> None:
-        """Process a single event with semaphore limit."""
-        async with self._event_semaphore:
-            await self._event_dispatcher.dispatch(event)
 
-    async def _process_events_parallel(self, events: typing.List[Event]) -> None:
-        """Process events in parallel with semaphore limit or sequentially."""
-        if not events:
-            return
+class SagaMediator:
+    """
+    The saga mediator object.
 
-        if not self._concurrent_event_handle_enable:
-            # Process events sequentially
-            for event in events:
-                await self._event_dispatcher.dispatch(event)
-        else:
-            # Process events in parallel with semaphore limit
-            tasks = [self._process_event_with_semaphore(event) for event in events]
-            await asyncio.gather(*tasks)
+    Handles saga execution by finding the appropriate saga for a given SagaContext
+    and executing it. Events produced by saga steps can be processed and emitted.
 
-    async def _send_events(self, events: typing.List[Event]) -> None:
-        if not self._event_emitter:
-            return
+    This mediator works with saga transactions that yield results after each step.
+    It processes events after each yield, emits events via event emitter, and
+    streams results back to the client.
 
-        while events:
-            event = events.pop()
-            await self._event_emitter.emit(event)
+    Usage::
+
+      saga_map = SagaMap()
+      saga_map.bind(OrderContext, OrderSaga)
+      event_map = EventMap()
+      event_map.bind(InventoryReservedEvent, InventoryReservedEventHandler)
+      event_emitter = EventEmitter(event_map, container, message_broker)
+
+      mediator = SagaMediator(
+        saga_map=saga_map,
+        container=container,
+        event_emitter=event_emitter,
+        event_map=event_map,
+        max_concurrent_event_handlers=2,
+        concurrent_event_handle_enable=True,
+      )
+
+      # Streams results and publishes events after each step.
+      async for result in mediator.stream(order_context):
+          print(f"Step completed: {result.step_result.step_type.__name__}")
+    """
+
+    def __init__(
+        self,
+        saga_map: SagaMap,
+        container: Container,
+        event_emitter: EventEmitter | None = None,
+        middleware_chain: MiddlewareChain | None = None,
+        event_map: EventMap | None = None,
+        max_concurrent_event_handlers: int = 1,
+        concurrent_event_handle_enable: bool = True,
+        storage: ISagaStorage | None = None,
+        compensation_retry_count: int = 3,
+        compensation_retry_delay: float = 1.0,
+        compensation_retry_backoff: float = 2.0,
+        *,
+        dispatcher_type: typing.Type[SagaDispatcher] = SagaDispatcher,
+    ) -> None:
+        self._event_processor = EventProcessor(
+            event_map=event_map or EventMap(),
+            container=container,
+            event_emitter=event_emitter,
+            middleware_chain=middleware_chain,
+            max_concurrent_event_handlers=max_concurrent_event_handlers,
+            concurrent_event_handle_enable=concurrent_event_handle_enable,
+        )
+        self._dispatcher = dispatcher_type(
+            saga_map=saga_map,  # type: ignore
+            container=container,  # type: ignore
+            storage=storage or MemorySagaStorage(),  # type: ignore
+            middleware_chain=middleware_chain,  # type: ignore
+            compensation_retry_count=compensation_retry_count,  # type: ignore
+            compensation_retry_delay=compensation_retry_delay,  # type: ignore
+            compensation_retry_backoff=compensation_retry_backoff,  # type: ignore
+        )
+
+    async def stream(
+        self,
+        context: SagaContext,
+        saga_id: uuid.UUID | None = None,
+    ) -> typing.AsyncIterator[SagaStepResult]:
+        """
+        Stream results from saga execution.
+
+        After each step execution:
+        1. Events are processed (in parallel with semaphore limit or sequentially
+           depending on concurrent_event_handle_enable) via event dispatcher
+        2. Events are emitted via the event emitter
+        3. The dispatch result is yielded to the client
+
+        The generator continues until all saga steps are completed or an exception occurs.
+
+        Args:
+            context: The saga context object
+            saga_id: Optional UUID for the saga. If provided, can be used
+                     for recovery or ensuring idempotency.
+
+        Yields:
+            SagaStepResult
+        """
+        async for dispatch_result in self._dispatcher.dispatch(
+            context,
+            saga_id=saga_id,
+        ):
+            if dispatch_result.events:
+                await self._event_processor.process_and_emit_events(
+                    dispatch_result.events.copy(),
+                )
+
+            yield dispatch_result.step_result

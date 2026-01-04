@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from cqrs.saga.saga import Saga
+from cqrs.saga.storage.memory import MemorySagaStorage
 
 from .conftest import (
     AlwaysFailingCompensationStep,
@@ -26,18 +27,21 @@ async def test_compensation_retry_succeeds_after_failures(
     saga_container.register(ReserveInventoryStep, reserve_step)
     saga_container.register(CompensationRetryStep, retry_step)
 
-    steps = [ReserveInventoryStep, CompensationRetryStep, FailingStep]
-    saga = Saga(
-        steps=steps,
-        container=saga_container,  # type: ignore
-        compensation_retry_count=3,
-        compensation_retry_delay=0.1,
-    )
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, CompensationRetryStep, FailingStep]
+
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     with pytest.raises(ValueError, match="Step failed for order 123"):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=MemorySagaStorage(),
+            compensation_retry_count=3,
+            compensation_retry_delay=0.1,
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -57,18 +61,22 @@ async def test_compensation_retry_exhausts_all_attempts(
     saga_container.register(AlwaysFailingCompensationStep, always_failing_step)
 
     retry_count = 5
-    steps = [ReserveInventoryStep, AlwaysFailingCompensationStep, FailingStep]
-    saga = Saga(
-        steps=steps,
-        container=saga_container,  # type: ignore
-        compensation_retry_count=retry_count,
-        compensation_retry_delay=0.01,
-    )
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, AlwaysFailingCompensationStep, FailingStep]
+
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     with pytest.raises(ValueError, match="Step failed for order 123"):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=MemorySagaStorage(),
+            compensation_retry_count=retry_count,
+            compensation_retry_delay=0.01,
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -89,14 +97,10 @@ async def test_compensation_retry_uses_exponential_backoff(
     backoff_multiplier = 2.0
     retry_count = 4
 
-    steps = [CompensationRetryStep, FailingStep]
-    saga = Saga(
-        steps=steps,
-        container=saga_container,  # type: ignore
-        compensation_retry_count=retry_count,
-        compensation_retry_delay=initial_delay,
-        compensation_retry_backoff=backoff_multiplier,
-    )
+    class TestSaga(Saga[OrderContext]):
+        steps = [CompensationRetryStep, FailingStep]
+
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
@@ -110,7 +114,14 @@ async def test_compensation_retry_uses_exponential_backoff(
     # Patch asyncio.sleep in the saga module where it's used
     with patch("cqrs.saga.saga.asyncio.sleep", side_effect=mock_sleep):
         with pytest.raises(ValueError):
-            async with saga.transaction(context=context) as transaction:
+            async with saga.transaction(
+                context=context,
+                container=saga_container,  # type: ignore
+                storage=MemorySagaStorage(),
+                compensation_retry_count=retry_count,
+                compensation_retry_delay=initial_delay,
+                compensation_retry_backoff=backoff_multiplier,
+            ) as transaction:
                 async for _ in transaction:
                     pass
 
@@ -144,24 +155,22 @@ async def test_compensation_retry_configurable_parameters(
     custom_delay = 0.05
     custom_backoff = 3.0
 
-    steps = [CompensationRetryStep, FailingStep]
-    saga = Saga(
-        steps=steps,
-        container=saga_container,  # type: ignore
-        compensation_retry_count=custom_retry_count,
-        compensation_retry_delay=custom_delay,
-        compensation_retry_backoff=custom_backoff,
-    )
+    class TestSaga(Saga[OrderContext]):
+        steps = [CompensationRetryStep, FailingStep]
 
-    # Verify properties are set correctly
-    assert saga.compensation_retry_count == custom_retry_count
-    assert saga.compensation_retry_delay == custom_delay
-    assert saga.compensation_retry_backoff == custom_backoff
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     with pytest.raises(ValueError):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=MemorySagaStorage(),
+            compensation_retry_count=custom_retry_count,
+            compensation_retry_delay=custom_delay,
+            compensation_retry_backoff=custom_backoff,
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -177,18 +186,19 @@ async def test_compensation_retry_default_parameters(
 
     saga_container.register(CompensationRetryStep, retry_step)
 
-    steps = [CompensationRetryStep, FailingStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [CompensationRetryStep, FailingStep]
 
-    # Verify default values
-    assert saga.compensation_retry_count == 3
-    assert saga.compensation_retry_delay == 1.0
-    assert saga.compensation_retry_backoff == 2.0
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     with pytest.raises(ValueError):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=MemorySagaStorage(),
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -216,18 +226,21 @@ async def test_compensation_retry_multiple_steps(
     saga_container.register(RetryStep1, retry_step1_instance)
     saga_container.register(RetryStep2, retry_step2_instance)
 
-    steps = [ReserveInventoryStep, RetryStep1, RetryStep2, FailingStep]
-    saga = Saga(
-        steps=steps,
-        container=saga_container,  # type: ignore
-        compensation_retry_count=3,
-        compensation_retry_delay=0.01,
-    )
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, RetryStep1, RetryStep2, FailingStep]
+
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     with pytest.raises(ValueError):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=MemorySagaStorage(),
+            compensation_retry_count=3,
+            compensation_retry_delay=0.01,
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -245,19 +258,22 @@ async def test_compensation_retry_does_not_mask_original_error(
 
     saga_container.register(AlwaysFailingCompensationStep, always_failing_step)
 
-    steps = [AlwaysFailingCompensationStep, FailingStep]
-    saga = Saga(
-        steps=steps,
-        container=saga_container,  # type: ignore
-        compensation_retry_count=2,
-        compensation_retry_delay=0.01,
-    )
+    class TestSaga(Saga[OrderContext]):
+        steps = [AlwaysFailingCompensationStep, FailingStep]
+
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     # Original error should still be raised even if all compensation retries fail
     with pytest.raises(ValueError, match="Step failed for order 123"):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=MemorySagaStorage(),
+            compensation_retry_count=2,
+            compensation_retry_delay=0.01,
+        ) as transaction:
             async for _ in transaction:
                 pass
 

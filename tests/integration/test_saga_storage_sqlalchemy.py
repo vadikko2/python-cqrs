@@ -40,19 +40,19 @@ class TestIntegration:
         test_context: dict[str, str],
     ) -> None:
         """Test complete saga lifecycle with all operations."""
-        # Create saga
+        # Create saga (create_saga already does flush)
         await storage.create_saga(
             saga_id=saga_id,
             name="order_saga",
             context=test_context,
         )
+        # Commit after create to avoid flushing conflicts
         await saga_session.commit()
 
         # Update status to running
         await storage.update_status(saga_id=saga_id, status=SagaStatus.RUNNING)
-        await saga_session.commit()
 
-        # Log step executions
+        # Log step executions (log_step already does flush)
         await storage.log_step(
             saga_id=saga_id,
             step_name="reserve_inventory",
@@ -77,15 +77,17 @@ class TestIntegration:
             action="act",
             status=SagaStepStatus.COMPLETED,
         )
+        # Commit after log steps
         await saga_session.commit()
 
         # Update context
         updated_context = {**test_context, "payment_id": "pay_123"}
         await storage.update_context(saga_id=saga_id, context=updated_context)
-        await saga_session.commit()
 
         # Update status to completed
         await storage.update_status(saga_id=saga_id, status=SagaStatus.COMPLETED)
+
+        # Final commit
         await saga_session.commit()
 
         # Verify final state
@@ -118,9 +120,10 @@ class TestIntegration:
             name="order_saga",
             context=test_context,
         )
+        # Commit after create to avoid flushing conflicts
         await saga_session.commit()
 
-        # Log successful steps
+        # Log successful steps (log_step already does flush)
         await storage.log_step(
             saga_id=saga_id,
             step_name="reserve_inventory",
@@ -133,13 +136,13 @@ class TestIntegration:
             action="act",
             status=SagaStepStatus.COMPLETED,
         )
+        # Commit after log steps
         await saga_session.commit()
 
         # Update status to compensating
         await storage.update_status(saga_id=saga_id, status=SagaStatus.COMPENSATING)
-        await saga_session.commit()
 
-        # Log compensation steps
+        # Log compensation steps (log_step already does flush)
         await storage.log_step(
             saga_id=saga_id,
             step_name="process_payment",
@@ -154,10 +157,13 @@ class TestIntegration:
             status=SagaStepStatus.COMPENSATED,
             details="Inventory released",
         )
+        # Commit after compensation steps
         await saga_session.commit()
 
         # Update status to failed
         await storage.update_status(saga_id=saga_id, status=SagaStatus.FAILED)
+
+        # Final commit
         await saga_session.commit()
 
         # Verify state

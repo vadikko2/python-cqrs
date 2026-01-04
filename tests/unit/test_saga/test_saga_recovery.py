@@ -52,11 +52,13 @@ async def test_recover_saga_successfully_resumes_running_saga(
     saga_container.register(ProcessPaymentStep, payment_step)
     saga_container.register(ShipOrderStep, ship_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
 
     # Recover the saga
-    await recover_saga(saga, saga_id, OrderContext)
+    await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # First step should be skipped (already completed)
     assert not reserve_step.act_called
@@ -87,11 +89,13 @@ async def test_recover_saga_returns_early_for_completed_saga(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Recover should return early without executing steps
-    await recover_saga(saga, saga_id, OrderContext)
+    await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     assert not reserve_step.act_called
 
@@ -119,14 +123,16 @@ async def test_recover_saga_returns_early_for_failed_saga(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Recover should attempt compensation and raise RuntimeError
     # since there are no completed steps, compensation does nothing
     # but we still signal that forward execution is not allowed
     with pytest.raises(RuntimeError, match="recovered in failed state"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # No forward execution should occur
     assert not reserve_step.act_called
@@ -151,11 +157,13 @@ async def test_recover_saga_with_class_based_context_builder(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Use class as context_builder
-    await recover_saga(saga, saga_id, OrderContext)
+    await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     assert reserve_step.act_called
 
@@ -177,14 +185,16 @@ async def test_recover_saga_with_function_based_context_builder(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Use function as context_builder
     def context_builder(data: dict[str, typing.Any]) -> OrderContext:
         return OrderContext(**data)
 
-    await recover_saga(saga, saga_id, context_builder)
+    await recover_saga(saga, saga_id, context_builder, saga_container, storage)
 
     assert reserve_step.act_called
 
@@ -206,11 +216,13 @@ async def test_recover_saga_with_from_dict_method(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Use from_dict method as context_builder
-    await recover_saga(saga, saga_id, OrderContext.from_dict)
+    await recover_saga(saga, saga_id, OrderContext.from_dict, saga_container, storage)
 
     assert reserve_step.act_called
 
@@ -226,12 +238,14 @@ async def test_recover_saga_raises_on_storage_load_failure(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Should raise ValueError (from MemorySagaStorage.load_saga_state)
     with pytest.raises(ValueError, match=f"Saga {saga_id} not found"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     assert not reserve_step.act_called
 
@@ -253,12 +267,14 @@ async def test_recover_saga_raises_on_context_reconstruction_failure(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Should raise TypeError when required fields are missing
     with pytest.raises(TypeError):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     assert not reserve_step.act_called
 
@@ -299,10 +315,12 @@ async def test_recover_saga_resumes_from_partially_completed_steps(
     saga_container.register(ProcessPaymentStep, payment_step)
     saga_container.register(ShipOrderStep, ship_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
 
-    await recover_saga(saga, saga_id, OrderContext)
+    saga = TestSaga()
+
+    await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # First two steps should be skipped
     assert not reserve_step.act_called
@@ -350,13 +368,15 @@ async def test_recover_saga_with_compensating_status(
     saga_container.register(ReserveInventoryStep, reserve_step)
     saga_container.register(ProcessPaymentStep, payment_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep]
+
+    saga = TestSaga()
 
     # Recovery should immediately resume compensation, NOT continue forward execution
     # This is the "Point of No Return" - once COMPENSATING, we must finish compensation
     with pytest.raises(RuntimeError, match="recovered in compensating state"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # No forward execution should occur
     assert not reserve_step.act_called
@@ -392,13 +412,15 @@ async def test_recover_saga_handles_transaction_exception(
     failing_step = FailingStep()
     saga_container.register(FailingStep, failing_step)
 
-    steps = [FailingStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [FailingStep]
+
+    saga = TestSaga()
 
     # Recovery should propagate the exception from failing step
     # The transaction handles compensation and updates saga status to FAILED
     with pytest.raises(ValueError, match="Step failed for order 123"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # Verify saga status is updated to FAILED
     status, _ = await storage.load_saga_state(saga_id)
@@ -425,14 +447,16 @@ async def test_recover_saga_with_custom_context_builder_function(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Use function as context_builder
     def context_builder(d: dict[str, typing.Any]) -> OrderContext:
         return OrderContext(**d)
 
-    await recover_saga(saga, saga_id, context_builder)
+    await recover_saga(saga, saga_id, context_builder, saga_container, storage)
 
     assert reserve_step.act_called
 
@@ -451,10 +475,12 @@ async def test_recover_saga_updates_context_during_recovery(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
 
-    await recover_saga(saga, saga_id, OrderContext)
+    saga = TestSaga()
+
+    await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # Verify context was updated in storage
     status, updated_context = await storage.load_saga_state(saga_id)
@@ -475,12 +501,14 @@ async def test_recover_saga_with_mock_storage_exception(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=mock_storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Should raise the exception
     with pytest.raises(RuntimeError, match="Storage error"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, mock_storage)
 
     assert not reserve_step.act_called
 
@@ -502,8 +530,10 @@ async def test_recover_saga_with_mock_context_builder_exception(
     reserve_step = ReserveInventoryStep()
     saga_container.register(ReserveInventoryStep, reserve_step)
 
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
 
     # Context builder that raises an exception
     def failing_context_builder(data: dict[str, typing.Any]) -> OrderContext:
@@ -511,7 +541,13 @@ async def test_recover_saga_with_mock_context_builder_exception(
 
     # Should raise the exception
     with pytest.raises(ValueError, match="Context builder failed"):
-        await recover_saga(saga, saga_id, failing_context_builder)
+        await recover_saga(
+            saga,
+            saga_id,
+            failing_context_builder,
+            saga_container,
+            storage,
+        )
 
     assert not reserve_step.act_called
 
@@ -570,12 +606,14 @@ async def test_recover_saga_during_compensation_with_multiple_steps(
     saga_container.register(ProcessPaymentStep, payment_step)
     saga_container.register(ShipOrderStep, ship_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
 
     # Recovery should complete compensation, NOT retry step C
     with pytest.raises(RuntimeError, match="recovered in compensating state"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # No forward execution should occur
     assert not reserve_step.act_called
@@ -625,12 +663,14 @@ async def test_recover_saga_with_failed_status(
     saga_container.register(ReserveInventoryStep, reserve_step)
     saga_container.register(ProcessPaymentStep, payment_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep]
+
+    saga = TestSaga()
 
     # Recovery should immediately resume compensation, NOT continue forward execution
     with pytest.raises(RuntimeError, match="recovered in failed state"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # No forward execution should occur
     assert not reserve_step.act_called
@@ -712,14 +752,16 @@ async def test_recover_saga_prevents_zombie_state(
     saga_container.register(ProcessPaymentStep, payment_step)
     saga_container.register(ShipOrderStep, ship_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container, storage=storage)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
 
     # Recovery should complete compensation, NOT retry step C
     # Even if network is now available and step C would succeed,
     # we must finish compensation to prevent inconsistent state
     with pytest.raises(RuntimeError, match="recovered in compensating state"):
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # CRITICAL: Step C should NOT be executed, even though it might succeed now
     assert not ship_step.act_called, (

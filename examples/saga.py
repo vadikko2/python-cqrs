@@ -23,7 +23,7 @@ Run the example:
    python examples/saga.py
 
 The example will:
-- Execute a successful order processing saga with all steps completing
+- Execute a successful order processing saga with all steps completing using SagaMediator
 - Demonstrate automatic compensation when a step fails
 - Show how compensation happens in reverse order
 - Display step results and compensation status
@@ -35,7 +35,8 @@ WHAT THIS EXAMPLE DEMONSTRATES
 1. Saga Pattern Implementation:
    - Define a saga context that holds shared state across all steps
    - Create step handlers that implement act() and compensate() methods
-   - Execute steps sequentially using saga.transaction()
+   - Create saga mediator using bootstrap.bootstrap() with SagaMap registration
+   - Execute steps sequentially using mediator.stream() with saga_id for persistence
    - Automatic compensation on failure
 
 2. Step Handler Definition:
@@ -45,9 +46,10 @@ WHAT THIS EXAMPLE DEMONSTRATES
    - Steps can emit domain events via the events property
 
 3. Saga Execution:
-   - Create saga with list of step handler types and SagaStorage
-   - Use saga.transaction(context, saga_id) as async context manager
-   - Iterate over transaction to execute steps sequentially
+   - Create saga mediator using bootstrap.bootstrap()
+   - Register sagas in SagaMap via sagas_mapper
+   - Use mediator.stream(context, saga_id) to execute saga
+   - Iterate over stream to execute steps sequentially
    - Each iteration yields SagaStepResult with step response
    - Saga state and step history are persisted to storage
 
@@ -82,13 +84,15 @@ Make sure you have installed:
 import asyncio
 import dataclasses
 import logging
-import typing
 import uuid
 
+import di
+from di import dependent
+
 import cqrs
-from cqrs import container as cqrs_container
 from cqrs.events.event import Event
 from cqrs.response import Response
+from cqrs.saga import bootstrap
 from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
@@ -444,6 +448,21 @@ class ShipOrderStep(SagaStepHandler[OrderContext, ShipOrderResponse]):
 
 
 # ============================================================================
+# Saga Class Definition
+# ============================================================================
+
+
+class OrderSaga(Saga[OrderContext]):
+    """Order processing saga with three steps."""
+
+    steps = [
+        ReserveInventoryStep,
+        ProcessPaymentStep,
+        ShipOrderStep,
+    ]
+
+
+# ============================================================================
 # Main Example
 # ============================================================================
 
@@ -463,47 +482,67 @@ async def run_successful_saga() -> None:
     # In production, use SQLAlchemySagaStorage or another persistent storage
     storage = MemorySagaStorage()
 
-    # Note: In a real application, services would be registered in the DI container
-    # For this example, we'll create a simple container that resolves our step handlers
-    class SimpleContainer(cqrs_container.Container[typing.Any]):
-        def __init__(self) -> None:
-            self._services = {
-                InventoryService: inventory_service,
-                PaymentService: payment_service,
-                ShippingService: shipping_service,
-            }
-            self._external_container = None
+    # Setup DI container
+    di_container = di.Container()
+    # Register services using bind_by_type with lambda functions that return instances
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: inventory_service, scope="request"),
+            InventoryService,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: payment_service, scope="request"),
+            PaymentService,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: shipping_service, scope="request"),
+            ShippingService,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: storage, scope="request"),
+            MemorySagaStorage,
+        ),
+    )
 
-        @property
-        def external_container(self) -> typing.Any:
-            return self._external_container
+    # Register step handlers
+    reserve_step = ReserveInventoryStep(inventory_service)
+    payment_step = ProcessPaymentStep(payment_service)
+    ship_step = ShipOrderStep(shipping_service)
 
-        def attach_external_container(self, container: typing.Any) -> None:
-            self._external_container = container
-
-        async def resolve(self, type_: type) -> typing.Any:
-            if type_ in self._services:
-                return self._services[type_]
-            # For step handlers, create instances with dependencies
-            if type_ == ReserveInventoryStep:
-                return ReserveInventoryStep(inventory_service)
-            if type_ == ProcessPaymentStep:
-                return ProcessPaymentStep(payment_service)
-            if type_ == ShipOrderStep:
-                return ShipOrderStep(shipping_service)
-            raise ValueError(f"Unknown type: {type_}")
-
-    container = SimpleContainer()
-
-    # Create saga with steps and storage
-    saga = Saga(
-        steps=[
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: reserve_step, scope="request"),
             ReserveInventoryStep,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: payment_step, scope="request"),
             ProcessPaymentStep,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: ship_step, scope="request"),
             ShipOrderStep,
-        ],
-        container=container,  # type: ignore
-        storage=storage,
+        ),
+    )
+
+    # Define saga mapper
+    def saga_mapper(mapper: cqrs.SagaMap) -> None:
+        mapper.bind(OrderContext, OrderSaga)
+
+    # Create saga mediator using bootstrap
+    mediator = bootstrap.bootstrap(
+        di_container=di_container,
+        sagas_mapper=saga_mapper,
+        saga_storage=storage,
     )
 
     # Create order context
@@ -516,16 +555,15 @@ async def run_successful_saga() -> None:
         shipping_address="123 Main St, City, Country",
     )
 
-    # Execute saga with saga_id for persistence
+    # Execute saga with saga_id for persistence using mediator.stream()
     print(f"\nProcessing order {context.order_id} (saga_id: {saga_id})...")
     step_results = []
 
     try:
-        async with saga.transaction(context=context, saga_id=saga_id) as transaction:
-            async for step_result in transaction:
-                step_results.append(step_result)
-                step_name = step_result.step_type.__name__
-                print(f"\n✓ Step completed: {step_name}")
+        async for step_result in mediator.stream(context, saga_id=saga_id):
+            step_results.append(step_result)
+            step_name = step_result.step_type.__name__
+            print(f"\n✓ Step completed: {step_name}")
 
         # Get execution history from storage
         history = await storage.get_step_history(saga_id)
@@ -567,44 +605,67 @@ async def run_failing_saga() -> None:
     # Create saga storage for persistence
     storage = MemorySagaStorage()
 
-    class SimpleContainer(cqrs_container.Container[typing.Any]):
-        def __init__(self) -> None:
-            self._services = {
-                InventoryService: inventory_service,
-                PaymentService: payment_service,
-                ShippingService: shipping_service,
-            }
-            self._external_container = None
+    # Setup DI container
+    di_container = di.Container()
+    # Register services using bind_by_type with lambda functions that return instances
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: inventory_service, scope="request"),
+            InventoryService,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: payment_service, scope="request"),
+            PaymentService,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: shipping_service, scope="request"),
+            ShippingService,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: storage, scope="request"),
+            MemorySagaStorage,
+        ),
+    )
 
-        @property
-        def external_container(self) -> typing.Any:
-            return self._external_container
+    # Register step handlers
+    reserve_step = ReserveInventoryStep(inventory_service)
+    payment_step = ProcessPaymentStep(payment_service)
+    ship_step = ShipOrderStep(shipping_service)
 
-        def attach_external_container(self, container: typing.Any) -> None:
-            self._external_container = container
-
-        async def resolve(self, type_: type) -> typing.Any:
-            if type_ in self._services:
-                return self._services[type_]
-            if type_ == ReserveInventoryStep:
-                return ReserveInventoryStep(inventory_service)
-            if type_ == ProcessPaymentStep:
-                return ProcessPaymentStep(payment_service)
-            if type_ == ShipOrderStep:
-                return ShipOrderStep(shipping_service)
-            raise ValueError(f"Unknown type: {type_}")
-
-    container = SimpleContainer()
-
-    # Create saga with steps and storage
-    saga = Saga(
-        steps=[
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: reserve_step, scope="request"),
             ReserveInventoryStep,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: payment_step, scope="request"),
             ProcessPaymentStep,
+        ),
+    )
+    di_container.bind(
+        di.bind_by_type(
+            dependent.Dependent(lambda: ship_step, scope="request"),
             ShipOrderStep,
-        ],
-        container=container,  # type: ignore
-        storage=storage,
+        ),
+    )
+
+    # Define saga mapper
+    def saga_mapper(mapper: cqrs.SagaMap) -> None:
+        mapper.bind(OrderContext, OrderSaga)
+
+    # Create saga mediator using bootstrap
+    mediator = bootstrap.bootstrap(
+        di_container=di_container,
+        sagas_mapper=saga_mapper,
+        saga_storage=storage,
     )
 
     # Create order context with amount that will fail payment
@@ -622,10 +683,9 @@ async def run_failing_saga() -> None:
     print("  (This will fail at payment step due to amount limit)")
 
     try:
-        async with saga.transaction(context=context, saga_id=saga_id) as transaction:
-            async for step_result in transaction:
-                step_name = step_result.step_type.__name__
-                print(f"\n✓ Step completed: {step_name}")
+        async for step_result in mediator.stream(context, saga_id=saga_id):
+            step_name = step_result.step_type.__name__
+            print(f"\n✓ Step completed: {step_name}")
 
         print("\n✗ Unexpected: Saga should have failed!")
 

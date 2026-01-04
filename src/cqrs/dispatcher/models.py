@@ -1,16 +1,28 @@
+import dataclasses
 import logging
 import typing
 
-import pydantic
-
 from cqrs.events.event import Event
 from cqrs.response import Response
+from cqrs.saga.step import SagaStepResult
 
 logger = logging.getLogger("cqrs")
 
 _ResponseT = typing.TypeVar("_ResponseT", Response, None, covariant=True)
 
 
-class RequestDispatchResult(pydantic.BaseModel, typing.Generic[_ResponseT]):
-    response: _ResponseT = pydantic.Field(default=None)
-    events: typing.List[Event] = pydantic.Field(default_factory=list)
+@dataclasses.dataclass
+class RequestDispatchResult(typing.Generic[_ResponseT]):
+    """Result of request dispatch execution."""
+
+    response: _ResponseT
+    events: typing.List[Event] = dataclasses.field(default_factory=list)
+
+
+@dataclasses.dataclass
+class SagaDispatchResult:
+    """Result of saga dispatch execution for a single step."""
+
+    step_result: SagaStepResult
+    events: typing.List[Event] = dataclasses.field(default_factory=list)
+    saga_id: str | None = None

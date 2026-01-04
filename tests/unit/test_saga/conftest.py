@@ -10,6 +10,7 @@ from cqrs.response import Response
 from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
+from cqrs.saga.storage.memory import MemorySagaStorage
 
 
 # Test context and response models
@@ -224,14 +225,23 @@ class AlwaysFailingCompensationStep(
 class SagaContainer:
     def __init__(self) -> None:
         self._handlers: dict[type, SagaStepHandler] = {}
+        self._external_container: typing.Any = None
 
     def register(self, handler_type: type, handler: SagaStepHandler) -> None:
         self._handlers[handler_type] = handler
 
+    @property
+    def external_container(self) -> typing.Any:
+        return self._external_container
+
+    def attach_external_container(self, container: typing.Any) -> None:
+        self._external_container = container
+
     async def resolve(
         self,
-        handler_type: type,
-    ) -> SagaStepHandler[OrderContext, typing.Any]:
+        type_: typing.Type[typing.Any],
+    ) -> typing.Any:
+        handler_type = type_
         if handler_type not in self._handlers:
             # Create a new instance if not registered
             handler = handler_type()
@@ -246,6 +256,14 @@ def saga_container() -> SagaContainer:
 
 
 @pytest.fixture
+def storage() -> MemorySagaStorage:
+    """Create memory storage for tests."""
+    return MemorySagaStorage()
+
+
+@pytest.fixture
 def successful_saga(saga_container: SagaContainer) -> Saga[OrderContext]:
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    return Saga(steps=steps, container=saga_container)  # type: ignore
+    class SuccessfulSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    return SuccessfulSaga()

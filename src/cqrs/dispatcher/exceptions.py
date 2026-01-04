@@ -4,3 +4,7 @@ class RequestHandlerDoesNotExist(Exception):
 
 class RequestHandlerTypeError(Exception):
     pass
+
+
+class SagaDoesNotExist(Exception):
+    pass

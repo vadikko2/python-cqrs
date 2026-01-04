@@ -8,6 +8,7 @@ from cqrs.events.event_handler import EventHandler
 from cqrs.mediator import (
     EventMediator,
     RequestMediator,
+    SagaMediator,
     StreamingRequestMediator,
 )
 from cqrs.outbox.map import OutboxedEventMap
@@ -17,7 +18,7 @@ from cqrs.outbox.sqlalchemy import (
     SqlAlchemyOutboxedEventRepository,
 )
 from cqrs.producer import EventProducer
-from cqrs.requests.map import RequestMap
+from cqrs.requests.map import RequestMap, SagaMap
 from cqrs.requests.request import Request
 from cqrs.requests.request_handler import (
     RequestHandler,
@@ -32,6 +33,7 @@ from cqrs.saga.step import SagaStepHandler
 
 __all__ = (
     "RequestMediator",
+    "SagaMediator",
     "StreamingRequestMediator",
     "EventMediator",
     "DomainEvent",
@@ -45,6 +47,7 @@ __all__ = (
     "RequestHandler",
     "StreamingRequestHandler",
     "RequestMap",
+    "SagaMap",
     "Response",
     "OutboxedEventRepository",
     "SqlAlchemyOutboxedEventRepository",

@@ -6,9 +6,10 @@ from cqrs.requests.request_handler import (
     RequestHandler,
     StreamingRequestHandler,
 )
+from cqrs.saga.models import SagaContext
+from cqrs.saga.saga import Saga
 
 _KT = typing.TypeVar("_KT", bound=typing.Type[Request])
-_VT = typing.TypeVar("_VT", bound=object)
 
 # Type alias for handler types that can be bound to requests
 HandlerType = (
@@ -29,4 +30,23 @@ class RequestMap(typing.Dict[_KT, HandlerType]):
         super().__setitem__(__key, __value)
 
     def __delitem__(self, __key: _KT) -> typing.NoReturn:
+        raise TypeError(f"{self.__class__.__name__} has no delete method")
+
+
+_SagaKT = typing.TypeVar("_SagaKT", bound=typing.Type[SagaContext])
+_SagaHandlerType = typing.Type[Saga]
+
+
+class SagaMap(typing.Dict[_SagaKT, _SagaHandlerType]):
+    _registry: typing.Dict[_SagaKT, _SagaHandlerType]
+
+    def bind(self, context_type: _SagaKT, handler_type: _SagaHandlerType) -> None:
+        self[context_type] = handler_type
+
+    def __setitem__(self, __key: _SagaKT, __value: _SagaHandlerType) -> None:
+        if __key in self:
+            raise KeyError(f"{__key} already exists in registry")
+        super().__setitem__(__key, __value)
+
+    def __delitem__(self, __key: _SagaKT) -> typing.NoReturn:
         raise TypeError(f"{self.__class__.__name__} has no delete method")

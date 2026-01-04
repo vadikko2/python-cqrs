@@ -1,34 +1,37 @@
 """Basic saga execution tests."""
 
-import typing
-
 import pytest
 
 from cqrs.saga.saga import Saga
-from cqrs.saga.step import SagaStepHandler
-
+from cqrs.saga.storage.memory import MemorySagaStorage  # noqa: F401
 from .conftest import (
+    CompensationFailingStep,
     FailingStep,
     OrderContext,
     ProcessPaymentResponse,
     ProcessPaymentStep,
     ReserveInventoryResponse,
     ReserveInventoryStep,
+    SagaContainer,
     ShipOrderResponse,
     ShipOrderStep,
-    CompensationFailingStep,
-    SagaContainer,
 )
 
 
 async def test_saga_executes_all_steps_successfully(
     successful_saga: Saga[OrderContext],
+    saga_container: SagaContainer,
+    storage: MemorySagaStorage,
 ) -> None:
     """Test that saga executes all steps successfully and yields results."""
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     step_results = []
-    async with successful_saga.transaction(context=context) as transaction:
+    async with successful_saga.transaction(
+        context=context,
+        container=saga_container,  # type: ignore
+        storage=storage,
+    ) as transaction:
         async for step_result in transaction:
             step_results.append(step_result)
 
@@ -65,12 +68,19 @@ async def test_saga_calls_act_on_all_steps(
     saga_container.register(ProcessPaymentStep, payment_step)
     saga_container.register(ShipOrderStep, ship_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
-    async with saga.transaction(context=context) as transaction:
+    storage_instance = MemorySagaStorage()
+    async with saga.transaction(
+        context=context,
+        container=saga_container,  # type: ignore
+        storage=storage_instance,
+    ) as transaction:
         async for _ in transaction:
             pass
 
@@ -95,13 +105,19 @@ async def test_saga_compensates_on_failure(
     saga_container.register(ProcessPaymentStep, payment_step)
     saga_container.register(FailingStep, failing_step)
 
-    steps = [ReserveInventoryStep, ProcessPaymentStep, FailingStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, FailingStep]
+
+    saga = TestSaga()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     with pytest.raises(ValueError, match="Step failed for order 123"):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=MemorySagaStorage(),
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -141,13 +157,20 @@ async def test_saga_compensates_in_reverse_order(
     saga_container.register(TrackingPaymentStep, payment_step)
     saga_container.register(FailingStep, failing_step)
 
-    steps = [TrackingReserveStep, TrackingPaymentStep, FailingStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [TrackingReserveStep, TrackingPaymentStep, FailingStep]
+
+    saga = TestSaga()
+    storage_instance = MemorySagaStorage()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     with pytest.raises(ValueError):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=storage_instance,
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -165,14 +188,21 @@ async def test_saga_handles_compensation_failure_gracefully(
     saga_container.register(ReserveInventoryStep, reserve_step)
     saga_container.register(CompensationFailingStep, compensation_failing_step)
 
-    steps = [ReserveInventoryStep, CompensationFailingStep, FailingStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, CompensationFailingStep, FailingStep]
+
+    saga = TestSaga()
+    storage_instance = MemorySagaStorage()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     # Original error should still be raised even if compensation fails
     with pytest.raises(ValueError, match="Step failed for order 123"):
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=storage_instance,
+        ) as transaction:
             async for _ in transaction:
                 pass
 
@@ -184,12 +214,18 @@ async def test_saga_handles_compensation_failure_gracefully(
 
 async def test_saga_transaction_context_manager_exits_correctly(
     successful_saga: Saga[OrderContext],
+    saga_container: SagaContainer,
+    storage: MemorySagaStorage,
 ) -> None:
     """Test that transaction context manager exits correctly on success."""
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
     step_count = 0
 
-    async with successful_saga.transaction(context=context) as transaction:
+    async with successful_saga.transaction(
+        context=context,
+        container=saga_container,  # type: ignore
+        storage=storage,
+    ) as transaction:
         async for step_result in transaction:
             step_count += 1
             assert step_result is not None
@@ -207,13 +243,20 @@ async def test_saga_transaction_context_manager_exits_on_exception(
     saga_container.register(ReserveInventoryStep, reserve_step)
     saga_container.register(FailingStep, failing_step)
 
-    steps = [ReserveInventoryStep, FailingStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, FailingStep]
+
+    saga = TestSaga()
+    storage_instance = MemorySagaStorage()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     try:
-        async with saga.transaction(context=context) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=saga_container,  # type: ignore
+            storage=storage_instance,
+        ) as transaction:
             async for _ in transaction:
                 pass
     except ValueError:
@@ -224,13 +267,21 @@ async def test_saga_transaction_context_manager_exits_on_exception(
 
 async def test_saga_with_empty_steps_list(saga_container: SagaContainer) -> None:
     """Test that saga handles empty steps list correctly."""
-    steps: list[type[SagaStepHandler[OrderContext, typing.Any]]] = []
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class EmptySaga(Saga[OrderContext]):
+        steps = []
+
+    saga = EmptySaga()
+    storage_instance = MemorySagaStorage()
 
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     step_results = []
-    async with saga.transaction(context=context) as transaction:
+    async with saga.transaction(
+        context=context,
+        container=saga_container,  # type: ignore
+        storage=storage_instance,
+    ) as transaction:
         async for step_result in transaction:
             step_results.append(step_result)
 
@@ -239,12 +290,18 @@ async def test_saga_with_empty_steps_list(saga_container: SagaContainer) -> None
 
 async def test_saga_step_result_contains_correct_metadata(
     successful_saga: Saga[OrderContext],
+    saga_container: SagaContainer,
+    storage: MemorySagaStorage,
 ) -> None:
     """Test that SagaStepResult contains correct metadata."""
     context = OrderContext(order_id="123", user_id="user1", amount=100.0)
 
     step_results = []
-    async with successful_saga.transaction(context=context) as transaction:
+    async with successful_saga.transaction(
+        context=context,
+        container=saga_container,  # type: ignore
+        storage=storage,
+    ) as transaction:
         async for step_result in transaction:
             step_results.append(step_result)
 

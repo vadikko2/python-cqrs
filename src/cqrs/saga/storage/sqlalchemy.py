@@ -5,6 +5,7 @@ import uuid
 
 import sqlalchemy
 from sqlalchemy import func
+from sqlalchemy.exc import InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import registry
 
@@ -121,7 +122,18 @@ class SqlAlchemySagaStorage(ISagaStorage):
             context=context,
         )
         self.session.add(execution)
-        await self.session.flush()
+        # Try to flush, but ignore if already flushing (will be flushed later)
+        # This avoids SAWarning about Session.add() during flush process
+        try:
+            await self.session.flush()
+        except InvalidRequestError as e:
+            error_msg = str(e).lower()
+            if "already flushing" in error_msg or "execution stage" in error_msg:
+                # Session is already flushing, skip flush here
+                # The object will be flushed when the current flush completes
+                pass
+            else:
+                raise
 
     async def update_context(
         self,
@@ -161,18 +173,28 @@ class SqlAlchemySagaStorage(ISagaStorage):
             details=details,
         )
         self.session.add(log_entry)
-        await self.session.flush()
+        # Try to flush, but ignore if already flushing (will be flushed later)
+        # This avoids SAWarning about Session.add() during flush process
+        try:
+            await self.session.flush()
+        except InvalidRequestError as e:
+            error_msg = str(e).lower()
+            if "already flushing" in error_msg or "execution stage" in error_msg:
+                # Session is already flushing, skip flush here
+                # The object will be flushed when the current flush completes
+                pass
+            else:
+                raise
 
     async def load_saga_state(
         self,
         saga_id: uuid.UUID,
     ) -> tuple[SagaStatus, dict[str, typing.Any]]:
-        result = await self.session.execute(
-            sqlalchemy.select(SagaExecutionModel).where(
-                SagaExecutionModel.id == saga_id,
-            ),
+        stmt = sqlalchemy.select(SagaExecutionModel).where(
+            SagaExecutionModel.id == saga_id,
         )
-        execution = result.scalar_one_or_none()
+        result = await self.session.execute(stmt)
+        execution = result.scalars().first()
         if not execution:
             raise ValueError(f"Saga {saga_id} not found")
 

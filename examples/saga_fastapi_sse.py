@@ -81,6 +81,7 @@ WHAT THIS EXAMPLE DEMONSTRATES
    - Automatic compensation when steps fail
 
 2. Saga Step Execution:
+   - SagaMediator is created using bootstrap.bootstrap()
    - Each step is executed and its result is immediately sent via SSE
    - Step metadata (step name, response, status) is included
    - Progress tracking (current step, total steps, percentage)
@@ -143,13 +144,15 @@ import logging
 import typing
 import uuid
 
+import di
 import fastapi
 import pydantic
 import uvicorn
+from di import dependent
 
 import cqrs
-from cqrs import container as cqrs_container
 from cqrs.response import Response
+from cqrs.saga import bootstrap
 from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
@@ -160,8 +163,6 @@ logger = logging.getLogger(__name__)
 
 app = fastapi.FastAPI(title="Saga SSE Example")
 
-# Shared storage instance (in production, use persistent storage)
-saga_storage = MemorySagaStorage()
 
 # ============================================================================
 # Models
@@ -381,32 +382,84 @@ class ShipOrderStep(SagaStepHandler[OrderContext, ShipOrderResponse]):
 
 
 # ============================================================================
-# Container
+# Saga Class Definition
 # ============================================================================
 
 
-class SimpleContainer(cqrs_container.Container[typing.Any]):
-    def __init__(self) -> None:
-        self._inventory = InventoryService()
-        self._payment = PaymentService()
-        self._shipping = ShippingService()
-        self._external_container = None
+class OrderSaga(Saga[OrderContext]):
+    """Order processing saga with three steps."""
 
-    @property
-    def external_container(self) -> typing.Any:
-        return self._external_container
+    steps = [
+        ReserveInventoryStep,
+        ProcessPaymentStep,
+        ShipOrderStep,
+    ]
 
-    def attach_external_container(self, container: typing.Any) -> None:
-        self._external_container = container
 
-    async def resolve(self, type_: type) -> typing.Any:
-        if type_ == ReserveInventoryStep:
-            return ReserveInventoryStep(self._inventory)
-        if type_ == ProcessPaymentStep:
-            return ProcessPaymentStep(self._payment)
-        if type_ == ShipOrderStep:
-            return ShipOrderStep(self._shipping)
-        raise ValueError(f"Unknown type: {type_}")
+# ============================================================================
+# DI Container Setup
+# ============================================================================
+
+# Shared storage instance (in production, use persistent storage)
+saga_storage = MemorySagaStorage()
+
+# Setup DI container
+di_container = di.Container()
+
+# Initialize services and register them in DI container
+inventory_service = InventoryService()
+payment_service = PaymentService()
+shipping_service = ShippingService()
+
+# Register services using bind_by_type with lambda functions that return instances
+di_container.bind(
+    di.bind_by_type(
+        dependent.Dependent(lambda: inventory_service, scope="request"),
+        InventoryService,
+    ),
+)
+di_container.bind(
+    di.bind_by_type(
+        dependent.Dependent(lambda: payment_service, scope="request"),
+        PaymentService,
+    ),
+)
+di_container.bind(
+    di.bind_by_type(
+        dependent.Dependent(lambda: shipping_service, scope="request"),
+        ShippingService,
+    ),
+)
+di_container.bind(
+    di.bind_by_type(
+        dependent.Dependent(lambda: saga_storage, scope="request"),
+        MemorySagaStorage,
+    ),
+)
+
+# Register step handlers
+reserve_step = ReserveInventoryStep(inventory_service)
+payment_step = ProcessPaymentStep(payment_service)
+ship_step = ShipOrderStep(shipping_service)
+
+di_container.bind(
+    di.bind_by_type(
+        dependent.Dependent(lambda: reserve_step, scope="request"),
+        ReserveInventoryStep,
+    ),
+)
+di_container.bind(
+    di.bind_by_type(
+        dependent.Dependent(lambda: payment_step, scope="request"),
+        ProcessPaymentStep,
+    ),
+)
+di_container.bind(
+    di.bind_by_type(
+        dependent.Dependent(lambda: ship_step, scope="request"),
+        ShipOrderStep,
+    ),
+)
 
 
 # ============================================================================
@@ -414,13 +467,17 @@ class SimpleContainer(cqrs_container.Container[typing.Any]):
 # ============================================================================
 
 
-def create_saga() -> Saga[OrderContext]:
-    """Create saga instance with storage for persistence."""
-    container = SimpleContainer()
-    return Saga(
-        steps=[ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep],
-        container=container,  # type: ignore
-        storage=saga_storage,
+def saga_mapper(mapper: cqrs.SagaMap) -> None:
+    """Register sagas in SagaMap."""
+    mapper.bind(OrderContext, OrderSaga)
+
+
+def mediator_factory() -> cqrs.SagaMediator:
+    """Create saga mediator using bootstrap."""
+    return bootstrap.bootstrap(
+        di_container=di_container,
+        sagas_mapper=saga_mapper,
+        saga_storage=saga_storage,
     )
 
 
@@ -435,11 +492,11 @@ def serialize_response(response: Response | None) -> dict[str, typing.Any]:
 @app.post("/process-order")
 async def process_order(
     request: ProcessOrderRequest,
+    mediator: cqrs.SagaMediator = fastapi.Depends(mediator_factory),
 ) -> fastapi.responses.StreamingResponse:
     """Process order using saga pattern, stream step results via SSE."""
 
     async def generate_sse():
-        saga = create_saga()
         saga_id = uuid.uuid4()  # Generate unique saga ID for persistence
         context = OrderContext(
             order_id=request.order_id,
@@ -449,7 +506,8 @@ async def process_order(
             shipping_address=request.shipping_address,
         )
 
-        total_steps = saga.steps_count
+        # Get total steps count from saga (we know it's 3 steps)
+        total_steps = 3
         completed_steps = 0
 
         try:
@@ -462,25 +520,21 @@ async def process_order(
             }
             yield f"data: {json.dumps(start_data)}\n\n"
 
-            # Execute saga with saga_id for persistence
-            async with saga.transaction(
-                context=context,
-                saga_id=saga_id,
-            ) as transaction:
-                async for step_result in transaction:
-                    completed_steps += 1
-                    step_name = step_result.step_type.__name__
+            # Execute saga with saga_id for persistence using mediator.stream()
+            async for step_result in mediator.stream(context, saga_id=saga_id):
+                completed_steps += 1
+                step_name = step_result.step_type.__name__
 
-                    step_data = {
-                        "type": "step_progress",
-                        "step": {
-                            "name": step_name,
-                            "number": completed_steps,
-                            "total": total_steps,
-                        },
-                        "response": serialize_response(step_result.response),
-                    }
-                    yield f"data: {json.dumps(step_data)}\n\n"
+                step_data = {
+                    "type": "step_progress",
+                    "step": {
+                        "name": step_name,
+                        "number": completed_steps,
+                        "total": total_steps,
+                    },
+                    "response": serialize_response(step_result.response),
+                }
+                yield f"data: {json.dumps(step_data)}\n\n"
 
             # Completion event
             complete_data = {

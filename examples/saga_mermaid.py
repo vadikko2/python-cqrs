@@ -65,7 +65,6 @@ from cqrs.saga.mermaid import SagaMermaid
 from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
-from cqrs.saga.storage.memory import MemorySagaStorage
 
 # Import types and step handlers from saga.py example
 # In a real scenario, these would be imported from your domain modules
@@ -205,6 +204,21 @@ class ShipOrderStep(SagaStepHandler[OrderContext, ShipOrderResponse]):
 
 
 # ============================================================================
+# Saga Class Definition
+# ============================================================================
+
+
+class OrderSaga(Saga[OrderContext]):
+    """Order processing saga with three steps."""
+
+    steps = [
+        ReserveInventoryStep,
+        ProcessPaymentStep,
+        ShipOrderStep,
+    ]
+
+
+# ============================================================================
 # Simple Container (for example purposes)
 # ============================================================================
 
@@ -269,19 +283,8 @@ def main() -> None:
     print("\nThis example demonstrates how to generate Mermaid diagrams")
     print("from Saga instances for documentation and visualization purposes.")
 
-    # Create container
-    container = SimpleContainer()
-
-    # Create saga with steps
-    saga = Saga(
-        steps=[
-            ReserveInventoryStep,
-            ProcessPaymentStep,
-            ShipOrderStep,
-        ],
-        container=container,  # type: ignore
-        storage=MemorySagaStorage(),
-    )
+    # Create saga instance (steps are defined as class attribute)
+    saga = OrderSaga()
 
     # Create Mermaid generator
     generator = SagaMermaid(saga)

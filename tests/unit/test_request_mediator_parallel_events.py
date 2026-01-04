@@ -1,3 +1,4 @@
+import typing
 from unittest import mock
 
 import pydantic
@@ -71,8 +72,16 @@ async def test_request_mediator_processes_events_parallel() -> None:
     class EventContainer:
         def __init__(self, handler):
             self._handler = handler
+            self._external_container: typing.Any = None
 
-        async def resolve(self, type_):
+        @property
+        def external_container(self) -> typing.Any:
+            return self._external_container
+
+        def attach_external_container(self, container: typing.Any) -> None:
+            self._external_container = container
+
+        async def resolve(self, type_: typing.Type[typing.Any]) -> typing.Any:
             return self._handler
 
     event_emitter = mock.AsyncMock(spec=EventEmitter)
@@ -87,8 +96,9 @@ async def test_request_mediator_processes_events_parallel() -> None:
         concurrent_event_handle_enable=True,
     )
 
-    mediator._event_dispatcher._container = EventContainer(event_handler)  # type: ignore
-
+    mediator._event_processor._event_dispatcher._container = EventContainer(
+        event_handler,
+    )  # type: ignore
     request = ProcessItemsCommand(item_ids=["item1", "item2", "item3"])
     await mediator.send(request)
 
@@ -110,8 +120,16 @@ async def test_request_mediator_processes_events_sequentially() -> None:
     class EventContainer:
         def __init__(self, handler):
             self._handler = handler
+            self._external_container: typing.Any = None
 
-        async def resolve(self, type_):
+        @property
+        def external_container(self) -> typing.Any:
+            return self._external_container
+
+        def attach_external_container(self, container: typing.Any) -> None:
+            self._external_container = container
+
+        async def resolve(self, type_: typing.Type[typing.Any]) -> typing.Any:
             return self._handler
 
     event_emitter = mock.AsyncMock(spec=EventEmitter)
@@ -126,7 +144,9 @@ async def test_request_mediator_processes_events_sequentially() -> None:
         concurrent_event_handle_enable=False,
     )
 
-    mediator._event_dispatcher._container = EventContainer(event_handler)  # type: ignore
+    mediator._event_processor._event_dispatcher._container = EventContainer(
+        event_handler,
+    )  # type: ignore
 
     request = ProcessItemsCommand(item_ids=["item1", "item2", "item3"])
     await mediator.send(request)

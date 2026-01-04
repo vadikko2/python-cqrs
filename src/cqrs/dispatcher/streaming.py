@@ -7,11 +7,7 @@ from cqrs.dispatcher.models import RequestDispatchResult
 from cqrs.middlewares.base import MiddlewareChain
 from cqrs.requests.map import RequestMap
 from cqrs.requests.request import Request
-from cqrs.requests.request_handler import (
-    StreamingRequestHandler,
-)
-
-_StreamingRequestHandler: typing.TypeAlias = StreamingRequestHandler
+from cqrs.requests.request_handler import StreamingRequestHandler
 
 
 class StreamingRequestDispatcher:
@@ -60,7 +56,7 @@ class StreamingRequestDispatcher:
             typing.Type[StreamingRequestHandler],
             handler_type,
         )
-        handler: _StreamingRequestHandler = await self._container.resolve(
+        handler: StreamingRequestHandler = await self._container.resolve(
             handler_type_typed,
         )
 

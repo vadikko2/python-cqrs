@@ -5,40 +5,12 @@ import typing
 import uuid
 
 from cqrs.container.protocol import Container
-from cqrs.middlewares.base import MiddlewareChain
-from cqrs.saga.models import ContextT, SagaContext
+from cqrs.saga.models import ContextT
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
-from cqrs.saga.storage.memory import MemorySagaStorage
 from cqrs.saga.storage.protocol import ISagaStorage
 
 logger = logging.getLogger("cqrs.saga")
-
-
-def _serialize_context(context: SagaContext) -> dict[str, typing.Any]:
-    """
-    Serialize context to dictionary.
-
-    Supports both SagaContext (with to_dict/model_dump) and Pydantic models.
-    """
-    if isinstance(context, SagaContext):
-        return context.to_dict()
-    # Check for model_dump (Pydantic models)
-    if hasattr(context, "model_dump"):
-        return typing.cast(
-            typing.Callable[[], dict[str, typing.Any]],
-            context.model_dump,
-        )()
-    # Fallback to to_dict if available
-    if hasattr(context, "to_dict"):
-        return typing.cast(
-            typing.Callable[[], dict[str, typing.Any]],
-            context.to_dict,
-        )()
-    # Last resort: use __dict__
-    return {
-        key: value for key, value in context.__dict__.items() if not key.startswith("_")
-    }
 
 
 class SagaTransaction(typing.Generic[ContextT]):
@@ -88,15 +60,24 @@ class SagaTransaction(typing.Generic[ContextT]):
         self,
         saga: "Saga[ContextT]",
         context: ContextT,
+        container: Container,
+        storage: ISagaStorage,
         saga_id: uuid.UUID | None = None,
+        compensation_retry_count: int = 3,
+        compensation_retry_delay: float = 1.0,
+        compensation_retry_backoff: float = 2.0,
     ):
         self._saga = saga
         self._context = context
+        self._container = container
+        self._storage = storage
         self._completed_steps: list[SagaStepHandler[ContextT, typing.Any]] = []
         self._error: BaseException | None = None
         self._compensated: bool = False
+        self._compensation_retry_count = compensation_retry_count
+        self._compensation_retry_delay = compensation_retry_delay
+        self._compensation_retry_backoff = compensation_retry_backoff
 
-        self._storage = saga.storage
         self._saga_id = saga_id or uuid.uuid4()
         # If saga_id was passed, we assume it's an existing saga if it exists in storage,
         # but here we treat it as new if not checking storage explicitly.
@@ -106,6 +87,17 @@ class SagaTransaction(typing.Generic[ContextT]):
     @property
     def saga_id(self) -> uuid.UUID:
         return self._saga_id
+
+    @property
+    def completed_steps(self) -> list[SagaStepHandler[ContextT, typing.Any]]:
+        """
+        Get list of completed step handlers.
+
+        Returns:
+            List of step handlers that have been executed successfully.
+            Can be used to collect events from steps.
+        """
+        return self._completed_steps
 
     async def __aenter__(self) -> "SagaTransaction[ContextT]":
         return self
@@ -167,7 +159,7 @@ class SagaTransaction(typing.Generic[ContextT]):
             await self._storage.create_saga(
                 self._saga_id,
                 self._saga.__class__.__name__,
-                _serialize_context(self._context),
+                self._context.to_dict(),
             )
             await self._storage.update_status(self._saga_id, SagaStatus.RUNNING)
         else:
@@ -204,7 +196,7 @@ class SagaTransaction(typing.Generic[ContextT]):
                     for step_type in self._saga.steps:
                         step_name = step_type.__name__
                         if step_name in completed_act_steps:
-                            step = await self._saga.container.resolve(step_type)
+                            step = await self._container.resolve(step_type)
                             self._completed_steps.append(step)
 
                     # Immediately proceed to compensation - no forward execution
@@ -230,7 +222,7 @@ class SagaTransaction(typing.Generic[ContextT]):
                 await self._storage.create_saga(
                     self._saga_id,
                     self._saga.__class__.__name__,
-                    _serialize_context(self._context),
+                    self._context.to_dict(),
                 )
                 await self._storage.update_status(self._saga_id, SagaStatus.RUNNING)
 
@@ -242,13 +234,13 @@ class SagaTransaction(typing.Generic[ContextT]):
                 # 2. Skip logic (Idempotency)
                 if step_name in completed_step_names:
                     # Restore step instance to completed_steps for potential compensation
-                    step = await self._saga.container.resolve(step_type)
+                    step = await self._container.resolve(step_type)
                     self._completed_steps.append(step)
                     logger.debug(f"Skipping already completed step: {step_name}")
                     continue
 
                 # Resolve step handler from DI container
-                step = await self._saga.container.resolve(step_type)
+                step = await self._container.resolve(step_type)
 
                 # 3. Execution
                 await self._storage.log_step(
@@ -265,7 +257,7 @@ class SagaTransaction(typing.Generic[ContextT]):
                 # 4. Commit State
                 await self._storage.update_context(
                     self._saga_id,
-                    _serialize_context(self._context),
+                    self._context.to_dict(),
                 )
                 await self._storage.log_step(
                     self._saga_id,
@@ -334,7 +326,7 @@ class SagaTransaction(typing.Generic[ContextT]):
 
                 await self._storage.update_context(
                     self._saga_id,
-                    _serialize_context(self._context),
+                    self._context.to_dict(),
                 )
                 await self._storage.log_step(
                     self._saga_id,
@@ -359,7 +351,7 @@ class SagaTransaction(typing.Generic[ContextT]):
             for step, comp_error in compensation_errors:
                 step_name = step.__class__.__name__
                 logger.error(
-                    f"Compensation failed for step '{step_name}' after {self._saga.compensation_retry_count} attempts. "
+                    f"Compensation failed for step '{step_name}' after {self._compensation_retry_count} attempts. "
                     f"Error: {type(comp_error).__name__}: {comp_error}",
                     exc_info=comp_error,
                 )
@@ -386,7 +378,7 @@ class SagaTransaction(typing.Generic[ContextT]):
         step_name = step.__class__.__name__
 
         last_exception: Exception | None = None
-        for attempt in range(1, self._saga.compensation_retry_count + 1):
+        for attempt in range(1, self._compensation_retry_count + 1):
             try:
                 await step.compensate(self._context)
                 logger.debug(
@@ -395,19 +387,19 @@ class SagaTransaction(typing.Generic[ContextT]):
                 return
             except Exception as e:
                 last_exception = e
-                if attempt < self._saga.compensation_retry_count:
+                if attempt < self._compensation_retry_count:
                     # Calculate exponential backoff delay
-                    delay = self._saga.compensation_retry_delay * (
-                        self._saga.compensation_retry_backoff ** (attempt - 1)
+                    delay = self._compensation_retry_delay * (
+                        self._compensation_retry_backoff ** (attempt - 1)
                     )
                     logger.warning(
-                        f"Compensation attempt {attempt}/{self._saga.compensation_retry_count} failed for step '{step_name}': {e}. "
+                        f"Compensation attempt {attempt}/{self._compensation_retry_count} failed for step '{step_name}': {e}. "
                         f"Retrying in {delay:.2f}s...",
                     )
                     await asyncio.sleep(delay)
                 else:
                     logger.error(
-                        f"Compensation failed for step '{step_name}' after {self._saga.compensation_retry_count} attempts: {e}",
+                        f"Compensation failed for step '{step_name}' after {self._compensation_retry_count} attempts: {e}",
                     )
 
         # If we get here, all retries failed
@@ -417,97 +409,182 @@ class SagaTransaction(typing.Generic[ContextT]):
 
 class Saga(typing.Generic[ContextT]):
     """
-    A saga orchestrator that executes steps sequentially and handles compensation.
+    Declarative saga class that defines steps and context type.
 
-    The saga pattern enables distributed transactions by executing a series of steps
-    where each step can be compensated if a subsequent step fails. This allows
-    for eventual consistency across distributed systems without requiring two-phase commit.
+    Saga is a simple declarative class that serves as a container for:
+    - List of step handler types to execute in order
+    - Context type (via Generic parameter)
 
-    Recovery Strategy: Strict Backward Recovery
-    --------------------------------------------
-    This saga implementation uses "Strict Backward Recovery" to ensure data consistency:
+    Saga does not depend on DI container or storage. All work with dependencies
+    and storage is handled by SagaTransaction class.
 
-    1. **Forward Execution**: Steps execute sequentially. If a step fails, compensation
-       begins immediately for all completed steps.
-
-    2. **Point of No Return**: Once saga status becomes COMPENSATING or FAILED,
-       forward execution is permanently disabled. Recovery will only complete compensation,
-       never retry failed steps.
-
-    3. **Local Retries**: Retry logic should be implemented within step.act() methods.
-       While retrying (even with failures), saga status remains RUNNING, allowing
-       recovery to continue forward execution if retry eventually succeeds.
-
-    4. **Global Failure**: When all local retries are exhausted and step.act() raises
-       a fatal exception, saga transitions to COMPENSATING. From this point, only
-       compensation can proceed.
-
-    This strategy prevents inconsistent states where partial compensation conflicts
-    with new execution attempts, which could lead to data loss or financial discrepancies.
-
-    Step handlers are resolved from the DI container, allowing for dependency injection
-    of services and repositories into each step handler.
+    Steps must be defined as a class attribute. All steps must handle the same
+    context type as specified in the Generic parameter.
 
     Usage::
 
-        steps = [
-            ReserveInventoryStep,
-            ProcessPaymentStep,
-            ShipOrderStep,
-        ]
-        saga = Saga(steps=steps, container=container)
+        class OrderSaga(Saga[OrderContext]):
+            steps = [
+                ReserveInventoryStep,
+                ProcessPaymentStep,
+                ShipOrderStep,
+            ]
 
-        # Execute saga using transaction context manager
-        async with saga.transaction(context=OrderContext(order_id="123")) as transaction:
-            async for step_result in transaction:
-                # Process each step result
-                print(f"Step {step_result.step_type.__name__} completed")
+    Note:
+        Steps are validated at class creation time to ensure they handle
+        the correct context type.
     """
 
-    def __init__(
-        self,
-        steps: list[typing.Type[SagaStepHandler[ContextT, typing.Any]]],
-        container: Container,
-        storage: ISagaStorage | None = None,
-        middleware_chain: MiddlewareChain | None = None,
-        compensation_retry_count: int = 3,
-        compensation_retry_delay: float = 1.0,
-        compensation_retry_backoff: float = 2.0,
-    ):
+    steps: typing.ClassVar[list[typing.Type[SagaStepHandler]]]
+
+    # Steps should be defined as a class attribute in subclasses
+    # Example: steps = [Step1, Step2, ...]
+    # This is validated in __init_subclass__
+
+    def __init_subclass__(cls, **kwargs: typing.Any) -> None:
         """
-        Initialize a saga orchestrator.
+        Validate saga steps when subclass is created.
 
-        Args:
-            steps: List of step handler types to execute in order
-            container: DI container for resolving step handlers
-            storage: Saga persistence storage. Defaults to MemorySagaStorage.
-            middleware_chain: Optional middleware chain for request processing
-            compensation_retry_count: Number of retry attempts for compensation (default: 3)
-            compensation_retry_delay: Initial delay between retries in seconds (default: 1.0)
-            compensation_retry_backoff: Backoff multiplier for exponential delay (default: 2.0)
+        Ensures that:
+        1. Steps attribute is defined
+        2. All steps handle the correct context type
         """
-        self._steps = steps
-        self._container = container
-        self._storage = storage or MemorySagaStorage()
-        self._middleware_chain = middleware_chain
-        self._compensation_retry_count = compensation_retry_count
-        self._compensation_retry_delay = compensation_retry_delay
-        self._compensation_retry_backoff = compensation_retry_backoff
+        super().__init_subclass__(**kwargs)
 
-    @property
-    def compensation_retry_count(self) -> int:
-        """Return the number of retry attempts for compensation."""
-        return self._compensation_retry_count
+        # Get the context type from Generic parameter
+        # This works by checking the __orig_bases__ for the Generic type
+        context_type: type[ContextT] | None = None
 
-    @property
-    def compensation_retry_delay(self) -> float:
-        """Return the initial delay between compensation retries in seconds."""
-        return self._compensation_retry_delay
+        # Try to get context type from __orig_bases__
+        if hasattr(cls, "__orig_bases__"):
+            for base in cls.__orig_bases__:  # type: ignore[attr-defined]
+                # Check if this is a GenericAlias for Saga
+                if isinstance(base, types.GenericAlias) and base.__origin__ is Saga:  # type: ignore[attr-defined]
+                    args = typing.get_args(base)
+                    if args:
+                        context_type = args[0]  # type: ignore[assignment]
+                        break
+                # Fallback for older Python versions or different typing implementations
+                elif hasattr(base, "__origin__") and base.__origin__ is Saga:  # type: ignore[attr-defined]
+                    args = typing.get_args(base)
+                    if args:
+                        context_type = args[0]  # type: ignore[assignment]
+                        break
 
-    @property
-    def compensation_retry_backoff(self) -> float:
-        """Return the backoff multiplier for exponential delay between retries."""
-        return self._compensation_retry_backoff
+        # If we couldn't determine context type from Generic, try alternative methods
+        if context_type is None:
+            # Try to get it from __class_getitem__ result
+            if hasattr(cls, "__args__") and cls.__args__:  # type: ignore[attr-defined]
+                context_type = cls.__args__[0]  # type: ignore[assignment,index]
+
+        # Check if steps attribute exists
+        if not hasattr(cls, "steps"):
+            raise TypeError(
+                f"{cls.__name__} must define 'steps' as a class attribute. "
+                "Example: steps = [Step1, Step2, ...]",
+            )
+
+        steps = getattr(cls, "steps", [])
+
+        if not isinstance(steps, list):
+            raise TypeError(
+                f"{cls.__name__}.steps must be a list of step handler types, "
+                f"got {type(steps).__name__}",
+            )
+
+        if not steps:
+            # Empty steps list is allowed (though unusual)
+            return
+
+        # Validate each step
+        for i, step_type in enumerate(steps):
+            if not isinstance(step_type, type):
+                raise TypeError(
+                    f"{cls.__name__}.steps[{i}] must be a class type, "
+                    f"got {type(step_type).__name__}",
+                )
+
+            # Check if step is a subclass of SagaStepHandler
+            if not issubclass(step_type, SagaStepHandler):
+                raise TypeError(
+                    f"{cls.__name__}.steps[{i}] ({step_type.__name__}) "
+                    "must be a subclass of SagaStepHandler",
+                )
+
+            # Try to validate context type compatibility
+            # We check the __orig_bases__ of the step handler to see what context it expects
+            if context_type is not None:
+                step_context_type: type | None = None
+
+                # Try to get step's context type from its generic bases
+                if hasattr(step_type, "__orig_bases__"):
+                    for base in step_type.__orig_bases__:  # type: ignore[attr-defined]
+                        # Check if this is a GenericAlias for SagaStepHandler
+                        if (
+                            isinstance(base, types.GenericAlias)
+                            and base.__origin__ is SagaStepHandler
+                        ):  # type: ignore[attr-defined]
+                            args = typing.get_args(base)
+                            if args:
+                                step_context_type = args[0]
+                                break
+                        # Fallback
+                        elif (
+                            hasattr(base, "__origin__")
+                            and base.__origin__ is SagaStepHandler
+                        ):  # type: ignore[attr-defined]
+                            args = typing.get_args(base)
+                            if args:
+                                step_context_type = args[0]
+                                break
+
+                # If we found the step's context type, validate it matches
+                if step_context_type is not None:
+                    # Get origin types to handle type variables and unions
+                    origin_context = getattr(context_type, "__origin__", context_type)
+                    origin_step_context = getattr(
+                        step_context_type,
+                        "__origin__",
+                        step_context_type,
+                    )
+
+                    # Check if types match exactly
+                    if origin_context != origin_step_context:
+                        # Check if they're compatible types (subclass relationship)
+                        # This allows subclasses of the expected context type
+                        if isinstance(origin_context, type) and isinstance(
+                            origin_step_context,
+                            type,
+                        ):
+                            if not issubclass(origin_context, origin_step_context):
+                                raise TypeError(
+                                    f"{cls.__name__}.steps[{i}] ({step_type.__name__}) "
+                                    f"expects context type {step_context_type.__name__}, "
+                                    f"but saga expects {context_type.__name__}. "
+                                    "Steps must handle the same context type as the saga.",
+                                )
+                        else:
+                            # For non-type origins (like TypeVar), we can't validate at class creation time
+                            # but we log a warning
+                            logger.warning(
+                                f"{cls.__name__}.steps[{i}] ({step_type.__name__}) "
+                                f"may have incompatible context type. "
+                                f"Saga expects {context_type.__name__}, "
+                                f"step expects {step_context_type.__name__}.",
+                            )
+
+    def __init__(self) -> None:
+        """
+        Initialize a declarative saga instance.
+
+        Steps must be defined as a class attribute, not passed to __init__.
+        """
+        # Ensure steps attribute exists (should be set as class attribute)
+        if not hasattr(self, "steps"):
+            raise TypeError(
+                f"{self.__class__.__name__} must define 'steps' as a class attribute. "
+                "Example: steps = [Step1, Step2, ...]",
+            )
 
     @property
     def steps_count(self) -> int:
@@ -517,39 +594,17 @@ class Saga(typing.Generic[ContextT]):
         Returns:
             The total number of steps configured for this saga.
         """
-        return len(self._steps)
-
-    @property
-    def steps(self):
-        """
-        Return the saga steps
-
-        Returns:
-            The steps configured for this saga
-        """
-        return self._steps
-
-    @property
-    def container(self) -> Container:
-        """
-        Return configured DI container
-
-        Returns:
-            The configured DI container
-        """
-        return self._container
-
-    @property
-    def storage(self) -> ISagaStorage:
-        """
-        Return configured storage
-        """
-        return self._storage
+        return len(self.steps)
 
     def transaction(
         self,
         context: ContextT,
+        container: Container,
+        storage: ISagaStorage,
         saga_id: uuid.UUID | None = None,
+        compensation_retry_count: int = 3,
+        compensation_retry_delay: float = 1.0,
+        compensation_retry_backoff: float = 2.0,
     ) -> SagaTransaction[ContextT]:
         """
         Create a transaction context manager for saga execution.
@@ -561,17 +616,35 @@ class Saga(typing.Generic[ContextT]):
         Args:
             context: The saga context object that contains shared state
                     across all steps in the saga.
+            container: DI container for resolving step handlers
+            storage: Saga storage implementation
             saga_id: Optional UUID for the saga. If provided, it can be used
                      for recovery or ensuring idempotency.
+            compensation_retry_count: Number of retry attempts for compensation (default: 3)
+            compensation_retry_delay: Initial delay between retries in seconds (default: 1.0)
+            compensation_retry_backoff: Backoff multiplier for exponential delay (default: 2.0)
 
         Returns:
             A SagaTransaction context manager that can be used in an async with statement.
 
         Usage::
 
-            async with saga.transaction(context=OrderContext(order_id="123")) as transaction:
+            async with saga.transaction(
+                context=OrderContext(order_id="123"),
+                container=container,
+                storage=storage,
+            ) as transaction:
                 async for step_result in transaction:
                     # Process step_result
                     pass
         """
-        return SagaTransaction(saga=self, context=context, saga_id=saga_id)
+        return SagaTransaction(
+            saga=self,
+            context=context,
+            container=container,
+            storage=storage,
+            saga_id=saga_id,
+            compensation_retry_count=compensation_retry_count,
+            compensation_retry_delay=compensation_retry_delay,
+            compensation_retry_backoff=compensation_retry_backoff,
+        )

@@ -2,7 +2,6 @@
 
 import typing
 
-
 from cqrs.saga.mermaid import SagaMermaid
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler
@@ -18,8 +17,13 @@ from .conftest import (
 
 def test_to_mermaid_empty_steps(saga_container: SagaContainer) -> None:
     """Test that Mermaid handles empty steps list correctly."""
-    steps: list[type[SagaStepHandler[OrderContext, typing.Any]]] = []
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class EmptySaga(Saga[OrderContext]):
+        steps: typing.ClassVar[
+            list[type[SagaStepHandler[OrderContext, typing.Any]]]
+        ] = []
+
+    saga = EmptySaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.sequence()
@@ -31,8 +35,11 @@ def test_to_mermaid_empty_steps(saga_container: SagaContainer) -> None:
 
 def test_to_mermaid_single_step(saga_container: SagaContainer) -> None:
     """Test that Mermaid generates correct diagram for single step."""
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.sequence()
@@ -55,8 +62,11 @@ def test_to_mermaid_single_step(saga_container: SagaContainer) -> None:
 
 def test_to_mermaid_multiple_steps(saga_container: SagaContainer) -> None:
     """Test that Mermaid generates correct diagram for multiple steps."""
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.sequence()
@@ -115,8 +125,11 @@ def test_to_mermaid_multiple_steps(saga_container: SagaContainer) -> None:
 
 def test_to_mermaid_steps_order(saga_container: SagaContainer) -> None:
     """Test that Mermaid preserves steps order in diagram."""
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.sequence()
@@ -157,8 +170,11 @@ def test_to_mermaid_steps_order(saga_container: SagaContainer) -> None:
 
 def test_to_mermaid_compensation_reverse_order(saga_container: SagaContainer) -> None:
     """Test that compensation is shown in reverse order."""
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.sequence()
@@ -202,8 +218,10 @@ def test_to_mermaid_long_step_names(saga_container: SagaContainer) -> None:
         async def compensate(self, context: OrderContext) -> None:
             pass
 
-    steps = [VeryLongStepNameThatShouldBeTruncatedInTheDiagram]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+    class TestSaga(Saga[OrderContext]):
+        steps = [VeryLongStepNameThatShouldBeTruncatedInTheDiagram]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.sequence()
@@ -220,8 +238,13 @@ def test_to_mermaid_long_step_names(saga_container: SagaContainer) -> None:
 
 def test_class_diagram_empty_steps(saga_container: SagaContainer) -> None:
     """Test that class_diagram() handles empty steps list correctly."""
-    steps: list[type[SagaStepHandler[OrderContext, typing.Any]]] = []
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class EmptySaga(Saga[OrderContext]):
+        steps: typing.ClassVar[
+            list[type[SagaStepHandler[OrderContext, typing.Any]]]
+        ] = []
+
+    saga = EmptySaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.class_diagram()
@@ -233,8 +256,11 @@ def test_class_diagram_empty_steps(saga_container: SagaContainer) -> None:
 
 def test_class_diagram_basic_structure(saga_container: SagaContainer) -> None:
     """Test that class_diagram() generates correct basic structure."""
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.class_diagram()
@@ -258,8 +284,11 @@ def test_class_diagram_basic_structure(saga_container: SagaContainer) -> None:
 
 def test_class_diagram_context_types(saga_container: SagaContainer) -> None:
     """Test that class_diagram() includes context types."""
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.class_diagram()
@@ -274,8 +303,11 @@ def test_class_diagram_context_types(saga_container: SagaContainer) -> None:
 
 def test_class_diagram_response_types(saga_container: SagaContainer) -> None:
     """Test that class_diagram() includes response types."""
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.class_diagram()
@@ -288,8 +320,11 @@ def test_class_diagram_response_types(saga_container: SagaContainer) -> None:
 
 def test_class_diagram_relationships(saga_container: SagaContainer) -> None:
     """Test that class_diagram() includes relationships between classes."""
-    steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.class_diagram()
@@ -331,8 +366,11 @@ def test_class_diagram_relationships(saga_container: SagaContainer) -> None:
 
 def test_class_diagram_single_step(saga_container: SagaContainer) -> None:
     """Test that class_diagram() works with single step."""
-    steps = [ReserveInventoryStep]
-    saga = Saga(steps=steps, container=saga_container)  # type: ignore
+
+    class TestSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = TestSaga()
     generator = SagaMermaid(saga)
 
     diagram = generator.class_diagram()

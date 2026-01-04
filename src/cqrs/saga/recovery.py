@@ -2,9 +2,11 @@ import logging
 import typing
 import uuid
 
+from cqrs.container.protocol import Container
 from cqrs.saga.models import ContextT
 from cqrs.saga.saga import Saga
 from cqrs.saga.storage.enums import SagaStatus
+from cqrs.saga.storage.protocol import ISagaStorage
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +18,14 @@ async def recover_saga(
         typing.Type[ContextT],
         typing.Callable[[dict[str, typing.Any]], ContextT],
     ],
+    container: Container,
+    storage: ISagaStorage,
 ) -> None:
     """
     Recover and complete a potentially interrupted saga.
 
     This function attempts to resume a saga from where it left off.
-    It relies on the saga's storage to load the last known state and execution history.
+    It relies on the storage to load the last known state and execution history.
     Already completed steps will be skipped.
     If the saga was in a compensating state, compensation will resume.
 
@@ -36,10 +40,12 @@ async def recover_saga(
                             - MyPydanticModel.model_validate
                             - lambda d: MyDataClass(**d)
                             - MyClass (if __init__ accepts **kwargs)
+        container: DI container for resolving step handlers.
+        storage: Saga storage implementation.
     """
     # 1. Load state
     try:
-        status, context_data = await saga.storage.load_saga_state(saga_id)
+        status, context_data = await storage.load_saga_state(saga_id)
     except Exception as e:
         logger.error(f"Failed to load saga {saga_id}: {e}")
         raise
@@ -80,6 +86,8 @@ async def recover_saga(
     try:
         async with saga.transaction(
             context=typing.cast(ContextT, context),
+            container=container,
+            storage=storage,
             saga_id=saga_id,
         ) as transaction:
             async for step_result in transaction:

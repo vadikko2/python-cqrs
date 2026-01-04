@@ -456,6 +456,21 @@ class ShipOrderStep(SagaStepHandler[OrderContext, ShipOrderResponse]):
 
 
 # ============================================================================
+# Saga Class Definition
+# ============================================================================
+
+
+class OrderSaga(Saga[OrderContext]):
+    """Order processing saga with three steps."""
+
+    steps = [
+        ReserveInventoryStep,
+        ProcessPaymentStep,
+        ShipOrderStep,
+    ]
+
+
+# ============================================================================
 # Container Setup
 # ============================================================================
 
@@ -531,16 +546,8 @@ async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
         shipping_service=shipping_service,
     )
 
-    # Create saga
-    saga = Saga(
-        steps=[
-            ReserveInventoryStep,
-            ProcessPaymentStep,
-            ShipOrderStep,
-        ],
-        container=container,  # type: ignore
-        storage=storage,
-    )
+    # Create saga instance
+    saga = OrderSaga()
 
     # Create order context
     saga_id = uuid.uuid4()
@@ -556,7 +563,12 @@ async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
     print(f"\nStarting saga {saga_id} for order {context.order_id}...")
 
     try:
-        async with saga.transaction(context=context, saga_id=saga_id) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=container,  # type: ignore
+            storage=storage,
+            saga_id=saga_id,
+        ) as transaction:
             async for step_result in transaction:
                 step_name = step_result.step_type.__name__
                 print(f"✓ Step completed: {step_name}")
@@ -635,20 +647,12 @@ async def recover_interrupted_saga(
         shipping_service=shipping_service,
     )
 
-    # Create saga with same steps
-    saga = Saga(
-        steps=[
-            ReserveInventoryStep,
-            ProcessPaymentStep,
-            ShipOrderStep,
-        ],
-        container=container,  # type: ignore
-        storage=storage,
-    )
+    # Create saga instance (same steps as before)
+    saga = OrderSaga()
 
     # Recover the saga
     print(f"\nRecovering saga {saga_id}...")
-    await recover_saga(saga, saga_id, OrderContext)
+    await recover_saga(saga, saga_id, OrderContext, container, storage)
 
     # Check final state and get execution history
     status, context_data = await storage.load_saga_state(saga_id)
@@ -707,16 +711,8 @@ async def simulate_interrupted_compensation() -> tuple[uuid.UUID, MemorySagaStor
         shipping_service=shipping_service,
     )
 
-    # Create saga
-    saga = Saga(
-        steps=[
-            ReserveInventoryStep,
-            ProcessPaymentStep,
-            ShipOrderStep,
-        ],
-        container=container,  # type: ignore
-        storage=storage,
-    )
+    # Create saga instance
+    saga = OrderSaga()
 
     # Create order context
     saga_id = uuid.uuid4()
@@ -751,7 +747,12 @@ async def simulate_interrupted_compensation() -> tuple[uuid.UUID, MemorySagaStor
 
     # Execute saga (will fail at ShipOrderStep)
     try:
-        async with saga.transaction(context=context, saga_id=saga_id) as transaction:
+        async with saga.transaction(
+            context=context,
+            container=container,  # type: ignore
+            storage=storage,
+            saga_id=saga_id,
+        ) as transaction:
             async for step_result in transaction:
                 step_name = step_result.step_type.__name__
                 print(f"✓ Step completed: {step_name}")
@@ -823,21 +824,13 @@ async def recover_interrupted_compensation(
         shipping_service=shipping_service,
     )
 
-    # Create saga
-    saga = Saga(
-        steps=[
-            ReserveInventoryStep,
-            ProcessPaymentStep,
-            ShipOrderStep,
-        ],
-        container=container,  # type: ignore
-        storage=storage,
-    )
+    # Create saga instance
+    saga = OrderSaga()
 
     # Recover the saga (will complete compensation)
     print(f"\nRecovering saga {saga_id}...")
     try:
-        await recover_saga(saga, saga_id, OrderContext)
+        await recover_saga(saga, saga_id, OrderContext, container, storage)
     except RuntimeError as e:
         # Expected: RuntimeError is raised when saga is recovered in
         # COMPENSATING/FAILED state and compensation completes

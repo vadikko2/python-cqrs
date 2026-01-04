@@ -17,7 +17,10 @@ class SagaMermaid:
 
     Usage::
 
-        saga = Saga(steps=[Step1, Step2, Step3], container=container)
+        class MySaga(Saga[MyContext]):
+            steps = [Step1, Step2, Step3]
+
+        saga = MySaga()
         generator = SagaMermaid(saga)
 
         # Generate sequence diagram

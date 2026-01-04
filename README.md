@@ -249,13 +249,13 @@ Sagas enable eventual consistency by executing a series of steps where each step
 ### Example
 
 ```python
-from cqrs.saga.saga import Saga
-from cqrs.saga.step import SagaStepHandler, SagaStepResult
-from cqrs.saga.storage.memory import MemorySagaStorage
-from cqrs.saga.models import SagaContext
-from cqrs.response import Response
+import dataclasses
 import uuid
+from cqrs.saga.models import SagaContext
+from cqrs.saga.saga import Saga
+from cqrs.saga.step import SagaStepHandler
 
+@dataclasses.dataclass
 class OrderContext(SagaContext):
     order_id: str
     user_id: str
@@ -264,58 +264,20 @@ class OrderContext(SagaContext):
     inventory_reservation_id: str | None = None
     payment_id: str | None = None
 
-class ReserveInventoryResponse(Response):
-    reservation_id: str
+# Define saga class with steps
+class OrderSaga(Saga[OrderContext]):
+    steps = [
+        ReserveInventoryStep,
+        ProcessPaymentStep,
+    ]
 
-class ProcessPaymentResponse(Response):
-    payment_id: str
-
-class ReserveInventoryStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
-    def __init__(self, inventory_service):
-        self._inventory_service = inventory_service
-
-    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
-        # Reserve inventory
-        reservation_id = await self._inventory_service.reserve_items(context.order_id, context.items)
-        context.inventory_reservation_id = reservation_id
-        return self._generate_step_result(ReserveInventoryResponse(reservation_id=reservation_id))
-
-    async def compensate(self, context: OrderContext) -> None:
-        # Release inventory if saga fails
-        if context.inventory_reservation_id:
-            await self._inventory_service.release_items(context.inventory_reservation_id)
-
-class ProcessPaymentStep(SagaStepHandler[OrderContext, ProcessPaymentResponse]):
-    def __init__(self, payment_service):
-        self._payment_service = payment_service
-
-    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ProcessPaymentResponse]:
-        # Process payment
-        payment_id = await self._payment_service.charge(context.order_id, context.total_amount)
-        context.payment_id = payment_id
-        return self._generate_step_result(ProcessPaymentResponse(payment_id=payment_id))
-
-    async def compensate(self, context: OrderContext) -> None:
-        # Refund payment if saga fails
-        if context.payment_id:
-            await self._payment_service.refund(context.payment_id)
-
-# Create saga with storage
-storage = MemorySagaStorage()
-saga = Saga(
-    steps=[ReserveInventoryStep, ProcessPaymentStep],
-    container=container,  # DI container
-    storage=storage,
-)
-
-# Execute saga
-saga_id = uuid.uuid4()
+# Execute saga via mediator
 context = OrderContext(order_id="123", user_id="user_1", items=["item_1"], total_amount=100.0)
+saga_id = uuid.uuid4()
 
-async with saga.transaction(context=context, saga_id=saga_id) as transaction:
-    async for step_result in transaction:
-        print(f"Step completed: {step_result.step_type.__name__}")
-        # If any step fails, compensation happens automatically
+async for step_result in mediator.stream(context, saga_id=saga_id):
+    print(f"Step completed: {step_result.step_type.__name__}")
+    # If any step fails, compensation happens automatically
 ```
 
 The saga state and step history are persisted to `SagaStorage`. The `SagaLog` maintains a complete audit trail
@@ -327,9 +289,18 @@ If a saga is interrupted (e.g., due to a crash), you can recover it using the re
 ```python
 from cqrs.saga.recovery import recover_saga
 
+# Get saga instance from mediator's saga map (or keep reference to saga class)
+saga = OrderSaga()
+
 # Recover interrupted saga - will resume from last completed step
 # or continue compensation if saga was in compensating state
-await recover_saga(saga, saga_id, OrderContext)
+await recover_saga(
+    saga=saga,
+    saga_id=saga_id,
+    context_builder=OrderContext,
+    container=di_container,  # Same container used in bootstrap
+    storage=storage,
+)
 
 # Access execution history (SagaLog) for monitoring and debugging
 history = await storage.get_step_history(saga_id)
@@ -350,7 +321,8 @@ The package includes built-in support for generating Mermaid diagrams from Saga 
 ```python
 from cqrs.saga.mermaid import SagaMermaid
 
-# Create Mermaid generator from saga
+# Create Mermaid generator from saga class
+saga = OrderSaga()
 generator = SagaMermaid(saga)
 
 # Generate Sequence diagram showing execution flow
