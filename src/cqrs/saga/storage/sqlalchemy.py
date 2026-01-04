@@ -5,8 +5,8 @@ import uuid
 
 import sqlalchemy
 from sqlalchemy import func
-from sqlalchemy.exc import InvalidRequestError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import registry
 
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
@@ -106,8 +106,8 @@ class SagaLogModel(Base):
 
 
 class SqlAlchemySagaStorage(ISagaStorage):
-    def __init__(self, session: AsyncSession):
-        self.session = session
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
+        self.session_factory = session_factory
 
     async def create_saga(
         self,
@@ -115,24 +115,18 @@ class SqlAlchemySagaStorage(ISagaStorage):
         name: str,
         context: dict[str, typing.Any],
     ) -> None:
-        execution = SagaExecutionModel(
-            id=saga_id,
-            name=name,
-            status=SagaStatus.PENDING,
-            context=context,
-        )
-        self.session.add(execution)
-        # Try to flush, but ignore if already flushing (will be flushed later)
-        # This avoids SAWarning about Session.add() during flush process
-        try:
-            await self.session.flush()
-        except InvalidRequestError as e:
-            error_msg = str(e).lower()
-            if "already flushing" in error_msg or "execution stage" in error_msg:
-                # Session is already flushing, skip flush here
-                # The object will be flushed when the current flush completes
-                pass
-            else:
+        async with self.session_factory() as session:
+            try:
+                execution = SagaExecutionModel(
+                    id=saga_id,
+                    name=name,
+                    status=SagaStatus.PENDING,
+                    context=context,
+                )
+                session.add(execution)
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
                 raise
 
     async def update_context(
@@ -140,22 +134,34 @@ class SqlAlchemySagaStorage(ISagaStorage):
         saga_id: uuid.UUID,
         context: dict[str, typing.Any],
     ) -> None:
-        await self.session.execute(
-            sqlalchemy.update(SagaExecutionModel)
-            .where(SagaExecutionModel.id == saga_id)
-            .values(context=context),
-        )
+        async with self.session_factory() as session:
+            try:
+                await session.execute(
+                    sqlalchemy.update(SagaExecutionModel)
+                    .where(SagaExecutionModel.id == saga_id)
+                    .values(context=context),
+                )
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
 
     async def update_status(
         self,
         saga_id: uuid.UUID,
         status: SagaStatus,
     ) -> None:
-        await self.session.execute(
-            sqlalchemy.update(SagaExecutionModel)
-            .where(SagaExecutionModel.id == saga_id)
-            .values(status=status),
-        )
+        async with self.session_factory() as session:
+            try:
+                await session.execute(
+                    sqlalchemy.update(SagaExecutionModel)
+                    .where(SagaExecutionModel.id == saga_id)
+                    .values(status=status),
+                )
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
 
     async def log_step(
         self,
@@ -165,71 +171,67 @@ class SqlAlchemySagaStorage(ISagaStorage):
         status: SagaStepStatus,
         details: str | None = None,
     ) -> None:
-        log_entry = SagaLogModel(
-            saga_id=saga_id,
-            step_name=step_name,
-            action=action,
-            status=status,
-            details=details,
-        )
-        self.session.add(log_entry)
-        # Try to flush, but ignore if already flushing (will be flushed later)
-        # This avoids SAWarning about Session.add() during flush process
-        try:
-            await self.session.flush()
-        except InvalidRequestError as e:
-            error_msg = str(e).lower()
-            if "already flushing" in error_msg or "execution stage" in error_msg:
-                # Session is already flushing, skip flush here
-                # The object will be flushed when the current flush completes
-                pass
-            else:
+        async with self.session_factory() as session:
+            try:
+                log_entry = SagaLogModel(
+                    saga_id=saga_id,
+                    step_name=step_name,
+                    action=action,
+                    status=status,
+                    details=details,
+                )
+                session.add(log_entry)
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
                 raise
 
     async def load_saga_state(
         self,
         saga_id: uuid.UUID,
     ) -> tuple[SagaStatus, dict[str, typing.Any]]:
-        stmt = sqlalchemy.select(SagaExecutionModel).where(
-            SagaExecutionModel.id == saga_id,
-        )
-        result = await self.session.execute(stmt)
-        execution = result.scalars().first()
-        if not execution:
-            raise ValueError(f"Saga {saga_id} not found")
+        async with self.session_factory() as session:
+            stmt = sqlalchemy.select(SagaExecutionModel).where(
+                SagaExecutionModel.id == saga_id,
+            )
+            result = await session.execute(stmt)
+            execution = result.scalars().first()
+            if not execution:
+                raise ValueError(f"Saga {saga_id} not found")
 
-        # Type assertions for SQLAlchemy ORM attributes
-        status_value: SagaStatus = typing.cast(SagaStatus, execution.status)
-        context_value: dict[str, typing.Any] = typing.cast(
-            dict[str, typing.Any],
-            execution.context,
-        )
-        return status_value, context_value
+            # Type assertions for SQLAlchemy ORM attributes
+            status_value: SagaStatus = typing.cast(SagaStatus, execution.status)
+            context_value: dict[str, typing.Any] = typing.cast(
+                dict[str, typing.Any],
+                execution.context,
+            )
+            return status_value, context_value
 
     async def get_step_history(
         self,
         saga_id: uuid.UUID,
     ) -> list[SagaLogEntry]:
-        result = await self.session.execute(
-            sqlalchemy.select(SagaLogModel)
-            .where(SagaLogModel.saga_id == saga_id)
-            .order_by(SagaLogModel.created_at),
-        )
-        rows = result.scalars().all()
-
-        return [
-            SagaLogEntry(
-                saga_id=typing.cast(uuid.UUID, row.saga_id),
-                step_name=typing.cast(str, row.step_name),
-                action=typing.cast(typing.Literal["act", "compensate"], row.action),
-                status=typing.cast(SagaStepStatus, row.status),
-                timestamp=typing.cast(
-                    datetime.datetime,
-                    row.created_at.replace(tzinfo=datetime.timezone.utc)
-                    if row.created_at.tzinfo is None
-                    else row.created_at,
-                ),
-                details=typing.cast(str | None, row.details),
+        async with self.session_factory() as session:
+            result = await session.execute(
+                sqlalchemy.select(SagaLogModel)
+                .where(SagaLogModel.saga_id == saga_id)
+                .order_by(SagaLogModel.created_at),
             )
-            for row in rows
-        ]
+            rows = result.scalars().all()
+
+            return [
+                SagaLogEntry(
+                    saga_id=typing.cast(uuid.UUID, row.saga_id),
+                    step_name=typing.cast(str, row.step_name),
+                    action=typing.cast(typing.Literal["act", "compensate"], row.action),
+                    status=typing.cast(SagaStepStatus, row.status),
+                    timestamp=typing.cast(
+                        datetime.datetime,
+                        row.created_at.replace(tzinfo=datetime.timezone.utc)
+                        if row.created_at.tzinfo is None
+                        else row.created_at,
+                    ),
+                    details=typing.cast(str | None, row.details),
+                )
+                for row in rows
+            ]

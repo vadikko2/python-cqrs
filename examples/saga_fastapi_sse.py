@@ -406,58 +406,23 @@ saga_storage = MemorySagaStorage()
 # Setup DI container
 di_container = di.Container()
 
-# Initialize services and register them in DI container
-inventory_service = InventoryService()
-payment_service = PaymentService()
-shipping_service = ShippingService()
-
 # Register services using bind_by_type with lambda functions that return instances
 di_container.bind(
     di.bind_by_type(
-        dependent.Dependent(lambda: inventory_service, scope="request"),
+        dependent.Dependent(InventoryService, scope="request"),
         InventoryService,
     ),
 )
 di_container.bind(
     di.bind_by_type(
-        dependent.Dependent(lambda: payment_service, scope="request"),
+        dependent.Dependent(PaymentService, scope="request"),
         PaymentService,
     ),
 )
 di_container.bind(
     di.bind_by_type(
-        dependent.Dependent(lambda: shipping_service, scope="request"),
+        dependent.Dependent(ShippingService, scope="request"),
         ShippingService,
-    ),
-)
-di_container.bind(
-    di.bind_by_type(
-        dependent.Dependent(lambda: saga_storage, scope="request"),
-        MemorySagaStorage,
-    ),
-)
-
-# Register step handlers
-reserve_step = ReserveInventoryStep(inventory_service)
-payment_step = ProcessPaymentStep(payment_service)
-ship_step = ShipOrderStep(shipping_service)
-
-di_container.bind(
-    di.bind_by_type(
-        dependent.Dependent(lambda: reserve_step, scope="request"),
-        ReserveInventoryStep,
-    ),
-)
-di_container.bind(
-    di.bind_by_type(
-        dependent.Dependent(lambda: payment_step, scope="request"),
-        ProcessPaymentStep,
-    ),
-)
-di_container.bind(
-    di.bind_by_type(
-        dependent.Dependent(lambda: ship_step, scope="request"),
-        ShipOrderStep,
     ),
 )
 

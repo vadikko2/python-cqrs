@@ -68,11 +68,17 @@ async def init_saga_orm():
 
 
 @pytest.fixture(scope="session")
-async def saga_session(init_saga_orm):
-    """Create a session for saga storage tests - commits data to persist."""
+def saga_session_factory(init_saga_orm):
+    """Create a session factory for saga storage tests."""
     engine = init_saga_orm
+    return async_sessionmaker(engine, expire_on_commit=False, autocommit=False)
+
+
+@pytest.fixture(scope="session")
+async def saga_session(saga_session_factory):
+    """Create a session for saga storage tests - commits data to persist."""
     # Use autocommit=False but ensure we commit explicitly
-    session = async_sessionmaker(engine, expire_on_commit=False, autocommit=False)()
+    session = saga_session_factory()
 
     async with contextlib.aclosing(session):
         try:

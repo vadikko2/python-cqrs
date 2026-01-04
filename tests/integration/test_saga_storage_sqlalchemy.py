@@ -3,18 +3,20 @@
 import uuid
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
 
-# Fixtures init_saga_orm and saga_session are imported from tests/integration/fixtures.py
+# Fixtures init_saga_orm and saga_session_factory are imported from tests/integration/fixtures.py
 
 
 @pytest.fixture
-def storage(saga_session: AsyncSession) -> SqlAlchemySagaStorage:
+def storage(
+    saga_session_factory: async_sessionmaker[AsyncSession],
+) -> SqlAlchemySagaStorage:
     """Create a SqlAlchemySagaStorage instance for each test."""
-    return SqlAlchemySagaStorage(saga_session)
+    return SqlAlchemySagaStorage(saga_session_factory)
 
 
 @pytest.fixture
@@ -35,24 +37,21 @@ class TestIntegration:
     async def test_full_saga_lifecycle(
         self,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
         saga_id: uuid.UUID,
         test_context: dict[str, str],
     ) -> None:
         """Test complete saga lifecycle with all operations."""
-        # Create saga (create_saga already does flush)
+        # Create saga (storage handles transaction commit internally)
         await storage.create_saga(
             saga_id=saga_id,
             name="order_saga",
             context=test_context,
         )
-        # Commit after create to avoid flushing conflicts
-        await saga_session.commit()
 
         # Update status to running
         await storage.update_status(saga_id=saga_id, status=SagaStatus.RUNNING)
 
-        # Log step executions (log_step already does flush)
+        # Log step executions
         await storage.log_step(
             saga_id=saga_id,
             step_name="reserve_inventory",
@@ -77,8 +76,6 @@ class TestIntegration:
             action="act",
             status=SagaStepStatus.COMPLETED,
         )
-        # Commit after log steps
-        await saga_session.commit()
 
         # Update context
         updated_context = {**test_context, "payment_id": "pay_123"}
@@ -86,9 +83,6 @@ class TestIntegration:
 
         # Update status to completed
         await storage.update_status(saga_id=saga_id, status=SagaStatus.COMPLETED)
-
-        # Final commit
-        await saga_session.commit()
 
         # Verify final state
         status, context = await storage.load_saga_state(saga_id)
@@ -110,7 +104,6 @@ class TestIntegration:
     async def test_compensation_scenario(
         self,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
         saga_id: uuid.UUID,
         test_context: dict[str, str],
     ) -> None:
@@ -120,10 +113,8 @@ class TestIntegration:
             name="order_saga",
             context=test_context,
         )
-        # Commit after create to avoid flushing conflicts
-        await saga_session.commit()
 
-        # Log successful steps (log_step already does flush)
+        # Log successful steps
         await storage.log_step(
             saga_id=saga_id,
             step_name="reserve_inventory",
@@ -136,13 +127,11 @@ class TestIntegration:
             action="act",
             status=SagaStepStatus.COMPLETED,
         )
-        # Commit after log steps
-        await saga_session.commit()
 
         # Update status to compensating
         await storage.update_status(saga_id=saga_id, status=SagaStatus.COMPENSATING)
 
-        # Log compensation steps (log_step already does flush)
+        # Log compensation steps
         await storage.log_step(
             saga_id=saga_id,
             step_name="process_payment",
@@ -157,14 +146,9 @@ class TestIntegration:
             status=SagaStepStatus.COMPENSATED,
             details="Inventory released",
         )
-        # Commit after compensation steps
-        await saga_session.commit()
 
         # Update status to failed
         await storage.update_status(saga_id=saga_id, status=SagaStatus.FAILED)
-
-        # Final commit
-        await saga_session.commit()
 
         # Verify state
         status, context = await storage.load_saga_state(saga_id)
@@ -182,13 +166,13 @@ class TestIntegration:
 
     async def test_persistence_across_sessions(
         self,
-        saga_session: AsyncSession,
+        saga_session_factory: async_sessionmaker[AsyncSession],
         saga_id: uuid.UUID,
         test_context: dict[str, str],
     ) -> None:
         """Test that saga state persists across different storage instances."""
         # Create saga with first storage instance
-        storage1 = SqlAlchemySagaStorage(saga_session)
+        storage1 = SqlAlchemySagaStorage(saga_session_factory)
         await storage1.create_saga(
             saga_id=saga_id,
             name="order_saga",
@@ -201,10 +185,10 @@ class TestIntegration:
             action="act",
             status=SagaStepStatus.COMPLETED,
         )
-        await saga_session.commit()
 
         # Create new storage instance and verify persistence
-        storage2 = SqlAlchemySagaStorage(saga_session)
+        # Note: Since storage now commits internally, data is already persisted
+        storage2 = SqlAlchemySagaStorage(saga_session_factory)
         status, context = await storage2.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
         assert context == test_context
@@ -217,7 +201,6 @@ class TestIntegration:
     async def test_concurrent_updates(
         self,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
         saga_id: uuid.UUID,
         test_context: dict[str, str],
     ) -> None:
@@ -227,14 +210,12 @@ class TestIntegration:
             name="order_saga",
             context=test_context,
         )
-        await saga_session.commit()
 
         # Perform multiple updates
         await storage.update_status(saga_id=saga_id, status=SagaStatus.RUNNING)
         await storage.update_context(saga_id=saga_id, context={"updated": "context1"})
         await storage.update_status(saga_id=saga_id, status=SagaStatus.COMPENSATING)
         await storage.update_context(saga_id=saga_id, context={"updated": "context2"})
-        await saga_session.commit()
 
         # Verify final state
         status, context = await storage.load_saga_state(saga_id)

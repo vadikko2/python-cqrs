@@ -5,7 +5,7 @@ import uuid
 from unittest import mock
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import cqrs
 from cqrs import events
@@ -81,9 +81,11 @@ class _TestContainer:
 
 
 @pytest.fixture
-def storage(saga_session: AsyncSession) -> SqlAlchemySagaStorage:
+def storage(
+    saga_session_factory: async_sessionmaker[AsyncSession],
+) -> SqlAlchemySagaStorage:
     """Create SqlAlchemySagaStorage instance."""
-    return SqlAlchemySagaStorage(saga_session)
+    return SqlAlchemySagaStorage(saga_session_factory)
 
 
 @pytest.fixture
@@ -105,7 +107,6 @@ def container(storage: SqlAlchemySagaStorage) -> _TestContainer:
 def saga_mediator(
     container: _TestContainer,
     storage: SqlAlchemySagaStorage,
-    saga_session: AsyncSession,
 ) -> cqrs.SagaMediator:
     """Create SagaMediator with SqlAlchemySagaStorage."""
 
@@ -154,7 +155,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         self,
         saga_mediator: cqrs.SagaMediator,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
     ) -> None:
         """Test that SagaMediator executes saga successfully with SQLAlchemy storage."""
         context = OrderContext(order_id="123", user_id="user1", amount=100.0)
@@ -163,8 +163,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         step_results = []
         async for result in saga_mediator.stream(context, saga_id=saga_id):
             step_results.append(result)
-
-        await saga_session.commit()
 
         # Verify all steps were executed
         assert len(step_results) == 3
@@ -195,16 +193,13 @@ class TestSagaMediatorSqlAlchemyStorage:
         self,
         saga_mediator: cqrs.SagaMediator,
         container: _TestContainer,
-        saga_session: AsyncSession,
     ) -> None:
-        """Test that SagaMediator processes events from saga steps."""
+        """Test that SagaMediator processes events from steps."""
         context = OrderContext(order_id="456", user_id="user2", amount=200.0)
 
         step_results = []
         async for result in saga_mediator.stream(context):
             step_results.append(result)
-
-        await saga_session.commit()
 
         # Verify step results were returned
         assert len(step_results) == 3
@@ -213,8 +208,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         assert isinstance(step_results[2].response, ShipOrderResponse)
 
         # Verify event handlers were called (events are processed internally)
-        # Note: events are processed twice - once via dispatcher and once via emitter
-        # So we check that handlers were called at least once
         inventory_handler = await container.resolve(InventoryReservedEventHandler)
         payment_handler = await container.resolve(PaymentProcessedEventHandler)
         shipping_handler = await container.resolve(OrderShippedEventHandler)
@@ -227,7 +220,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         self,
         saga_mediator: cqrs.SagaMediator,
         container: _TestContainer,
-        saga_session: AsyncSession,
     ) -> None:
         """Test that SagaMediator processes events via EventEmitter."""
         context = OrderContext(order_id="789", user_id="user3", amount=300.0)
@@ -236,11 +228,7 @@ class TestSagaMediatorSqlAlchemyStorage:
         async for result in saga_mediator.stream(context):
             step_results.append(result)
 
-        await saga_session.commit()
-
-        # Verify events were processed (DomainEvent calls handlers, not message broker)
-        # Note: events are processed twice - once via dispatcher and once via emitter
-        # Check that event handlers were called at least once
+        # Verify events were processed
         inventory_handler = await container.resolve(InventoryReservedEventHandler)
         payment_handler = await container.resolve(PaymentProcessedEventHandler)
         shipping_handler = await container.resolve(OrderShippedEventHandler)
@@ -253,7 +241,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         self,
         container: _TestContainer,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
     ) -> None:
         """Test that SagaMediator handles saga failure and compensation."""
 
@@ -287,8 +274,6 @@ class TestSagaMediatorSqlAlchemyStorage:
             async for result in failing_mediator.stream(context, saga_id=saga_id):
                 step_results.append(result)
 
-        await saga_session.commit()
-
         # Verify that some steps were executed before failure
         assert len(step_results) >= 1
 
@@ -306,7 +291,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         self,
         saga_mediator: cqrs.SagaMediator,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
     ) -> None:
         """Test that SagaMediator can recover saga using saga_id."""
         context = OrderContext(order_id="recover_123", user_id="user5", amount=500.0)
@@ -319,8 +303,6 @@ class TestSagaMediatorSqlAlchemyStorage:
             # Simulate interruption after first step
             if len(step_results_1) == 1:
                 break
-
-        await saga_session.commit()
 
         # Verify first step was executed
         assert len(step_results_1) == 1
@@ -336,8 +318,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         async for result in saga_mediator.stream(context, saga_id=saga_id):
             step_results_2.append(result)
 
-        await saga_session.commit()
-
         # Verify remaining steps were executed
         # Note: Saga will skip already completed steps
         assert len(step_results_2) >= 2  # At least 2 more steps
@@ -350,7 +330,7 @@ class TestSagaMediatorSqlAlchemyStorage:
         self,
         container: _TestContainer,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
+        saga_session_factory: async_sessionmaker[AsyncSession],
     ) -> None:
         """Test that saga state persists across different storage instances."""
         context = OrderContext(order_id="persist_123", user_id="user6", amount=600.0)
@@ -384,10 +364,8 @@ class TestSagaMediatorSqlAlchemyStorage:
             if len(step_results_1) == 1:
                 break
 
-        await saga_session.commit()
-
         # Create new storage instance and verify persistence
-        new_storage = SqlAlchemySagaStorage(saga_session)
+        new_storage = SqlAlchemySagaStorage(saga_session_factory)
         status, stored_context = await new_storage.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
 
@@ -399,7 +377,6 @@ class TestSagaMediatorSqlAlchemyStorage:
         self,
         saga_mediator: cqrs.SagaMediator,
         storage: SqlAlchemySagaStorage,
-        saga_session: AsyncSession,
     ) -> None:
         """Test that SagaMediator handles multiple concurrent sagas."""
         contexts = [
@@ -415,7 +392,6 @@ class TestSagaMediatorSqlAlchemyStorage:
             results = []
             async for result in saga_mediator.stream(context, saga_id=saga_id):
                 results.append(result)
-            # Don't commit here - commit after all sagas complete to avoid flushing conflicts
             return results
 
         tasks = [
@@ -423,9 +399,6 @@ class TestSagaMediatorSqlAlchemyStorage:
             for context, saga_id in zip(contexts, saga_ids)
         ]
         all_results = await asyncio.gather(*tasks)
-
-        # Commit once after all sagas complete
-        await saga_session.commit()
 
         # Verify all sagas completed
         assert len(all_results) == 3
