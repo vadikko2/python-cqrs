@@ -45,7 +45,7 @@ async def recover_saga(
     """
     # 1. Load state
     try:
-        status, context_data = await storage.load_saga_state(saga_id)
+        status, context_data, _ = await storage.load_saga_state(saga_id)
     except Exception as e:
         logger.error(f"Failed to load saga {saga_id}: {e}")
         raise

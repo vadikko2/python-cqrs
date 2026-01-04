@@ -165,7 +165,10 @@ class SagaTransaction(typing.Generic[ContextT]):
         else:
             # Try to recover state
             try:
-                status, _ = await self._storage.load_saga_state(self._saga_id)
+                status, _, _ = await self._storage.load_saga_state(
+                    self._saga_id,
+                    read_for_update=True,
+                )
 
                 # Check for terminal states first
                 if status == SagaStatus.COMPLETED:

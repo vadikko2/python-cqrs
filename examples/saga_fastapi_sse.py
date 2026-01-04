@@ -536,7 +536,7 @@ async def process_order(
 async def get_saga_history(saga_id: uuid.UUID) -> dict[str, typing.Any]:
     """Get execution history (SagaLog) for a saga."""
     try:
-        status, context_data = await saga_storage.load_saga_state(saga_id)
+        status, context_data, _ = await saga_storage.load_saga_state(saga_id)
         history = await saga_storage.get_step_history(saga_id)
 
         return {

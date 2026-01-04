@@ -44,7 +44,7 @@ class TestCreateSaga:
             context=test_context,
         )
 
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.PENDING
         assert context == test_context
 
@@ -125,7 +125,7 @@ class TestUpdateContext:
         new_context = {"order_id": "456", "user_id": "user2", "amount": "200.0"}
         await storage.update_context(saga_id=saga_id, context=new_context)
 
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert context == new_context
         assert status == SagaStatus.PENDING  # Status should remain unchanged
 
@@ -180,7 +180,7 @@ class TestUpdateContext:
         partial_context = {"new_field": "new_value"}
         await storage.update_context(saga_id=saga_id, context=partial_context)
 
-        _, context = await storage.load_saga_state(saga_id)
+        _, context, _ = await storage.load_saga_state(saga_id)
         assert context == partial_context
         assert "order_id" not in context
         assert "user_id" not in context
@@ -203,7 +203,7 @@ class TestUpdateStatus:
         )
 
         await storage.update_status(saga_id=saga_id, status=SagaStatus.RUNNING)
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
         assert context == test_context  # Context should remain unchanged
 
@@ -222,7 +222,7 @@ class TestUpdateStatus:
 
         for saga_status in SagaStatus:
             await storage.update_status(saga_id=saga_id, status=saga_status)
-            status, _ = await storage.load_saga_state(saga_id)
+            status, _, _ = await storage.load_saga_state(saga_id)
             assert status == saga_status
 
     async def test_update_status_updates_timestamp(
@@ -464,7 +464,7 @@ class TestLoadSagaState:
             context=test_context,
         )
 
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.PENDING
         assert context == test_context
 
@@ -485,7 +485,7 @@ class TestLoadSagaState:
         await storage.update_context(saga_id=saga_id, context=new_context)
         await storage.update_status(saga_id=saga_id, status=SagaStatus.RUNNING)
 
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
         assert context == new_context
 

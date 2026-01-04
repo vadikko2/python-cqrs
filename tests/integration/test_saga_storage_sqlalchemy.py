@@ -5,6 +5,7 @@ import uuid
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from cqrs.dispatcher.exceptions import SagaConcurrencyError
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
 
@@ -85,9 +86,11 @@ class TestIntegration:
         await storage.update_status(saga_id=saga_id, status=SagaStatus.COMPLETED)
 
         # Verify final state
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.COMPLETED
         assert context == updated_context
+        # Initial create(1) + update_status(RUNNING)(2) + update_context(3) + update_status(COMPLETED)(4) = 4
+        assert version == 4
 
         # Verify history
         history = await storage.get_step_history(saga_id)
@@ -151,8 +154,10 @@ class TestIntegration:
         await storage.update_status(saga_id=saga_id, status=SagaStatus.FAILED)
 
         # Verify state
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.FAILED
+        # Initial create(1) + update_status(COMPENSATING)(2) + update_status(FAILED)(3) = 3
+        assert version == 3
 
         # Verify history
         history = await storage.get_step_history(saga_id)
@@ -189,9 +194,10 @@ class TestIntegration:
         # Create new storage instance and verify persistence
         # Note: Since storage now commits internally, data is already persisted
         storage2 = SqlAlchemySagaStorage(saga_session_factory)
-        status, context = await storage2.load_saga_state(saga_id)
+        status, context, version = await storage2.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
         assert context == test_context
+        assert version == 2  # create + update_status
 
         history = await storage2.get_step_history(saga_id)
         assert len(history) == 1
@@ -218,6 +224,45 @@ class TestIntegration:
         await storage.update_context(saga_id=saga_id, context={"updated": "context2"})
 
         # Verify final state
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.COMPENSATING
         assert context == {"updated": "context2"}
+        assert version == 5
+
+    async def test_optimistic_locking(
+        self,
+        storage: SqlAlchemySagaStorage,
+        saga_id: uuid.UUID,
+        test_context: dict[str, str],
+    ) -> None:
+        """Test that optimistic locking prevents concurrent modifications."""
+        await storage.create_saga(
+            saga_id=saga_id,
+            name="order_saga",
+            context=test_context,
+        )
+
+        # Get initial state
+        _, _, version = await storage.load_saga_state(saga_id)
+        assert version == 1
+
+        # Successful update with correct version
+        new_context = {**test_context, "updated": True}
+        await storage.update_context(saga_id, new_context, current_version=version)
+
+        # Verify version incremented
+        _, _, new_version = await storage.load_saga_state(saga_id)
+        assert new_version == 2
+
+        # Failed update with old version
+        with pytest.raises(SagaConcurrencyError):
+            await storage.update_context(
+                saga_id,
+                {"stale": True},
+                current_version=version,  # Using old version 1
+            )
+
+        # State should not have changed
+        _, final_context, final_version = await storage.load_saga_state(saga_id)
+        assert final_context == new_context
+        assert final_version == 2

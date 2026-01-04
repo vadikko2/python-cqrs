@@ -185,7 +185,7 @@ async def main() -> None:
 
         # 9. Verify persistence by reloading from new storage instance
         print("\nVerifying persistence...")
-        status, loaded_context = await saga_storage.load_saga_state(saga_id)
+        status, loaded_context, _ = await saga_storage.load_saga_state(saga_id)
         history = await saga_storage.get_step_history(saga_id)
 
         print(f"Saga Status: {status}")

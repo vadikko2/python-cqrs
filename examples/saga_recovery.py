@@ -592,7 +592,7 @@ async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
         raise
 
     # Check final state and show execution log
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     history = await storage.get_step_history(saga_id)
 
     print(f"\nSaga state after interruption: {status}")
@@ -655,7 +655,7 @@ async def recover_interrupted_saga(
     await recover_saga(saga, saga_id, OrderContext, container, storage)
 
     # Check final state and get execution history
-    status, context_data = await storage.load_saga_state(saga_id)
+    status, context_data, _ = await storage.load_saga_state(saga_id)
     history = await storage.get_step_history(saga_id)
 
     print("\n" + "-" * 70)
@@ -774,7 +774,7 @@ async def simulate_interrupted_compensation() -> tuple[uuid.UUID, MemorySagaStor
     # Manually set status to COMPENSATING to simulate interrupted compensation
     await storage.update_status(saga_id, SagaStatus.COMPENSATING)
 
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     history = await storage.get_step_history(saga_id)
 
     print(f"\nSaga state after interruption: {status}")
@@ -839,7 +839,7 @@ async def recover_interrupted_compensation(
             print("   (RuntimeError is expected - forward execution not allowed)")
 
     # Check final state and get execution history
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     history = await storage.get_step_history(saga_id)
 
     print("\n" + "-" * 70)

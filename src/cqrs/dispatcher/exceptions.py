@@ -8,3 +8,7 @@ class RequestHandlerTypeError(Exception):
 
 class SagaDoesNotExist(Exception):
     pass
+
+
+class SagaConcurrencyError(Exception):
+    pass

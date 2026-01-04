@@ -186,7 +186,7 @@ class TestSagaMediatorSqlAlchemyStorage:
         assert step_results[2].step_type == ShipOrderStep
 
         # Verify saga status in storage
-        status, stored_context = await storage.load_saga_state(saga_id)
+        status, stored_context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.COMPLETED
 
     async def test_saga_mediator_processes_events_from_steps(
@@ -284,7 +284,7 @@ class TestSagaMediatorSqlAlchemyStorage:
         assert payment_step.compensate_called
 
         # Verify saga status is FAILED
-        status, _ = await storage.load_saga_state(saga_id)
+        status, _, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.FAILED
 
     async def test_saga_mediator_with_saga_id_recovery(
@@ -310,7 +310,7 @@ class TestSagaMediatorSqlAlchemyStorage:
         assert step_results_1[0].step_type == ReserveInventoryStep
 
         # Verify saga is in RUNNING status
-        status, _ = await storage.load_saga_state(saga_id)
+        status, _, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
 
         # Resume saga execution with same saga_id
@@ -323,7 +323,7 @@ class TestSagaMediatorSqlAlchemyStorage:
         assert len(step_results_2) >= 2  # At least 2 more steps
 
         # Verify final status
-        final_status, _ = await storage.load_saga_state(saga_id)
+        final_status, _, version = await storage.load_saga_state(saga_id)
         assert final_status == SagaStatus.COMPLETED
 
     async def test_saga_mediator_persistence_across_sessions(
@@ -366,7 +366,7 @@ class TestSagaMediatorSqlAlchemyStorage:
 
         # Create new storage instance and verify persistence
         new_storage = SqlAlchemySagaStorage(saga_session_factory)
-        status, stored_context = await new_storage.load_saga_state(saga_id)
+        status, stored_context, version = await new_storage.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
 
         history = await new_storage.get_step_history(saga_id)
@@ -406,5 +406,5 @@ class TestSagaMediatorSqlAlchemyStorage:
 
         # Verify all sagas are in COMPLETED status
         for saga_id in saga_ids:
-            status, _ = await storage.load_saga_state(saga_id)
+            status, _, version = await storage.load_saga_state(saga_id)
             assert status == SagaStatus.COMPLETED

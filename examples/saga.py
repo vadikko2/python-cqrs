@@ -567,7 +567,7 @@ async def run_successful_saga() -> None:
 
         # Get execution history from storage
         history = await storage.get_step_history(saga_id)
-        status, _ = await storage.load_saga_state(saga_id)
+        status, _, _ = await storage.load_saga_state(saga_id)
 
         print("\n" + "-" * 70)
         print("✓ Saga completed successfully!")
@@ -694,7 +694,7 @@ async def run_failing_saga() -> None:
 
         # Get execution history from storage to show compensation
         history = await storage.get_step_history(saga_id)
-        status, _ = await storage.load_saga_state(saga_id)
+        status, _, _ = await storage.load_saga_state(saga_id)
 
         print("\n" + "-" * 70)
         print("✓ Compensation executed automatically!")

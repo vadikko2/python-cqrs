@@ -81,7 +81,7 @@ class TestIntegration:
         await storage.update_status(saga_id=saga_id, status=SagaStatus.COMPLETED)
 
         # Verify final state
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.COMPLETED
         assert context == updated_context
 
@@ -147,7 +147,7 @@ class TestIntegration:
         await storage.update_status(saga_id=saga_id, status=SagaStatus.FAILED)
 
         # Verify state
-        status, context = await storage.load_saga_state(saga_id)
+        status, context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.FAILED
 
         # Verify history

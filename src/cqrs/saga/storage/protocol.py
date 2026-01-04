@@ -23,8 +23,18 @@ class ISagaStorage(abc.ABC):
         self,
         saga_id: uuid.UUID,
         context: dict[str, typing.Any],
+        current_version: int | None = None,
     ) -> None:
-        """Save saga context snapshot."""
+        """Save saga context snapshot.
+
+        Args:
+            saga_id: The ID of the saga to update.
+            context: The new context data.
+            current_version: The expected current version of the saga execution.
+                             If provided, optimistic locking will be used.
+        Raises:
+            SagaConcurrencyError: If optimistic locking fails.
+        """
 
     @abc.abstractmethod
     async def update_status(
@@ -49,8 +59,10 @@ class ISagaStorage(abc.ABC):
     async def load_saga_state(
         self,
         saga_id: uuid.UUID,
-    ) -> tuple[SagaStatus, dict[str, typing.Any]]:
-        """Load current saga status and context."""
+        *,
+        read_for_update: bool = False,
+    ) -> tuple[SagaStatus, dict[str, typing.Any], int]:
+        """Load current saga status, context, and version."""
 
     @abc.abstractmethod
     async def get_step_history(

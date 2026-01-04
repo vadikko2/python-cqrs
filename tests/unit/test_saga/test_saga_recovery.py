@@ -68,7 +68,7 @@ async def test_recover_saga_successfully_resumes_running_saga(
     assert ship_step.act_called
 
     # Verify saga is completed
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.COMPLETED
 
 
@@ -330,7 +330,7 @@ async def test_recover_saga_resumes_from_partially_completed_steps(
     assert ship_step.act_called
 
     # Verify saga is completed
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.COMPLETED
 
 
@@ -386,7 +386,7 @@ async def test_recover_saga_with_compensating_status(
     assert reserve_step.compensate_called
 
     # Verify saga status is FAILED (compensation completed)
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.FAILED
 
 
@@ -423,7 +423,7 @@ async def test_recover_saga_handles_transaction_exception(
         await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # Verify saga status is updated to FAILED
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.FAILED
 
     # Verify the step was attempted
@@ -483,7 +483,7 @@ async def test_recover_saga_updates_context_during_recovery(
     await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     # Verify context was updated in storage
-    status, updated_context = await storage.load_saga_state(saga_id)
+    status, updated_context, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.COMPLETED
     assert updated_context["order_id"] == "123"
 
@@ -625,7 +625,7 @@ async def test_recover_saga_during_compensation_with_multiple_steps(
     assert reserve_step.compensate_called
 
     # Verify saga status is FAILED (compensation completed)
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.FAILED
 
 
@@ -680,7 +680,7 @@ async def test_recover_saga_with_failed_status(
     assert reserve_step.compensate_called
 
     # Verify saga status remains FAILED
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.FAILED
 
 
@@ -774,5 +774,5 @@ async def test_recover_saga_prevents_zombie_state(
     assert reserve_step.compensate_called
 
     # Verify saga status is FAILED
-    status, _ = await storage.load_saga_state(saga_id)
+    status, _, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.FAILED

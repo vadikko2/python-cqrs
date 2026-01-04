@@ -381,7 +381,7 @@ class TestSagaMediatorMemoryStorage:
         assert step_results[2].step_type == ShipOrderStep
 
         # Verify saga status in storage
-        status, stored_context = await storage.load_saga_state(saga_id)
+        status, stored_context, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.COMPLETED
 
     async def test_saga_mediator_processes_events_from_steps(
@@ -483,7 +483,7 @@ class TestSagaMediatorMemoryStorage:
         assert payment_step.compensate_called
 
         # Verify saga status is FAILED
-        status, _ = await storage.load_saga_state(saga_id)
+        status, _, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.FAILED
 
     async def test_saga_mediator_with_saga_id_recovery(
@@ -509,7 +509,7 @@ class TestSagaMediatorMemoryStorage:
         assert step_results_1[0].step_type == ReserveInventoryStep
 
         # Verify saga is in RUNNING status
-        status, _ = await storage.load_saga_state(saga_id)
+        status, _, version = await storage.load_saga_state(saga_id)
         assert status == SagaStatus.RUNNING
 
         # Resume saga execution with same saga_id
@@ -522,5 +522,5 @@ class TestSagaMediatorMemoryStorage:
         assert len(step_results_2) >= 2  # At least 2 more steps
 
         # Verify final status
-        final_status, _ = await storage.load_saga_state(saga_id)
+        final_status, _, version = await storage.load_saga_state(saga_id)
         assert final_status == SagaStatus.COMPLETED
