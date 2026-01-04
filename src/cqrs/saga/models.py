@@ -56,3 +56,7 @@ class SagaContext:
             Dictionary representation of the context.
         """
         return self.to_dict()
+
+
+# Type variable for saga context, bound to SagaContext
+ContextT = typing.TypeVar("ContextT", bound=SagaContext)
