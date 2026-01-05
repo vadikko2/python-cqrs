@@ -48,7 +48,7 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 10. `StreamingRequestMediator` and `StreamingRequestHandler` for handling streaming requests with real-time progress updates;
 11. Parallel event processing with configurable concurrency limits;
 12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence;
-13. Choreographic Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms;
+13. Orchestrated Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms;
 14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization.
 
 ## Request Handlers
@@ -235,7 +235,7 @@ Complete example: [CoR Mermaid Diagrams](https://github.com/vadikko2/cqrs/blob/m
 
 ## Saga Pattern
 
-The package implements the Choreographic Saga pattern for managing distributed transactions across multiple services or operations.
+The package implements the Orchestrated Saga pattern for managing distributed transactions across multiple services or operations.
 Sagas enable eventual consistency by executing a series of steps where each step can be compensated if a subsequent step fails.
 
 ### Key Features
