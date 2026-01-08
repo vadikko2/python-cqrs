@@ -341,6 +341,53 @@ async def main() -> None:
     print("  (PrimaryStep will NOT be executed - fail fast)")
     await run_saga(mediator, storage, "order_003", primary_step)
 
+    # ------------------------------------------------------------------------
+    # DEMO: Redis Storage Configuration (Optional)
+    # ------------------------------------------------------------------------
+    print("\n" + "=" * 80)
+    print("DEMO: Configuring Circuit Breaker with Redis Storage")
+    print("=" * 80)
+
+    try:
+        import redis
+        from aiobreaker.storage.redis import CircuitRedisStorage
+        from aiobreaker import CircuitBreakerState
+
+        # Factory function to create Redis storage
+        def redis_storage_factory(name: str):
+            # Note: decode_responses=False is important for aiobreaker compatibility
+            client = redis.from_url(
+                "redis://localhost:6379",
+                encoding="utf-8",
+                decode_responses=False,
+            )
+            return CircuitRedisStorage(
+                state=CircuitBreakerState.CLOSED,
+                redis_object=client,
+                namespace=name,
+            )
+
+        # Example configuration with Redis storage
+        class OrderSagaWithRedisBreaker(Saga[OrderContext]):
+            steps = [
+                Fallback(
+                    step=PrimaryStep,
+                    fallback=FallbackStep,
+                    circuit_breaker=AioBreakerAdapter(
+                        fail_max=2,
+                        timeout_duration=60,
+                        storage_factory=redis_storage_factory,
+                    ),
+                ),
+            ]
+
+        print("✓ Successfully defined Saga with Redis-backed Circuit Breaker")
+        print("  (Use this pattern to share circuit state across multiple instances)")
+
+    except ImportError:
+        print("ℹ️ Redis dependencies not installed. Skipping Redis demo.")
+        print("  To use Redis storage, install: pip install redis")
+
     print("\n" + "=" * 80)
     print("✅ EXAMPLE COMPLETED")
     print("=" * 80)

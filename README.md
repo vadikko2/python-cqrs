@@ -318,6 +318,16 @@ class OrderSagaWithFallback(Saga[OrderContext]):
             ),
         ),
     ]
+
+# Optional: Using Redis for distributed circuit breaker state
+# import redis
+# from aiobreaker.storage.redis import CircuitRedisStorage
+#
+# def redis_storage_factory(name: str):
+#     client = redis.from_url("redis://localhost:6379", decode_responses=False)
+#     return CircuitRedisStorage(state="closed", redis_object=client, namespace=name)
+#
+# AioBreakerAdapter(..., storage_factory=redis_storage_factory)
 ```
 
 When the primary step fails, the fallback step executes automatically. The Circuit Breaker opens after the configured failure threshold, preventing unnecessary load on failing services by failing fast.

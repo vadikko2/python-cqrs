@@ -3,15 +3,22 @@
 import logging
 import typing
 from datetime import timedelta
+from typing import TYPE_CHECKING, Callable
 
 from cqrs.saga.circuit_breaker import ISagaStepCircuitBreaker
 from cqrs.saga.step import SagaStepHandler
 
 logger = logging.getLogger("cqrs.adapters.circuit_breaker")
 
+if TYPE_CHECKING:
+    from aiobreaker.storage.base import CircuitBreakerStorage as _CircuitBreakerStorage
+else:
+    _CircuitBreakerStorage = typing.Any
+
 try:
     import aiobreaker
     from aiobreaker import CircuitBreaker, CircuitBreakerError
+    from aiobreaker.storage.base import CircuitBreakerStorage
 
     try:
         from aiobreaker import CircuitBreakerListener
@@ -23,6 +30,7 @@ except ImportError:
     CircuitBreaker = None  # type: ignore[assignment, misc]
     CircuitBreakerError = None  # type: ignore[assignment, misc]
     CircuitBreakerListener = object  # type: ignore[assignment, misc]
+    CircuitBreakerStorage = typing.Any  # type: ignore[assignment, misc]
 
     logger.warning(
         "aiobreaker is not installed. Install it with: pip install aiobreaker",
@@ -69,15 +77,18 @@ class CriticalLogListener(CircuitBreakerListener if aiobreaker else object):  # 
         )
 
 
-def circuit_breaker_storage_factory() -> typing.Any:
+StorageFactory = Callable[[str], _CircuitBreakerStorage]
+
+
+def default_memory_storage_factory(name: str) -> _CircuitBreakerStorage:
     """
-    Factory function to create in-memory circuit breaker storage.
+    Default factory returning Memory Storage.
+
+    Args:
+        name: Name of the circuit breaker (namespace).
 
     Returns:
         CircuitMemoryStorage instance.
-
-    Raises:
-        ImportError: If aiobreaker is not installed.
     """
     if aiobreaker is None:
         raise ImportError(
@@ -88,7 +99,7 @@ def circuit_breaker_storage_factory() -> typing.Any:
         from aiobreaker.storage.memory import CircuitMemoryStorage
     except ImportError:
         raise ImportError(
-            "Memory storage requires aiobreaker. " "Make sure aiobreaker is installed.",
+            "Memory storage requires aiobreaker. Make sure aiobreaker is installed.",
         )
 
     return CircuitMemoryStorage(state=aiobreaker.CircuitBreakerState.CLOSED)
@@ -96,7 +107,7 @@ def circuit_breaker_storage_factory() -> typing.Any:
 
 class AioBreakerAdapter(ISagaStepCircuitBreaker):
     """
-    Adapter for aiobreaker circuit breaker with in-memory storage.
+    Adapter for aiobreaker circuit breaker.
 
     Manages circuit breaker instances per step type. Each step type gets its own
     isolated circuit breaker with a namespace based on the step class name.
@@ -106,6 +117,8 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
         timeout_duration: Time to wait before attempting to reset the circuit (in seconds).
         exclude: List of exception types that should NOT open the circuit
                 (business exceptions).
+        storage_factory: Factory function to create circuit breaker storage.
+                        Defaults to in-memory storage.
 
     Example::
         adapter = AioBreakerAdapter(
@@ -120,6 +133,7 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
         fail_max: int = 5,
         timeout_duration: int = 60,
         exclude: list[type[Exception]] | None = None,
+        storage_factory: StorageFactory | None = None,
     ) -> None:
         if CircuitBreaker is None:
             raise ImportError(
@@ -129,6 +143,7 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
         self._fail_max = fail_max
         self._timeout_duration = timeout_duration
         self._exclude = exclude or []
+        self._storage_factory = storage_factory or default_memory_storage_factory
 
         # Dictionary to store circuit breakers per step type
         self._breakers: dict[str, typing.Any] = {}  # type: ignore[type-arg]
@@ -174,7 +189,7 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
         """
         Create circuit breaker for a step.
 
-        For each step, creates a breaker with in-memory storage.
+        For each step, creates a breaker with storage from factory.
         Each step gets its own isolated circuit breaker instance.
 
         Args:
@@ -188,14 +203,14 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
                 "aiobreaker is not installed. Install it with: pip install aiobreaker",
             )
 
-        # Create in-memory storage for this step
-        # Each step gets its own storage instance for proper isolation
-        storage = circuit_breaker_storage_factory()
+        # Create storage using factory
+        storage = self._storage_factory(name)
 
         listeners: list[typing.Any] = [CriticalLogListener(name)]
 
         return CircuitBreaker(
-            state_storage=storage,
+            # When CircuitBreaker is not None, CircuitBreakerStorage is the actual type
+            state_storage=storage,  # type: ignore[arg-type]
             name=name,
             fail_max=self._fail_max,
             timeout_duration=timedelta(seconds=self._timeout_duration),

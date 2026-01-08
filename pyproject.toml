@@ -49,6 +49,7 @@ dev = [
   "cryptography==42.0.2",
   "asyncmy==0.2.9",
   "requests>=2.32.5",
+  "redis>=5.0.0",
   # Circuit breaker for tests
   "aiobreaker>=0.3.0"
 ]
