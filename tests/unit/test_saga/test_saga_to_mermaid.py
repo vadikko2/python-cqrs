@@ -10,7 +10,6 @@ from cqrs.saga.step import SagaStepHandler
 
 from .conftest import (
     OrderContext,
-    ProcessPaymentResponse,
     ProcessPaymentStep,
     ReserveInventoryResponse,
     ReserveInventoryStep,
@@ -23,9 +22,7 @@ def test_to_mermaid_empty_steps(saga_container: SagaContainer) -> None:
     """Test that Mermaid handles empty steps list correctly."""
 
     class EmptySaga(Saga[OrderContext]):
-        steps: typing.ClassVar[
-            list[type[SagaStepHandler[OrderContext, typing.Any]]]
-        ] = []
+        steps: typing.ClassVar[list[type[SagaStepHandler] | Fallback]] = []
 
     saga = EmptySaga()
     generator = SagaMermaid(saga)
@@ -244,9 +241,7 @@ def test_class_diagram_empty_steps(saga_container: SagaContainer) -> None:
     """Test that class_diagram() handles empty steps list correctly."""
 
     class EmptySaga(Saga[OrderContext]):
-        steps: typing.ClassVar[
-            list[type[SagaStepHandler[OrderContext, typing.Any]]]
-        ] = []
+        steps: typing.ClassVar[list[type[SagaStepHandler] | Fallback]] = []
 
     saga = EmptySaga()
     generator = SagaMermaid(saga)
@@ -402,7 +397,7 @@ def test_sequence_diagram_with_fallback(saga_container: SagaContainer) -> None:
             context: OrderContext,
         ) -> typing.Any:
             return self._generate_step_result(
-                ReserveInventoryResponse(inventory_id="fallback_123", reserved=True)
+                ReserveInventoryResponse(inventory_id="fallback_123", reserved=True),
             )
 
         async def compensate(self, context: OrderContext) -> None:
@@ -456,7 +451,7 @@ def test_class_diagram_with_fallback(saga_container: SagaContainer) -> None:
             context: OrderContext,
         ) -> typing.Any:
             return self._generate_step_result(
-                ReserveInventoryResponse(inventory_id="fallback_123", reserved=True)
+                ReserveInventoryResponse(inventory_id="fallback_123", reserved=True),
             )
 
         async def compensate(self, context: OrderContext) -> None:
@@ -484,8 +479,14 @@ def test_class_diagram_with_fallback(saga_container: SagaContainer) -> None:
     assert "class ReserveInventoryResponse" in diagram
 
     # Check relationships
-    assert "Saga --> ReserveInventoryStep" in diagram or "Saga --> ReserveInventoryStep : contains" in diagram
-    assert "Saga --> FallbackStep" in diagram or "Saga --> FallbackStep : contains" in diagram
+    assert (
+        "Saga --> ReserveInventoryStep" in diagram
+        or "Saga --> ReserveInventoryStep : contains" in diagram
+    )
+    assert (
+        "Saga --> FallbackStep" in diagram
+        or "Saga --> FallbackStep : contains" in diagram
+    )
 
 
 def test_sequence_diagram_fallback_single_step(saga_container: SagaContainer) -> None:
@@ -504,7 +505,7 @@ def test_sequence_diagram_fallback_single_step(saga_container: SagaContainer) ->
             context: OrderContext,
         ) -> typing.Any:
             return self._generate_step_result(
-                ReserveInventoryResponse(inventory_id="fallback_123", reserved=True)
+                ReserveInventoryResponse(inventory_id="fallback_123", reserved=True),
             )
 
         async def compensate(self, context: OrderContext) -> None:
@@ -539,4 +540,7 @@ def test_sequence_diagram_fallback_single_step(saga_container: SagaContainer) ->
     if failure_section_start != -1:
         failure_section = diagram[failure_section_start:]
         # Should show primary failing, then fallback succeeding
-        assert "Fallback triggered" in failure_section or "fallback" in failure_section.lower()
+        assert (
+            "Fallback triggered" in failure_section
+            or "fallback" in failure_section.lower()
+        )

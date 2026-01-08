@@ -334,7 +334,7 @@ def main() -> None:
     print("\n" + "=" * 80)
     print("EXAMPLE 1: Regular Saga (without Fallback)")
     print("=" * 80)
-    
+
     saga = OrderSaga()
     generator = SagaMermaid(saga)
 
@@ -358,7 +358,7 @@ def main() -> None:
     print("=" * 80)
     print("\nThis example shows how Fallback steps are visualized in Mermaid diagrams.")
     print("The Fallback wrapper includes both primary and fallback step handlers.")
-    
+
     saga_with_fallback = OrderSagaWithFallback()
     generator_fallback = SagaMermaid(saga_with_fallback)
 

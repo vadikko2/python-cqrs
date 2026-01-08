@@ -64,26 +64,38 @@ class SagaMermaid:
                 # Handle Fallback wrapper
                 primary_name = step_item.step.__name__
                 fallback_name = step_item.fallback.__name__
-                
+
                 # Create aliases for primary and fallback
                 primary_alias = f"S{step_idx}"
                 fallback_alias = f"F{step_idx}"
                 step_aliases[primary_name] = primary_alias
                 fallback_aliases[fallback_name] = fallback_alias
-                
+
                 # Truncate long names
-                primary_display = primary_name if len(primary_name) <= 30 else primary_name[:27] + "..."
-                fallback_display = fallback_name if len(fallback_name) <= 30 else fallback_name[:27] + "..."
-                
+                primary_display = (
+                    primary_name
+                    if len(primary_name) <= 30
+                    else primary_name[:27] + "..."
+                )
+                fallback_display = (
+                    fallback_name
+                    if len(fallback_name) <= 30
+                    else fallback_name[:27] + "..."
+                )
+
                 participants.append(f"{primary_alias} as {primary_display}")
-                participants.append(f"{fallback_alias} as {fallback_display} (fallback)")
+                participants.append(
+                    f"{fallback_alias} as {fallback_display} (fallback)",
+                )
                 step_idx += 1
             else:
                 # Regular step
                 step_name = step_item.__name__
                 alias = f"S{step_idx}"
                 step_aliases[step_name] = alias
-                display_name = step_name if len(step_name) <= 30 else step_name[:27] + "..."
+                display_name = (
+                    step_name if len(step_name) <= 30 else step_name[:27] + "..."
+                )
                 participants.append(f"{alias} as {display_name}")
                 step_idx += 1
 
@@ -133,7 +145,7 @@ class SagaMermaid:
                 fallback_name = last_step.fallback.__name__
                 primary_alias = step_aliases[primary_name]
                 fallback_alias = fallback_aliases[fallback_name]
-                
+
                 lines.append(f"    S->>{primary_alias}: act()")
                 lines.append(f"    {primary_alias}-->>S: error")
                 lines.append("    Note over S: Fallback triggered")
@@ -144,7 +156,7 @@ class SagaMermaid:
                 last_alias = step_aliases[last_step.__name__]
                 lines.append(f"    S->>{last_alias}: act()")
                 lines.append(f"    {last_alias}-->>S: error")
-            
+
             lines.append("")
 
             # Compensate completed steps in reverse order
@@ -173,7 +185,7 @@ class SagaMermaid:
                 fallback_name = single_step.fallback.__name__
                 primary_alias = step_aliases[primary_name]
                 fallback_alias = fallback_aliases[fallback_name]
-                
+
                 lines.append(f"    S->>{primary_alias}: act()")
                 lines.append(f"    {primary_alias}-->>S: error")
                 lines.append("    Note over S: Fallback triggered")
@@ -225,13 +237,13 @@ class SagaMermaid:
                 # Handle Fallback wrapper - extract info from both primary and fallback steps
                 primary_step = step_item.step
                 fallback_step = step_item.fallback
-                
+
                 # Process primary step
                 primary_name = primary_step.__name__
                 primary_context_type: type | None = None
                 primary_response_type: type | None = None
                 primary_events: list[type] = []
-                
+
                 # Extract generic type parameters from primary step
                 orig_bases = getattr(primary_step, "__orig_bases__", ())
                 for base in orig_bases:
@@ -247,13 +259,13 @@ class SagaMermaid:
                             if inspect.isclass(primary_response_type):
                                 response_types.add(primary_response_type)
                         break
-                
+
                 # Process fallback step
                 fallback_name = fallback_step.__name__
                 fallback_context_type: type | None = None
                 fallback_response_type: type | None = None
                 fallback_events: list[type] = []
-                
+
                 # Extract generic type parameters from fallback step
                 orig_bases = getattr(fallback_step, "__orig_bases__", ())
                 for base in orig_bases:
@@ -269,10 +281,24 @@ class SagaMermaid:
                             if inspect.isclass(fallback_response_type):
                                 response_types.add(fallback_response_type)
                         break
-                
+
                 # Add both primary and fallback steps to step_info
-                step_info.append((primary_name, primary_context_type, primary_response_type, primary_events))
-                step_info.append((fallback_name, fallback_context_type, fallback_response_type, fallback_events))
+                step_info.append(
+                    (
+                        primary_name,
+                        primary_context_type,
+                        primary_response_type,
+                        primary_events,
+                    ),
+                )
+                step_info.append(
+                    (
+                        fallback_name,
+                        fallback_context_type,
+                        fallback_response_type,
+                        fallback_events,
+                    ),
+                )
             else:
                 # Regular step
                 step_name = step_item.__name__
