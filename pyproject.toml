@@ -19,7 +19,6 @@ dependencies = [
   "pydantic==2.*",
   "orjson==3.9.15",
   "di[anyio]==0.79.2",
-  "sqlalchemy[asyncio]==2.0.*",
   "retry-async==0.1.4",
   "python-dotenv==1.0.1",
   "dependency-injector>=4.48.2"
@@ -29,7 +28,7 @@ maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
 name = "python-cqrs"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "4.4.5"
+version = "4.4.6"
 
 [project.optional-dependencies]
 dev = [
@@ -61,6 +60,9 @@ kafka = [
 protobuf = ["protobuf==4.25.5"]
 rabbit = [
   "aio-pika==9.3.0"
+]
+sqlalchemy = [
+  "sqlalchemy[asyncio]==2.0.*"
 ]
 
 [project.urls]
