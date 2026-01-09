@@ -1,6 +1,7 @@
 import datetime
 import os
 import typing
+import uuid6
 import uuid
 
 import dotenv
@@ -30,7 +31,7 @@ class NotificationEvent(Event, typing.Generic[PayloadT], frozen=True):
     The base class for notification events
     """
 
-    event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
+    event_id: uuid.UUID = pydantic.Field(default_factory=uuid6.uuid7)
     event_timestamp: datetime.datetime = pydantic.Field(
         default_factory=datetime.datetime.now,
     )

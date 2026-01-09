@@ -3,6 +3,8 @@ import logging
 import typing
 import uuid
 import orjson
+import uuid6
+
 import cqrs
 from cqrs import compressors
 from cqrs.outbox import map, repository
@@ -12,6 +14,7 @@ try:
     from sqlalchemy import func
     from sqlalchemy.orm import Mapped, mapped_column, declared_attr
     from sqlalchemy.ext.asyncio import session as sql_session
+    from sqlalchemy.dialects import postgresql
 except ImportError:
     raise ImportError(
         "You are trying to use SQLAlchemy outbox implementation, "
@@ -23,6 +26,36 @@ except ImportError:
 logger = logging.getLogger(__name__)
 DEFAULT_OUTBOX_TABLE_NAME = "outbox"
 MAX_FLUSH_COUNTER_VALUE = 5
+
+
+class BinaryUUID(sqlalchemy.TypeDecorator):
+    """Stores the UUID as a native UUID in Postgres and as BINARY(16) in other databases (MySQL)."""
+    impl = sqlalchemy.BINARY(16)
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(postgresql.UUID())
+        else:
+            return dialect.type_descriptor(sqlalchemy.BINARY(16))
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value  # asyncpg work with uuid.UUID
+        if isinstance(value, uuid.UUID):
+            return value.bytes # For MySQL return 16 bytes
+        return value
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+        if dialect.name == "postgresql":
+            return value # asyncpg return uuid.UUID
+        if isinstance(value, bytes):
+            return uuid.UUID(bytes=value) # From MySQL got bytes, make UUID
+        return value
 
 
 class OutboxModelMixin:
@@ -38,7 +71,7 @@ class OutboxModelMixin:
         comment="Identity",
     )
     event_id: Mapped[uuid.UUID] = mapped_column(
-        sqlalchemy.Uuid,
+        BinaryUUID,
         nullable=False,
         comment="Event idempotency id",
     )
