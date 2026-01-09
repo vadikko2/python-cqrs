@@ -9,8 +9,6 @@ from cqrs.dispatcher.exceptions import SagaConcurrencyError
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
 
-# Fixtures init_saga_orm and saga_session_factory are imported from tests/integration/fixtures.py
-
 
 @pytest.fixture
 def storage(

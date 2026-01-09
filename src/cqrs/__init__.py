@@ -13,10 +13,7 @@ from cqrs.mediator import (
 )
 from cqrs.outbox.map import OutboxedEventMap
 from cqrs.outbox.repository import OutboxedEventRepository
-from cqrs.outbox.sqlalchemy import (
-    rebind_outbox_model,
-    SqlAlchemyOutboxedEventRepository,
-)
+from cqrs.outbox.sqlalchemy import SqlAlchemyOutboxedEventRepository
 from cqrs.producer import EventProducer
 from cqrs.requests.map import RequestMap, SagaMap
 from cqrs.requests.request import Request
@@ -56,7 +53,6 @@ __all__ = (
     "DIContainer",
     "Compressor",
     "ZlibCompressor",
-    "rebind_outbox_model",
     "Saga",
     "SagaStepHandler",
     "ContextT",
