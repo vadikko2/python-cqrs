@@ -64,7 +64,7 @@ rabbit = [
 ]
 
 [project.urls]
-Documentation = "https://vadikko2.github.io/python-cqrs-mkdocs/"
+Documentation = "https://mkdocs.python-cqrs.dev/"
 Issues = "https://github.com/vadikko2/python-cqrs/issues"
 Repository = "https://github.com/vadikko2/python-cqrs"
 

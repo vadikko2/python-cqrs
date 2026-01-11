@@ -9,7 +9,7 @@
     <a href="https://pypi.org/project/python-cqrs/">
       <img src="https://img.shields.io/pypi/dm/python-cqrs?label=downloads&logo=pypi" alt="PyPI downloads">
     </a>
-    <a href="https://vadikko2.github.io/python-cqrs-mkdocs/">
+    <a href="https://mkdocs.python-cqrs.dev/">
       <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
     </a>
     <a href="https://deepwiki.com/vadikko2/python-cqrs">
