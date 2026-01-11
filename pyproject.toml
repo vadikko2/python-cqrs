@@ -29,9 +29,12 @@ maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
 name = "python-cqrs"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "4.4.5"
+version = "4.5.0"
 
 [project.optional-dependencies]
+aiobreaker = [
+  "aiobreaker>=0.3.0"
+]
 dev = [
   # Develope tools
   "pycln==2.5.0",
@@ -45,7 +48,10 @@ dev = [
   "pytest-env==0.6.2",
   "cryptography==42.0.2",
   "asyncmy==0.2.9",
-  "requests>=2.32.5"
+  "requests>=2.32.5",
+  "redis>=5.0.0",
+  # Circuit breaker for tests
+  "aiobreaker>=0.3.0"
 ]
 examples = [
   "fastapi==0.109.*",

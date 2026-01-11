@@ -244,6 +244,7 @@ Sagas enable eventual consistency by executing a series of steps where each step
 - **SagaLog**: Tracks all step executions (act/compensate) with status and timestamps
 - **Recovery Mechanism**: Automatically recovers interrupted sagas from storage, ensuring eventual consistency
 - **Automatic Compensation**: If any step fails, all previously completed steps are automatically compensated in reverse order
+- **Fallback Pattern**: Define alternative steps to execute when primary steps fail, with optional Circuit Breaker protection
 - **Mermaid Diagram Generation**: Generate Sequence and Class diagrams for documentation and visualization
 
 ### Example
@@ -279,6 +280,57 @@ async for step_result in mediator.stream(context, saga_id=saga_id):
     print(f"Step completed: {step_result.step_type.__name__}")
     # If any step fails, compensation happens automatically
 ```
+
+### Fallback Pattern with Circuit Breaker
+
+The saga pattern supports fallback steps that execute automatically when primary steps fail. You can also integrate Circuit Breaker protection to prevent cascading failures:
+
+```python
+from cqrs.saga.fallback import Fallback
+from cqrs.adapters.circuit_breaker import AioBreakerAdapter
+from cqrs.response import Response
+from cqrs.saga.step import SagaStepHandler, SagaStepResult
+
+class ReserveInventoryResponse(Response):
+    reservation_id: str
+
+class PrimaryStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
+    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
+        # Primary step that may fail
+        raise RuntimeError("Service unavailable")
+
+class FallbackStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
+    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
+        # Alternative step that executes when primary fails
+        reservation_id = f"fallback_reservation_{context.order_id}"
+        context.reservation_id = reservation_id
+        return self._generate_step_result(ReserveInventoryResponse(reservation_id=reservation_id))
+
+# Define saga with fallback and circuit breaker
+class OrderSagaWithFallback(Saga[OrderContext]):
+    steps = [
+        Fallback(
+            step=PrimaryStep,
+            fallback=FallbackStep,
+            circuit_breaker=AioBreakerAdapter(
+                fail_max=2,  # Circuit opens after 2 failures
+                timeout_duration=60,  # Wait 60 seconds before retry
+            ),
+        ),
+    ]
+
+# Optional: Using Redis for distributed circuit breaker state
+# import redis
+# from aiobreaker.storage.redis import CircuitRedisStorage
+#
+# def redis_storage_factory(name: str):
+#     client = redis.from_url("redis://localhost:6379", decode_responses=False)
+#     return CircuitRedisStorage(state="closed", redis_object=client, namespace=name)
+#
+# AioBreakerAdapter(..., storage_factory=redis_storage_factory)
+```
+
+When the primary step fails, the fallback step executes automatically. The Circuit Breaker opens after the configured failure threshold, preventing unnecessary load on failing services by failing fast.
 
 The saga state and step history are persisted to `SagaStorage`. The `SagaLog` maintains a complete audit trail
 of all step executions (both `act` and `compensate` operations) with timestamps and status information.
