@@ -1,13 +1,22 @@
 <div align="center">
+<div align="center">
+  <img
+    src="https://raw.githubusercontent.com/vadikko2/python-cqrs-mkdocs/master/docs/img.png"
+    alt="Python CQRS"
+    style="max-width: 80%; width: 800px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 102, 204, 0.2); display: block; margin: 2rem auto;"
+  >
+</div>
   <h1>Python CQRS</h1>
-  <p>Event-Driven Architecture Framework for Distributed Systems</p>
-
+  <h3>Event-Driven Architecture Framework for Distributed Systems</h3>
   <p>
     <a href="https://pypi.org/project/python-cqrs/">
       <img src="https://img.shields.io/pypi/v/python-cqrs?label=pypi&logo=pypi" alt="PyPI version">
     </a>
-    <a href="https://pypi.org/project/python-cqrs/">
-      <img src="https://img.shields.io/pypi/dm/python-cqrs?label=downloads&logo=pypi" alt="PyPI downloads">
+    <a href="https://pepy.tech/projects/python-cqrs">
+      <img src="https://pepy.tech/badge/python-cqrs" alt="Total downloads">
+    </a>
+    <a href="https://pepy.tech/projects/python-cqrs">
+      <img src="https://pepy.tech/badge/python-cqrs/month" alt="Downloads per month">
     </a>
     <a href="https://mkdocs.python-cqrs.dev/">
       <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
@@ -18,13 +27,7 @@
   </p>
 </div>
 
-<div align="center">
-  <img
-    src="https://raw.githubusercontent.com/vadikko2/python-cqrs-mkdocs/master/docs/img.png"
-    alt="Python CQRS"
-    style="max-width: 80%; width: 800px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 102, 204, 0.2); display: block; margin: 2rem auto;"
-  >
-</div>
+
 
 ## Overview
 
