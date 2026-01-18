@@ -1,3 +1,4 @@
+import asyncio
 import typing
 
 import pydantic
@@ -109,6 +110,9 @@ async def test_streaming_mediator_integration(
     async for result in mediator.stream(command):
         results.append(result)
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert handler
     assert handler.called
 
@@ -140,7 +144,12 @@ async def test_streaming_mediator_events_emitted_after_each_yield(
     results = []
     async for result in mediator.stream(command):
         results.append(result)
+        # Wait a bit for background task to complete
+        await asyncio.sleep(0.05)
         call_counts.append(kafka_producer.produce.call_count)
+
+    # Wait for final background tasks to complete
+    await asyncio.sleep(0.1)
 
     assert call_counts[0] == 1
     assert call_counts[1] == 2
@@ -183,6 +192,9 @@ async def test_streaming_mediator_single_item(
     results = []
     async for result in mediator.stream(command):
         results.append(result)
+
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
 
     assert handler
     assert handler.called

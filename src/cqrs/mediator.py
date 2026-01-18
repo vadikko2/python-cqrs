@@ -71,9 +71,7 @@ class RequestMediator:
     ) -> None:
         self._event_processor = EventProcessor(
             event_map=event_map or EventMap(),
-            container=container,
             event_emitter=event_emitter,
-            middleware_chain=middleware_chain,
             max_concurrent_event_handlers=max_concurrent_event_handlers,
             concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
@@ -94,12 +92,7 @@ class RequestMediator:
         Note: TypeVar usage here is intentional for type inference purposes.
         """
         dispatch_result = await self._dispatcher.dispatch(request)
-
-        if dispatch_result.events:
-            await self._event_processor.process_and_emit_events(
-                dispatch_result.events.copy(),
-            )
-
+        await self._event_processor.emit_events(dispatch_result.events)
         return dispatch_result.response
 
 
@@ -185,9 +178,7 @@ class StreamingRequestMediator:
     ) -> None:
         self._event_processor = EventProcessor(
             event_map=event_map or EventMap(),
-            container=container,
             event_emitter=event_emitter,
-            middleware_chain=middleware_chain,
             max_concurrent_event_handlers=max_concurrent_event_handlers,
             concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
@@ -213,10 +204,7 @@ class StreamingRequestMediator:
         The generator continues until StopIteration is raised.
         """
         async for dispatch_result in self._dispatcher.dispatch(request):
-            if dispatch_result.events:
-                await self._event_processor.process_and_emit_events(
-                    dispatch_result.events.copy(),
-                )
+            await self._event_processor.emit_events(dispatch_result.events)
 
             yield dispatch_result.response
 
@@ -272,9 +260,7 @@ class SagaMediator:
     ) -> None:
         self._event_processor = EventProcessor(
             event_map=event_map or EventMap(),
-            container=container,
             event_emitter=event_emitter,
-            middleware_chain=middleware_chain,
             max_concurrent_event_handlers=max_concurrent_event_handlers,
             concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
@@ -316,9 +302,5 @@ class SagaMediator:
             context,
             saga_id=saga_id,
         ):
-            if dispatch_result.events:
-                await self._event_processor.process_and_emit_events(
-                    dispatch_result.events.copy(),
-                )
-
+            await self._event_processor.emit_events(dispatch_result.events)
             yield dispatch_result.step_result

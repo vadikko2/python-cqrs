@@ -1,5 +1,4 @@
-import typing
-from unittest import mock
+import asyncio
 
 import pydantic
 
@@ -69,23 +68,23 @@ async def test_request_mediator_processes_events_parallel() -> None:
     event_map = EventMap()
     event_map.bind(ItemProcessedDomainEvent, ItemProcessedEventHandler)
 
-    class EventContainer:
-        def __init__(self, handler):
-            self._handler = handler
-            self._external_container: typing.Any = None
+    event_container = Container(event_handler)
 
-        @property
-        def external_container(self) -> typing.Any:
-            return self._external_container
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=event_container,  # type: ignore
+    )
 
-        def attach_external_container(self, container: typing.Any) -> None:
-            self._external_container = container
+    # Track emit calls
+    original_emit = event_emitter.emit
+    emit_call_count = 0
 
-        async def resolve(self, type_: typing.Type[typing.Any]) -> typing.Any:
-            return self._handler
+    async def tracked_emit(event):
+        nonlocal emit_call_count
+        emit_call_count += 1
+        return await original_emit(event)
 
-    event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = RequestMediator(
         request_map=request_map,
@@ -96,15 +95,15 @@ async def test_request_mediator_processes_events_parallel() -> None:
         concurrent_event_handle_enable=True,
     )
 
-    mediator._event_processor._event_dispatcher._container = EventContainer(
-        event_handler,
-    )  # type: ignore
     request = ProcessItemsCommand(item_ids=["item1", "item2", "item3"])
     await mediator.send(request)
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert handler.called
     assert len(event_handler.processed_events) == 3
-    assert event_emitter.emit.call_count == 3
+    assert emit_call_count == 3
 
 
 async def test_request_mediator_processes_events_sequentially() -> None:
@@ -117,23 +116,23 @@ async def test_request_mediator_processes_events_sequentially() -> None:
     event_map = EventMap()
     event_map.bind(ItemProcessedDomainEvent, ItemProcessedEventHandler)
 
-    class EventContainer:
-        def __init__(self, handler):
-            self._handler = handler
-            self._external_container: typing.Any = None
+    event_container = Container(event_handler)
 
-        @property
-        def external_container(self) -> typing.Any:
-            return self._external_container
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=event_container,  # type: ignore
+    )
 
-        def attach_external_container(self, container: typing.Any) -> None:
-            self._external_container = container
+    # Track emit calls
+    original_emit = event_emitter.emit
+    emit_call_count = 0
 
-        async def resolve(self, type_: typing.Type[typing.Any]) -> typing.Any:
-            return self._handler
+    async def tracked_emit(event):
+        nonlocal emit_call_count
+        emit_call_count += 1
+        return await original_emit(event)
 
-    event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = RequestMediator(
         request_map=request_map,
@@ -144,13 +143,12 @@ async def test_request_mediator_processes_events_sequentially() -> None:
         concurrent_event_handle_enable=False,
     )
 
-    mediator._event_processor._event_dispatcher._container = EventContainer(
-        event_handler,
-    )  # type: ignore
-
     request = ProcessItemsCommand(item_ids=["item1", "item2", "item3"])
     await mediator.send(request)
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert handler.called
     assert len(event_handler.processed_events) == 3
-    assert event_emitter.emit.call_count == 3
+    assert emit_call_count == 3
