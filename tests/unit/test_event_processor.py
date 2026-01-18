@@ -3,6 +3,7 @@ from unittest import mock
 
 import pydantic
 
+from cqrs import Event
 from cqrs.events import (
     DomainEvent,
     EventEmitter,
@@ -112,7 +113,6 @@ async def test_event_processor_processes_empty_events_list() -> None:
     event_handler = _TestEventHandler()
     event_map = EventMap()
     event_map.bind(_TestDomainEvent, _TestEventHandler)
-    container = Container(event_handler)
 
     processor = EventProcessor(
         event_map=event_map,
@@ -126,7 +126,6 @@ async def test_event_processor_processes_empty_events_list() -> None:
 async def test_event_processor_emit_events_with_emitter() -> None:
     """Test that EventProcessor emits events via EventEmitter."""
     event_map = EventMap()
-    container = Container(_TestEventHandler())
 
     event_emitter = mock.AsyncMock(spec=EventEmitter)
     event_emitter.emit = mock.AsyncMock()
@@ -160,7 +159,6 @@ async def test_event_processor_emit_events_with_emitter() -> None:
 async def test_event_processor_emit_events_without_emitter() -> None:
     """Test that EventProcessor does nothing when EventEmitter is None."""
     event_map = EventMap()
-    container = Container(_TestEventHandler())
 
     processor = EventProcessor(
         event_map=event_map,
