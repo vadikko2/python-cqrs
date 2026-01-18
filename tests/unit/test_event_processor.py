@@ -61,13 +61,13 @@ async def test_event_processor_processes_events_parallel() -> None:
         concurrent_event_handle_enable=True,
     )
 
-    events = [
+    events: list[Event] = [
         _TestDomainEvent(item_id="1"),
         _TestDomainEvent(item_id="2"),
         _TestDomainEvent(item_id="3"),
     ]
 
-    await processor.emit_events(events)  # type: ignore[arg-type]
+    await processor.emit_events(events)
 
     # Wait for background tasks to complete
     await asyncio.sleep(0.1)
@@ -95,7 +95,7 @@ async def test_event_processor_processes_events_sequentially() -> None:
         concurrent_event_handle_enable=False,
     )
 
-    events = [
+    events: list[Event] = [
         _TestDomainEvent(item_id="1"),
         _TestDomainEvent(item_id="2"),
         _TestDomainEvent(item_id="3"),

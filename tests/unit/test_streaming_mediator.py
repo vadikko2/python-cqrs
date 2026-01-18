@@ -1,6 +1,5 @@
 import asyncio
 import typing
-from unittest import mock
 
 import pydantic
 
@@ -43,8 +42,8 @@ class StreamingHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemR
         self._events.clear()
 
     async def handle(  # type: ignore
-            self,
-            request: ProcessItemsCommand,
+        self,
+        request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
@@ -88,7 +87,7 @@ async def test_streaming_mediator_logic() -> None:
         emit_call_count += 1
         return await original_emit(event)
 
-    event_emitter.emit = tracked_emit
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,
@@ -151,8 +150,7 @@ async def test_streaming_mediator_events_order() -> None:
         container=container,  # type: ignore
         message_broker=message_broker,
     )
-    original_emit = event_emitter.emit
-    event_emitter.emit = mock_emit
+    event_emitter.emit = mock_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,
@@ -202,8 +200,8 @@ class EventHandlerStreamingHandler(
         self._events.clear()
 
     async def handle(  # type: ignore
-            self,
-            request: ProcessItemsCommand,
+        self,
+        request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
@@ -238,7 +236,7 @@ async def test_streaming_mediator_processes_events_parallel() -> None:
         emit_call_count += 1
         return await original_emit(event)
 
-    event_emitter.emit = tracked_emit
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,
@@ -287,7 +285,7 @@ async def test_streaming_mediator_processes_events_sequentially() -> None:
         emit_call_count += 1
         return await original_emit(event)
 
-    event_emitter.emit = tracked_emit
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,

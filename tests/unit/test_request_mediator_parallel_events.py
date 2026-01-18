@@ -1,5 +1,4 @@
 import asyncio
-import typing
 from unittest import mock
 
 import pydantic
@@ -86,7 +85,7 @@ async def test_request_mediator_processes_events_parallel() -> None:
         emit_call_count += 1
         return await original_emit(event)
 
-    event_emitter.emit = tracked_emit
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = RequestMediator(
         request_map=request_map,
@@ -134,7 +133,7 @@ async def test_request_mediator_processes_events_sequentially() -> None:
         emit_call_count += 1
         return await original_emit(event)
 
-    event_emitter.emit = tracked_emit
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = RequestMediator(
         request_map=request_map,

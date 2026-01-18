@@ -15,11 +15,11 @@ class EventProcessor:
     """
 
     def __init__(
-            self,
-            event_map: EventMap,
-            event_emitter: EventEmitter | None = None,
-            max_concurrent_event_handlers: int = 1,
-            concurrent_event_handle_enable: bool = True,
+        self,
+        event_map: EventMap,
+        event_emitter: EventEmitter | None = None,
+        max_concurrent_event_handlers: int = 1,
+        concurrent_event_handle_enable: bool = True,
     ) -> None:
         """
         Initialize event processor.
@@ -60,5 +60,7 @@ class EventProcessor:
 
     async def _emit_event_with_semaphore(self, event: Event) -> None:
         """Process a single event with semaphore limit."""
+        if not self._event_emitter:
+            return
         async with self._event_semaphore:
             await self._event_emitter.emit(event)
