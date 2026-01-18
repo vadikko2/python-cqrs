@@ -1,3 +1,4 @@
+import asyncio
 import typing
 import uuid
 
@@ -76,6 +77,9 @@ async def test_produce_some_event(
     command = CloseMeetingRoomCommand(meeting_room_id=uuid.uuid4())
 
     await mediator.send(command)
+
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
 
     assert handler
     assert handler.called

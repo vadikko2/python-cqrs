@@ -1,5 +1,6 @@
 """Integration tests for SagaMediator with MemorySagaStorage."""
 
+import asyncio
 import dataclasses
 import typing
 import uuid
@@ -396,6 +397,9 @@ class TestSagaMediatorMemoryStorage:
         async for result in saga_mediator.stream(context):
             step_results.append(result)
 
+        # Wait for background tasks to complete
+        await asyncio.sleep(0.1)
+
         # Verify step results were returned
         assert len(step_results) == 3
         assert isinstance(step_results[0].response, ReserveInventoryResponse)
@@ -424,6 +428,9 @@ class TestSagaMediatorMemoryStorage:
         step_results = []
         async for result in saga_mediator.stream(context):
             step_results.append(result)
+
+        # Wait for background tasks to complete
+        await asyncio.sleep(0.1)
 
         # Verify events were processed (DomainEvent calls handlers, not message broker)
         # Note: events are processed twice - once via dispatcher and once via emitter

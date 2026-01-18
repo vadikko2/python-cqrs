@@ -1,3 +1,4 @@
+import asyncio
 import typing
 from collections import defaultdict
 
@@ -62,6 +63,9 @@ async def test_handle_domain_events_positive():
     await mediator.send(JoinMeetingCommand(user_id="3", meeting_id="1"))
     await mediator.send(JoinMeetingCommand(user_id="4", meeting_id="1"))
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert len(HANDLED_EVENTS) == 4
 
 
@@ -80,6 +84,9 @@ async def test_request_mediator_processes_events_parallel():
     await mediator.send(JoinMeetingCommand(user_id="2", meeting_id="1"))
     await mediator.send(JoinMeetingCommand(user_id="3", meeting_id="1"))
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert len(HANDLED_EVENTS) == 3
 
 
@@ -97,5 +104,8 @@ async def test_request_mediator_processes_events_sequentially():
     await mediator.send(JoinMeetingCommand(user_id="1", meeting_id="1"))
     await mediator.send(JoinMeetingCommand(user_id="2", meeting_id="1"))
     await mediator.send(JoinMeetingCommand(user_id="3", meeting_id="1"))
+
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
 
     assert len(HANDLED_EVENTS) == 3
