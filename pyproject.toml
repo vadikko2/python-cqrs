@@ -44,9 +44,9 @@ dev = [
   "ruff==0.6.2",
   "pytest-cov>=4.0.0",
   # Tests
-  "aio-pika==9.3.0",  # from rabbit
-  "aiokafka==0.10.0",  # from kafka
-  "confluent-kafka==2.6.0",  # from kafka
+  "aio-pika==9.3.0", # from rabbit
+  "aiokafka==0.10.0", # from kafka
+  "confluent-kafka==2.6.0", # from kafka
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
@@ -54,7 +54,7 @@ dev = [
   "asyncmy==0.2.9",
   "redis>=5.0.0",
   # Circuit breaker for tests
-  "aiobreaker>=0.3.0"  # from aiobreaker
+  "aiobreaker>=0.3.0" # from aiobreaker
 ]
 examples = [
   "fastapi==0.109.*",
