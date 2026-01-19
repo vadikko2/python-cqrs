@@ -23,10 +23,19 @@ class AMQPPublisher(protocol.AMQPPublisher):
     def __init__(self, channel_pool: pool.Pool[aio_pika.abc.AbstractChannel]):
         self.channel_pool = channel_pool
 
-    async def publish(self, message: abc.AbstractMessage, queue_name: str, exchange_name: str) -> None:
+    async def publish(
+        self,
+        message: abc.AbstractMessage,
+        queue_name: str,
+        exchange_name: str,
+    ) -> None:
         async with self.channel_pool.acquire() as channel:
             queue = await channel.declare_queue(queue_name)
-            exchange = await channel.declare_exchange(exchange_name, type="direct", auto_delete=True)
+            exchange = await channel.declare_exchange(
+                exchange_name,
+                type="direct",
+                auto_delete=True,
+            )
             await queue.bind(exchange=exchange, routing_key=queue_name)
             await exchange.publish(message=message, routing_key=queue_name)
 

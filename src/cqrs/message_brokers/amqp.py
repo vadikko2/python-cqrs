@@ -8,7 +8,12 @@ from cqrs.message_brokers import protocol
 
 
 class AMQPMessageBroker(protocol.MessageBroker):
-    def __init__(self, publisher: adapters_protocol.AMQPPublisher, exchange_name: str, pika_log_level: str = "ERROR"):
+    def __init__(
+        self,
+        publisher: adapters_protocol.AMQPPublisher,
+        exchange_name: str,
+        pika_log_level: str = "ERROR",
+    ):
         self.publisher = publisher
         self.exchange_name = exchange_name
         logging.getLogger("aiormq").setLevel(pika_log_level)
@@ -17,6 +22,6 @@ class AMQPMessageBroker(protocol.MessageBroker):
     async def send_message(self, message: protocol.Message) -> None:
         await self.publisher.publish(
             message=aio_pika.Message(body=orjson.dumps(message.payload)),
-            exchange_name=self.exchange_name,
             queue_name=message.topic,
+            exchange_name=self.exchange_name,
         )
