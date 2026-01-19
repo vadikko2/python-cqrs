@@ -9,20 +9,20 @@ authors = [
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent"
+  "Programming Language :: Python :: 3.12"
 ]
 dependencies = [
-  "pydantic==2.*",
-  "orjson==3.9.15",
   "di[anyio]==0.79.2",
-  "sqlalchemy[asyncio]==2.0.*",
-  "retry-async==0.1.4",
-  "python-dotenv==1.0.1",
   "dependency-injector>=4.48.2",
+  "orjson==3.9.15",
+  "pydantic==2.*",
+  "python-dotenv==1.0.1",
+  "retry-async==0.1.4",
+  "sqlalchemy[asyncio]==2.0.*",
   "typing-extensions>=4.0.0"
 ]
 description = "Python CQRS pattern implementation"
@@ -33,9 +33,7 @@ requires-python = ">=3.10"
 version = "4.5.1"
 
 [project.optional-dependencies]
-aiobreaker = [
-  "aiobreaker>=0.3.0"
-]
+aiobreaker = ["aiobreaker>=0.3.0"]
 dev = [
   # Develope tools
   "pycln==2.5.0",
@@ -44,9 +42,9 @@ dev = [
   "ruff==0.6.2",
   "pytest-cov>=4.0.0",
   # Tests
-  "aio-pika==9.3.0", # from rabbit
-  "aiokafka==0.10.0", # from kafka
-  "requests==2.*", # from aiokafka
+  "aio-pika==9.3.0",  # from rabbit
+  "aiokafka==0.10.0",  # from kafka
+  "requests==2.*",  # from aiokafka
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
@@ -54,21 +52,17 @@ dev = [
   "asyncmy==0.2.9",
   "redis>=5.0.0",
   # Circuit breaker for tests
-  "aiobreaker>=0.3.0" # from aiobreaker
+  "aiobreaker>=0.3.0"  # from aiobreaker
 ]
 examples = [
   "fastapi==0.109.*",
-  "uvicorn==0.32.0",
   "faststream[kafka]==0.5.28",
-  "faker>=37.12.0"
+  "faker>=37.12.0",
+  "uvicorn==0.32.0"
 ]
-kafka = [
-  "aiokafka==0.10.0",
-]
+kafka = ["aiokafka==0.10.0"]
 protobuf = ["protobuf==4.25.5"]
-rabbit = [
-  "aio-pika==9.3.0"
-]
+rabbit = ["aio-pika==9.3.0"]
 
 [project.urls]
 Documentation = "https://mkdocs.python-cqrs.dev/"
