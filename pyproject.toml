@@ -40,6 +40,7 @@ dev = [
   "pre-commit==3.8.0",
   "pyright==1.1.408",
   "ruff==0.6.2",
+  "vermin>=1.6.0",
   "pytest-cov>=4.0.0",
   # Tests
   "aio-pika==9.3.0",  # from rabbit
