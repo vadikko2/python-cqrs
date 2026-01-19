@@ -275,10 +275,10 @@ class CustomRequest(cqrs.IRequest):
     def __init__(self, user_id: str, action: str):
         self.user_id = user_id
         self.action = action
-    
+
     def to_dict(self) -> dict:
         return {"user_id": self.user_id, "action": self.action}
-    
+
     @classmethod
     def from_dict(cls, **kwargs) -> "CustomRequest":
         return cls(user_id=kwargs["user_id"], action=kwargs["action"])
@@ -287,10 +287,10 @@ class CustomResponse(cqrs.IResponse):
     def __init__(self, result: str, status: int):
         self.result = result
         self.status = status
-    
+
     def to_dict(self) -> dict:
         return {"result": self.result, "status": self.status}
-    
+
     @classmethod
     def from_dict(cls, **kwargs) -> "CustomResponse":
         return cls(result=kwargs["result"], status=kwargs["status"])
