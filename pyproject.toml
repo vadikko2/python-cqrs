@@ -46,7 +46,7 @@ dev = [
   # Tests
   "aio-pika==9.3.0", # from rabbit
   "aiokafka==0.10.0", # from kafka
-  "confluent-kafka==2.6.0", # from kafka
+  "requests==2.*", # from aiokafka
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
@@ -64,8 +64,6 @@ examples = [
 ]
 kafka = [
   "aiokafka==0.10.0",
-  # for SchemaRegistry
-  "confluent-kafka==2.6.0"
 ]
 protobuf = ["protobuf==4.25.5"]
 rabbit = [
