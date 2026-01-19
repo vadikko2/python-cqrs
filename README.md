@@ -52,7 +52,8 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 11. Parallel event processing with configurable concurrency limits;
 12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence;
 13. Orchestrated Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms;
-14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization.
+14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization;
+15. Flexible Request and Response types support - use Pydantic-based or Dataclass-based implementations, with the ability to mix and match types based on your needs.
 
 ## Request Handlers
 
@@ -235,6 +236,36 @@ class_diagram = generator.class_diagram()
 ```
 
 Complete example: [CoR Mermaid Diagrams](https://github.com/vadikko2/cqrs/blob/master/examples/cor_mermaid.py)
+
+## Request and Response Types
+
+The library supports both Pydantic-based (`PydanticRequest`/`PydanticResponse`, aliased as `Request`/`Response`) and Dataclass-based (`DCRequest`/`DCResponse`) implementations. You can mix and match types as needed.
+
+```python
+import dataclasses
+
+# Pydantic-based (default)
+class CreateUserCommand(cqrs.Request):
+    username: str
+    email: str
+
+class UserResponse(cqrs.Response):
+    user_id: str
+    username: str
+
+# Dataclass-based
+@dataclasses.dataclass
+class CreateProductCommand(cqrs.DCRequest):
+    name: str
+    price: float
+
+@dataclasses.dataclass
+class ProductResponse(cqrs.DCResponse):
+    product_id: str
+    name: str
+```
+
+A complete example can be found in [request_response_types.py](https://github.com/vadikko2/cqrs/blob/master/examples/request_response_types.py)
 
 ## Saga Pattern
 
@@ -871,7 +902,7 @@ async def process_files_stream(
         async for result in mediator.stream(command):
             sse_data = {
                 "type": "progress",
-                "data": result.model_dump(),
+                "data": result.to_dict(),
             }
             yield f"data: {json.dumps(sse_data)}\n\n"
 

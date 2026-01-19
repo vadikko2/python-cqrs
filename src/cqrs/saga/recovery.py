@@ -37,7 +37,7 @@ async def recover_saga(
                         (assuming the constructor accepts kwargs).
                         If a function is provided, it will be called with the data dict.
                         Examples:
-                            - MyPydanticModel.model_validate
+                            - MyContextClass.from_dict (if implements from_dict interface)
                             - lambda d: MyDataClass(**d)
                             - MyClass (if __init__ accepts **kwargs)
         container: DI container for resolving step handlers.

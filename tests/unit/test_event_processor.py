@@ -1,4 +1,5 @@
 import asyncio
+import typing
 from unittest import mock
 
 import pydantic
@@ -10,6 +11,7 @@ from cqrs.events import (
     EventHandler,
     EventMap,
 )
+from cqrs.events.event import IEvent
 from cqrs.events.event_processor import EventProcessor
 
 
@@ -67,7 +69,6 @@ async def test_event_processor_processes_events_parallel() -> None:
         _TestDomainEvent(item_id="2"),
         _TestDomainEvent(item_id="3"),
     ]
-
     await processor.emit_events(events)
 
     # Wait for background tasks to complete

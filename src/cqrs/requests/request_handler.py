@@ -1,7 +1,7 @@
 import abc
 import typing
 
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 from cqrs.types import ReqT, ResT
 
 
@@ -16,7 +16,7 @@ class RequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
       class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None])
           def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
               self._meetings_api = meetings_api
-              self.events: list[Event] = []
+              self.events: list[IEvent] = []
 
           async def handle(self, request: JoinMeetingCommand) -> None:
               await self._meetings_api.join_user(request.user_id, request.meeting_id)
@@ -26,7 +26,7 @@ class RequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
       class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryResult])
           def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
               self._meetings_api = meetings_api
-              self.events: list[Event] = []
+              self.events: list[IEvent] = []
 
           async def handle(self, request: ReadMeetingQuery) -> ReadMeetingQueryResult:
               link = await self._meetings_api.get_link(request.meeting_id)
@@ -36,7 +36,7 @@ class RequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
 
     @property
     @abc.abstractmethod
-    def events(self) -> typing.List[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -75,7 +75,7 @@ class StreamingRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
 
     @property
     @abc.abstractmethod
-    def events(self) -> typing.List[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         raise NotImplementedError
 
     @abc.abstractmethod

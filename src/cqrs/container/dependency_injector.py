@@ -268,7 +268,7 @@ class DependencyInjectorCQRSContainer(
     def _get_provider_by_path_segments(
         self,
         path_segments: tuple[str, ...],
-    ) -> providers.Provider[T]:
+    ) -> providers.Provider[object]:
         """
         Navigate container hierarchy to retrieve a provider by its access path.
 
@@ -370,8 +370,11 @@ class DependencyInjectorCQRSContainer(
         """
         # Strategy 1: Exact type match
         if requested_type in self._type_to_provider_path_map:
-            return self._get_provider_by_path_segments(
-                self._type_to_provider_path_map[requested_type]
+            return cast(
+                providers.Provider[T],
+                self._get_provider_by_path_segments(
+                    self._type_to_provider_path_map[requested_type]
+                ),
             )
 
         # Strategy 2: Inheritance-based match
@@ -379,8 +382,11 @@ class DependencyInjectorCQRSContainer(
         # This enables resolving abstract base classes to their concrete implementations
         for registered_type in self._type_to_provider_path_map:
             if issubclass(registered_type, requested_type):
-                return self._get_provider_by_path_segments(
-                    self._type_to_provider_path_map[registered_type]
+                return cast(
+                    providers.Provider[T],
+                    self._get_provider_by_path_segments(
+                        self._type_to_provider_path_map[registered_type]
+                    ),
                 )
 
         # No provider found for the requested type

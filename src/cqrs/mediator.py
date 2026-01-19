@@ -6,20 +6,20 @@ from cqrs.dispatcher.event import EventDispatcher
 from cqrs.dispatcher.request import RequestDispatcher
 from cqrs.dispatcher.saga import SagaDispatcher
 from cqrs.dispatcher.streaming import StreamingRequestDispatcher
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 from cqrs.events.event_emitter import EventEmitter
 from cqrs.events.event_processor import EventProcessor
 from cqrs.events.map import EventMap
 from cqrs.middlewares.base import MiddlewareChain
 from cqrs.requests.map import RequestMap, SagaMap
-from cqrs.requests.request import Request
-from cqrs.response import Response
+from cqrs.requests.request import IRequest
+from cqrs.response import IResponse
 from cqrs.saga.models import SagaContext
 from cqrs.saga.step import SagaStepResult
 from cqrs.saga.storage.memory import MemorySagaStorage
 from cqrs.saga.storage.protocol import ISagaStorage
 
-_ResponseT = typing.TypeVar("_ResponseT", Response, None, covariant=True)
+_ResponseT = typing.TypeVar("_ResponseT", IResponse, None, covariant=True)
 
 
 class RequestMediator:
@@ -81,7 +81,7 @@ class RequestMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, request: Request) -> _ResponseT:
+    async def send(self, request: IRequest) -> _ResponseT:
         """
         Send a request and return the response.
 
@@ -126,7 +126,7 @@ class EventMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, event: Event) -> None:
+    async def send(self, event: IEvent) -> None:
         await self._dispatcher.dispatch(event)
 
 
@@ -190,8 +190,8 @@ class StreamingRequestMediator:
 
     async def stream(
         self,
-        request: Request,
-    ) -> typing.AsyncIterator[Response | None]:
+        request: IRequest,
+    ) -> typing.AsyncIterator[IResponse | None]:
         """
         Stream results from a generator-based handler.
 

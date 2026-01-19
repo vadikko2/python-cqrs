@@ -12,6 +12,7 @@ from cqrs.events import (
     EventMap,
     NotificationEvent,
 )
+from cqrs.events.event import IEvent
 from cqrs.mediator import StreamingRequestMediator
 from cqrs.message_brokers import devnull
 from cqrs.requests.map import RequestMap
@@ -35,7 +36,7 @@ class StreamingHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemR
         self._events: list[Event] = []
 
     @property
-    def events(self) -> list[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:
@@ -193,7 +194,7 @@ class EventHandlerStreamingHandler(
         self._events: list[Event] = []
 
     @property
-    def events(self) -> list[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:

@@ -173,9 +173,16 @@ def test_protobuf_deserializer_success():
             payload=DeserializedModelPayload(foo="foo", bar=1),
         )
 
-        with patch.object(
+        with patch(
+            "cqrs.deserializers.protobuf.MessageToDict",
+            return_value={
+                "event_id": "12345678-1234-5678-1234-567812345678",
+                "event_name": "test_event",
+                "payload": {"foo": "foo", "bar": 1},
+            },
+        ), patch.object(
             mock_event_model,
-            "model_validate",
+            "from_dict",
             return_value=expected_event,
         ):
             result = deserializer(b"test_bytes")
@@ -270,9 +277,15 @@ def test_protobuf_deserializer_validation_error():
             [{"type": "missing", "loc": ("payload",), "input": {}}],
         )
 
-        with patch.object(
+        with patch(
+            "cqrs.deserializers.protobuf.MessageToDict",
+            return_value={
+                "event_id": "123",
+                "event_name": "test_event",
+            },
+        ), patch.object(
             mock_event_model,
-            "model_validate",
+            "from_dict",
             side_effect=validation_error,
         ):
             test_bytes = b"test_bytes"
@@ -339,9 +352,16 @@ def test_protobuf_deserializer_byte_string_input():
             payload=DeserializedModelPayload(foo="foo", bar=1),
         )
 
-        with patch.object(
+        with patch(
+            "cqrs.deserializers.protobuf.MessageToDict",
+            return_value={
+                "event_id": "12345678-1234-5678-1234-567812345678",
+                "event_name": "test_event",
+                "payload": {"foo": "foo", "bar": 1},
+            },
+        ), patch.object(
             mock_event_model,
-            "model_validate",
+            "from_dict",
             return_value=expected_event,
         ):
             # Test with bytes

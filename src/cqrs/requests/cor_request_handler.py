@@ -4,7 +4,7 @@ import abc
 import functools
 import typing
 
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 from cqrs.types import ReqT, ResT
 
 
@@ -20,7 +20,7 @@ class CORRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
       class AuthenticationHandler(CORRequestHandler[LoginCommand, None]):
           def __init__(self, auth_service: AuthServiceProtocol) -> None:
               self._auth_service = auth_service
-              self.events: typing.List[Event] = []
+              self.events: typing.List[IEvent] = []
 
           async def handle(self, request: LoginCommand) -> None | None:
               if self._auth_service.can_authenticate(request):
@@ -47,7 +47,7 @@ class CORRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
 
     @property
     @abc.abstractmethod
-    def events(self) -> typing.List[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         raise NotImplementedError
 
     @abc.abstractmethod

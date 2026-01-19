@@ -3,7 +3,7 @@ import logging
 import typing
 
 from cqrs import container as di_container, message_brokers
-from cqrs.events.event import DomainEvent, Event, NotificationEvent
+from cqrs.events.event import IDomainEvent, IEvent, INotificationEvent
 from cqrs.events import event_handler, map
 
 logger = logging.getLogger("cqrs")
@@ -28,12 +28,12 @@ class EventEmitter:
         self._message_broker = message_broker
 
     @functools.singledispatchmethod
-    async def emit(self, event: Event) -> None:
+    async def emit(self, event: IEvent) -> None:
         pass
 
     async def _send_to_broker(
         self,
-        event: NotificationEvent,
+        event: INotificationEvent,
     ) -> None:
         """
         Sends event to the message broker.
@@ -47,7 +47,7 @@ class EventEmitter:
             message_name=type(event).__name__,
             message_id=event.event_id,
             topic=event.topic,
-            payload=event.model_dump(mode="json"),
+            payload=event.to_dict(),
         )
 
         logger.debug(
@@ -59,7 +59,7 @@ class EventEmitter:
         await self._message_broker.send_message(message)
 
     @emit.register
-    async def _(self, event: DomainEvent) -> None:
+    async def _(self, event: IDomainEvent) -> None:
         handlers_types = self._event_map.get(type(event), [])
         if not handlers_types:
             logger.warning(
@@ -78,5 +78,5 @@ class EventEmitter:
             await handler.handle(event)
 
     @emit.register
-    async def _(self, event: NotificationEvent) -> None:
+    async def _(self, event: INotificationEvent) -> None:
         await self._send_to_broker(event)

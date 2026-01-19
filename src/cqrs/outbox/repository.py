@@ -1,11 +1,10 @@
 import abc
+import dataclasses
 import enum
 import typing
 
-import pydantic
-
 import cqrs
-from cqrs.events.event import NotificationEvent
+from cqrs.events.event import INotificationEvent
 
 
 class EventStatus(enum.StrEnum):
@@ -14,10 +13,36 @@ class EventStatus(enum.StrEnum):
     NOT_PRODUCED = "not_produced"
 
 
-class OutboxedEvent(pydantic.BaseModel, frozen=True):
-    id: pydantic.PositiveInt
-    event: cqrs.NotificationEvent
-    topic: typing.Text
+@dataclasses.dataclass(frozen=True)
+class OutboxedEvent:
+    """
+    Outboxed event dataclass.
+
+    Outboxed events represent notification events that are stored in an outbox
+    pattern for reliable message delivery. They include metadata about the event
+    and its processing status.
+
+    This is an internal data structure used by the outbox pattern implementation.
+
+    Args:
+        id: Unique identifier for the outboxed event
+        event: The notification event being stored
+        topic: Message broker topic where the event should be published
+        status: Current processing status of the event
+
+    Example::
+
+        outboxed_event = OutboxedEvent(
+            id=1,
+            event=notification_event,
+            topic="user.events",
+            status=EventStatus.NEW
+        )
+    """
+
+    id: int
+    event: cqrs.INotificationEvent
+    topic: str
     status: EventStatus
 
 
@@ -25,7 +50,7 @@ class OutboxedEventRepository(abc.ABC):
     @abc.abstractmethod
     def add(
         self,
-        event: NotificationEvent,
+        event: INotificationEvent,
     ) -> None:
         """Add an event to the repository."""
 
@@ -52,3 +77,10 @@ class OutboxedEventRepository(abc.ABC):
     @abc.abstractmethod
     async def rollback(self):
         pass
+
+
+__all__ = (
+    "EventStatus",
+    "OutboxedEvent",
+    "OutboxedEventRepository",
+)

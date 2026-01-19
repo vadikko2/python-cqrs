@@ -33,7 +33,7 @@ class OutboxRequestHandler(RequestHandler[OutboxRequest, None]):
         self.repository = repository
 
     @property
-    def events(self) -> list[events.Event]:
+    def events(self) -> typing.Sequence[events.IEvent]:
         return []
 
     async def handle(self, request: OutboxRequest) -> None:

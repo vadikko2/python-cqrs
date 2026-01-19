@@ -1,7 +1,7 @@
 import asyncio
 import typing
 
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 from cqrs.events.event_emitter import EventEmitter
 from cqrs.events.map import EventMap
 
@@ -36,7 +36,7 @@ class EventProcessor:
         self._concurrent_event_handle_enable = concurrent_event_handle_enable
         self._event_semaphore = asyncio.Semaphore(max_concurrent_event_handlers)
 
-    async def emit_events(self, events: typing.List[Event]) -> None:
+    async def emit_events(self, events: typing.Sequence[IEvent]) -> None:
         """
         Emit events via event emitter.
 
@@ -58,7 +58,7 @@ class EventProcessor:
             for event in events:
                 asyncio.create_task(self._emit_event_with_semaphore(event))
 
-    async def _emit_event_with_semaphore(self, event: Event) -> None:
+    async def _emit_event_with_semaphore(self, event: IEvent) -> None:
         """Process a single event with semaphore limit."""
         if not self._event_emitter:
             return

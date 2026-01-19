@@ -39,7 +39,7 @@ dev = [
   # Develope tools
   "pycln==2.5.0",
   "pre-commit==3.8.0",
-  "pyright==1.1.377",
+  "pyright==1.1.408",
   "ruff==0.6.2",
   # Tests
   "aiokafka==0.10.0",

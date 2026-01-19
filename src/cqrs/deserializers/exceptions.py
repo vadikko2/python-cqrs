@@ -1,15 +1,34 @@
+import dataclasses
 import typing
 
-import pydantic
 
+@dataclasses.dataclass(frozen=True)
+class DeserializeJsonError:
+    """
+    Error that occurred during JSON deserialization.
 
-class DeserializeJsonError(pydantic.BaseModel):
+    Args:
+        error_message: Human-readable error message
+        error_type: Type of the exception that occurred
+        message_data: The original message data that failed to deserialize
+    """
+
     error_message: str
     error_type: typing.Type[Exception]
     message_data: str | bytes | None
 
 
-class DeserializeProtobufError(pydantic.BaseModel):
+@dataclasses.dataclass(frozen=True)
+class DeserializeProtobufError:
+    """
+    Error that occurred during Protobuf deserialization.
+
+    Args:
+        error_message: Human-readable error message
+        error_type: Type of the exception that occurred
+        message_data: The original message data that failed to deserialize
+    """
+
     error_message: str
     error_type: typing.Type[Exception]
     message_data: bytes

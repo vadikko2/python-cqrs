@@ -6,7 +6,7 @@ from cqrs.dispatcher.exceptions import RequestHandlerDoesNotExist
 from cqrs.dispatcher.models import RequestDispatchResult
 from cqrs.middlewares.base import MiddlewareChain
 from cqrs.requests.map import RequestMap
-from cqrs.requests.request import Request
+from cqrs.requests.request import IRequest
 from cqrs.requests.request_handler import StreamingRequestHandler
 
 
@@ -30,7 +30,7 @@ class StreamingRequestDispatcher:
 
     async def dispatch(
         self,
-        request: Request,
+        request: IRequest,
     ) -> typing.AsyncIterator[RequestDispatchResult]:
         """
         Dispatch a request to a streaming handler and yield results.
@@ -72,9 +72,8 @@ class StreamingRequestDispatcher:
 
         async_gen = handler.handle(request)
         async for response in async_gen:
-            events = handler.events.copy()
-            if hasattr(handler, "clear_events"):
-                handler.clear_events()
+            events = list(handler.events)
+            handler.clear_events()
             yield RequestDispatchResult(
                 response=response,
                 events=events,
