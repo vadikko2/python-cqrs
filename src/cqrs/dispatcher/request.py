@@ -57,11 +57,8 @@ class RequestDispatcher:
                     "COR handler must be type CORRequestHandler",
                 )
 
-            async with asyncio.TaskGroup() as tg:
-                tasks = [
-                    tg.create_task(self._container.resolve(h)) for h in handler_type
-                ]
-            handlers = [task.result() for task in tasks]
+            tasks = [self._container.resolve(h) for h in handler_type]
+            handlers = await asyncio.gather(*tasks)
             return build_chain(
                 typing.cast(typing.List[CORRequestHandlerType], handlers),
             )

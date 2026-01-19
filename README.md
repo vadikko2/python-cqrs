@@ -10,6 +10,9 @@
   <h3>Event-Driven Architecture Framework for Distributed Systems</h3>
   <p>
     <a href="https://pypi.org/project/python-cqrs/">
+      <img src="https://img.shields.io/pypi/pyversions/python-cqrs?logo=python&logoColor=white" alt="Python Versions">
+    </a>
+    <a href="https://pypi.org/project/python-cqrs/">
       <img src="https://img.shields.io/pypi/v/python-cqrs?label=pypi&logo=pypi" alt="PyPI version">
     </a>
     <a href="https://pepy.tech/projects/python-cqrs">
@@ -17,6 +20,9 @@
     </a>
     <a href="https://pepy.tech/projects/python-cqrs">
       <img src="https://pepy.tech/badge/python-cqrs/month" alt="Downloads per month">
+    </a>
+    <a href="https://codecov.io/gh/vadikko2/python-cqrs">
+      <img src="https://img.shields.io/codecov/c/github/vadikko2/python-cqrs?logo=codecov&logoColor=white" alt="Coverage">
     </a>
     <a href="https://mkdocs.python-cqrs.dev/">
       <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
@@ -239,7 +245,7 @@ Complete example: [CoR Mermaid Diagrams](https://github.com/vadikko2/cqrs/blob/m
 
 ## Request and Response Types
 
-The library supports both Pydantic-based (`PydanticRequest`/`PydanticResponse`, aliased as `Request`/`Response`) and Dataclass-based (`DCRequest`/`DCResponse`) implementations. You can mix and match types as needed.
+The library supports both Pydantic-based (`PydanticRequest`/`PydanticResponse`, aliased as `Request`/`Response`) and Dataclass-based (`DCRequest`/`DCResponse`) implementations. You can also implement custom classes by implementing the `IRequest`/`IResponse` interfaces directly.
 
 ```python
 import dataclasses
@@ -263,6 +269,31 @@ class CreateProductCommand(cqrs.DCRequest):
 class ProductResponse(cqrs.DCResponse):
     product_id: str
     name: str
+
+# Custom implementation
+class CustomRequest(cqrs.IRequest):
+    def __init__(self, user_id: str, action: str):
+        self.user_id = user_id
+        self.action = action
+    
+    def to_dict(self) -> dict:
+        return {"user_id": self.user_id, "action": self.action}
+    
+    @classmethod
+    def from_dict(cls, **kwargs) -> "CustomRequest":
+        return cls(user_id=kwargs["user_id"], action=kwargs["action"])
+
+class CustomResponse(cqrs.IResponse):
+    def __init__(self, result: str, status: int):
+        self.result = result
+        self.status = status
+    
+    def to_dict(self) -> dict:
+        return {"result": self.result, "status": self.status}
+    
+    @classmethod
+    def from_dict(cls, **kwargs) -> "CustomResponse":
+        return cls(result=kwargs["result"], status=kwargs["status"])
 ```
 
 A complete example can be found in [request_response_types.py](https://github.com/vadikko2/cqrs/blob/master/examples/request_response_types.py)

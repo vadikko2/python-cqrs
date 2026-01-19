@@ -68,7 +68,13 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Generic, Optional, Self, TypeVar
+import sys
+from typing import Generic, Optional, TypeVar
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 import uvicorn
 

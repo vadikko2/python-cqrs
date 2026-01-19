@@ -1,9 +1,15 @@
 import logging
 import typing
+import sys
 
 import orjson
 
 from cqrs.deserializers.exceptions import DeserializeJsonError
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 logger = logging.getLogger("cqrs")
 
@@ -17,7 +23,7 @@ class Deserializable(typing.Protocol):
     """
 
     @classmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create an instance from keyword arguments.
 

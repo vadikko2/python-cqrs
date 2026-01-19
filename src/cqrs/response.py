@@ -1,8 +1,14 @@
 import abc
 import dataclasses
 import typing
+import sys
 
 import pydantic
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class IResponse(abc.ABC):
@@ -30,7 +36,7 @@ class IResponse(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create a response instance from keyword arguments.
 
@@ -66,7 +72,7 @@ class DCResponse(IResponse):
     """
 
     @classmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create a response instance from keyword arguments.
 
@@ -112,7 +118,7 @@ class PydanticResponse(pydantic.BaseModel, IResponse):
     """
 
     @classmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create a response instance from keyword arguments.
 

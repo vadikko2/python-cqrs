@@ -1,8 +1,14 @@
 import abc
 import dataclasses
 import typing
+import sys
 
 import pydantic
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class IRequest(abc.ABC):
@@ -30,7 +36,7 @@ class IRequest(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create a request instance from keyword arguments.
 
@@ -64,7 +70,7 @@ class DCRequest(IRequest):
     """
 
     @classmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create a request instance from keyword arguments.
 
@@ -109,7 +115,7 @@ class PydanticRequest(pydantic.BaseModel, IRequest):
     """
 
     @classmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create a request instance from keyword arguments.
 

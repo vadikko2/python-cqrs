@@ -22,7 +22,8 @@ dependencies = [
   "sqlalchemy[asyncio]==2.0.*",
   "retry-async==0.1.4",
   "python-dotenv==1.0.1",
-  "dependency-injector>=4.48.2"
+  "dependency-injector>=4.48.2",
+  "typing-extensions>=4.0.0"
 ]
 description = "Python CQRS pattern implementation"
 maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
@@ -41,6 +42,7 @@ dev = [
   "pre-commit==3.8.0",
   "pyright==1.1.408",
   "ruff==0.6.2",
+  "pytest-cov>=4.0.0",
   # Tests
   "aiokafka==0.10.0",
   "pytest~=7.4.2",
@@ -82,3 +84,6 @@ testpaths = ["tests"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+target-version = "py310"

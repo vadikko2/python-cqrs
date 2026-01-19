@@ -4,9 +4,15 @@ import datetime
 import os
 import typing
 import uuid
+import sys
 
 import dotenv
 import pydantic
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 dotenv.load_dotenv()
 DEFAULT_OUTPUT_TOPIC = os.getenv("DEFAULT_OUTPUT_TOPIC", "output_topic")
@@ -40,7 +46,7 @@ class IEvent(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create an event instance from keyword arguments.
 
@@ -76,7 +82,7 @@ class DCEvent(IEvent):
     """
 
     @classmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create an event instance from keyword arguments.
 
@@ -122,7 +128,7 @@ class PydanticEvent(pydantic.BaseModel, IEvent, frozen=True):
     """
 
     @classmethod
-    def from_dict(cls, **kwargs) -> typing.Self:
+    def from_dict(cls, **kwargs) -> Self:
         """
         Create an event instance from keyword arguments.
 
