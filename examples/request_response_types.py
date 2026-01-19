@@ -63,7 +63,6 @@ import asyncio
 import dataclasses
 import logging
 import typing
-from collections import defaultdict
 
 import di
 import pydantic
@@ -258,9 +257,7 @@ class GetUserQueryHandler(
 
         user = USER_STORAGE[request.user_id]
         total_orders = sum(
-            1
-            for order in ORDER_STORAGE.values()
-            if order["user_id"] == request.user_id
+            1 for order in ORDER_STORAGE.values() if order["user_id"] == request.user_id
         )
 
         return UserDetailsResponse(
@@ -375,9 +372,7 @@ async def main():
     print("=" * 80)
     try:
         # This should fail validation (age > 120)
-        invalid_user = await mediator.send(
-            CreateUserCommand(username="invalid", email="test@example.com", age=150),
-        )
+        await mediator.send(CreateUserCommand(username="invalid", email="test@example.com", age=150))
     except pydantic.ValidationError as e:
         print(f"Validation error caught (expected): {e}")
     print()

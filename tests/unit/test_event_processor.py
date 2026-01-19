@@ -1,5 +1,4 @@
 import asyncio
-import typing
 from unittest import mock
 
 import pydantic
@@ -11,7 +10,6 @@ from cqrs.events import (
     EventHandler,
     EventMap,
 )
-from cqrs.events.event import IEvent
 from cqrs.events.event_processor import EventProcessor
 
 

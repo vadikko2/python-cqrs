@@ -241,7 +241,7 @@ class INotificationEvent(IEvent, typing.Generic[PayloadT]):
         event_name: str
         topic: str
         payload: PayloadT
-        
+
         def proto(self) -> typing.Any: ...  # Method for protobuf representation
 
 

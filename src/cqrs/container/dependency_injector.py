@@ -1,4 +1,4 @@
-from typing import TypeVar, Type, Optional, cast
+from typing import TypeVar, Optional, cast
 import inspect
 import functools
 from dependency_injector import providers
@@ -9,7 +9,7 @@ T = TypeVar("T")
 
 
 class DependencyInjectorCQRSContainer(
-    CQRSContainerProtocol[DependencyInjectorContainer]
+    CQRSContainerProtocol[DependencyInjectorContainer],
 ):
     """
     Adapter bridging dependency-injector containers with CQRS framework.
@@ -136,7 +136,7 @@ class DependencyInjectorCQRSContainer(
         self._get_provider.cache_clear()
         self._traverse_container(container)
 
-    async def resolve(self, type_: Type[T]) -> T:
+    async def resolve(self, type_: type[T]) -> T:
         """
         Resolve and instantiate a dependency by its type.
 
@@ -309,7 +309,7 @@ class DependencyInjectorCQRSContainer(
     @functools.cache
     def _get_provider(
         self,
-        requested_type: Type[T],
+        requested_type: type[T],
     ) -> providers.Provider[T]:
         """
         Find and return the provider for a requested type with caching.
@@ -373,7 +373,7 @@ class DependencyInjectorCQRSContainer(
             return cast(
                 providers.Provider[T],
                 self._get_provider_by_path_segments(
-                    self._type_to_provider_path_map[requested_type]
+                    self._type_to_provider_path_map[requested_type],
                 ),
             )
 
@@ -385,12 +385,12 @@ class DependencyInjectorCQRSContainer(
                 return cast(
                     providers.Provider[T],
                     self._get_provider_by_path_segments(
-                        self._type_to_provider_path_map[registered_type]
+                        self._type_to_provider_path_map[registered_type],
                     ),
                 )
 
         # No provider found for the requested type
         raise ValueError(
             f"Provider for type {requested_type.__name__} not found. "
-            f"Ensure the type is registered in the dependency-injector container."
+            f"Ensure the type is registered in the dependency-injector container.",
         )
