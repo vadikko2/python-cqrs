@@ -24,6 +24,8 @@ class AMQPPublisher(typing.Protocol):
 class AMQPConsumer(typing.Protocol):
     async def consume(
         self,
-        handler: typing.Callable[["aio_pika.abc.AbstractIncomingMessage"], typing.Awaitable[None]],
+        handler: typing.Callable[
+            ["aio_pika.abc.AbstractIncomingMessage"], typing.Awaitable[None]
+        ],
         queue_name: str,
     ) -> None: ...
