@@ -61,9 +61,24 @@ class JsonDeserializer(typing.Generic[_T]):
         Initialize JSON deserializer.
 
         Args:
-            model: Class that has a from_dict classmethod (implements Deserializable protocol
-                   or has from_dict method like Pydantic models).
+            model: Class that implements Deserializable protocol (has a from_dict classmethod).
+                   Can be a regular type or a parameterized generic type
+                   (e.g., NotificationEvent[PayloadType]).
+
+        Note:
+            The model type must implement the Deserializable protocol (have a from_dict
+            classmethod). This is verified at runtime. For proper type inference,
+            specify the generic parameter: JsonDeserializer[ConcreteType](model=...)
         """
+        # Runtime check: verify that model implements Deserializable protocol
+        if not hasattr(model, "from_dict") or not callable(
+            getattr(model, "from_dict", None),
+        ):
+            raise TypeError(
+                f"Model {model} does not implement Deserializable protocol: "
+                "missing 'from_dict' classmethod",
+            )
+        # Store model - type is preserved through generic parameter _T for return type
         self._model: typing.Type[typing.Any] = model
 
     def __call__(self, data: str | bytes | None) -> _T | None | DeserializeJsonError:
@@ -80,7 +95,10 @@ class JsonDeserializer(typing.Generic[_T]):
             return None
         try:
             json_dict = orjson.loads(data)
-            return self._model.from_dict(**json_dict)
+            # Safe cast: model is Type[_T] where _T bound=Deserializable,
+            # so from_dict is guaranteed to return _T
+            result = self._model.from_dict(**json_dict)
+            return typing.cast(_T, result)
         except Exception as e:
             logger.error(
                 f"Error while deserializing json message: {e}",

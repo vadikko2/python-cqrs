@@ -1,6 +1,7 @@
 import typing
 
 import orjson
+import pydantic
 
 import cqrs
 from cqrs.deserializers import json
@@ -38,7 +39,7 @@ def test_json_deserializer_from_bytes_positive():
 
 
 def test_json_deserializer_from_str_positive():
-    deserializer = json.JsonDeserializer[cqrs.NotificationEvent](
+    deserializer = json.JsonDeserializer(
         model=cqrs.NotificationEvent[DeserializedModelPayload],
     )
 
@@ -51,7 +52,7 @@ def test_json_deserializer_from_str_positive():
 
 
 def test_json_deserializer_invalid_json_negative():
-    deserializer = json.JsonDeserializer[cqrs.NotificationEvent](
+    deserializer = json.JsonDeserializer(
         model=cqrs.NotificationEvent[DeserializedModelPayload],
     )
 
@@ -64,7 +65,7 @@ def test_json_deserializer_invalid_json_negative():
 
 
 def test_json_deserializer_invalid_structure_negative():
-    deserializer = json.JsonDeserializer[cqrs.NotificationEvent](
+    deserializer = json.JsonDeserializer(
         model=cqrs.NotificationEvent[DeserializedModelPayload],
     )
 
@@ -79,7 +80,7 @@ def test_json_deserializer_invalid_structure_negative():
 
 
 def test_json_deserializer_missing_required_fields_negative():
-    deserializer = json.JsonDeserializer[cqrs.NotificationEvent](
+    deserializer = json.JsonDeserializer(
         model=cqrs.NotificationEvent[DeserializedModelPayload],
     )
 
@@ -97,7 +98,7 @@ def test_json_deserializer_missing_required_fields_negative():
 
 
 def test_json_deserializer_empty_string_negative():
-    deserializer = json.JsonDeserializer[cqrs.NotificationEvent](
+    deserializer = json.JsonDeserializer(
         model=cqrs.NotificationEvent[DeserializedModelPayload],
     )
 
@@ -110,7 +111,7 @@ def test_json_deserializer_empty_string_negative():
 
 
 def test_json_deserializer_empty_json_object_negative():
-    deserializer = json.JsonDeserializer[cqrs.NotificationEvent](
+    deserializer = json.JsonDeserializer(
         model=cqrs.NotificationEvent[DeserializedModelPayload],
     )
 
