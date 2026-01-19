@@ -42,7 +42,7 @@ jobs:
 
     - name: Check minimum Python version (vermin)
       run: |
-        python -m vermin --target=3.10- --violations --eval-annotations --backport typing_extensions --exclude=venv --exclude=build --exclude=.git --exclude=.venv src examples tests
+        vermin --target=3.10- --violations --eval-annotations --backport typing_extensions --exclude=venv --exclude=build --exclude=.git --exclude=.venv src examples tests 
 
   test:
     runs-on: ubuntu-latest
