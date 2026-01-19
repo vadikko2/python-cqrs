@@ -44,17 +44,17 @@ dev = [
   "ruff==0.6.2",
   "pytest-cov>=4.0.0",
   # Tests
-  "aio-pika==9.3.0",
-  "aiokafka==0.10.0",
+  "aio-pika==9.3.0",  # from rabbit
+  "aiokafka==0.10.0",  # from kafka
+  "confluent-kafka==2.6.0",  # from kafka
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
   "cryptography==42.0.2",
   "asyncmy==0.2.9",
-  "requests>=2.32.5",
   "redis>=5.0.0",
   # Circuit breaker for tests
-  "aiobreaker>=0.3.0"
+  "aiobreaker>=0.3.0"  # from aiobreaker
 ]
 examples = [
   "fastapi==0.109.*",
