@@ -373,7 +373,7 @@ async def main():
     try:
         # This should fail validation (age > 120)
         await mediator.send(
-            CreateUserCommand(username="invalid", email="test@example.com", age=150)
+            CreateUserCommand(username="invalid", email="test@example.com", age=150),
         )
     except pydantic.ValidationError as e:
         print(f"Validation error caught (expected): {e}")
