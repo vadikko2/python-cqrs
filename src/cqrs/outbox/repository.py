@@ -1,13 +1,24 @@
 import abc
 import dataclasses
 import enum
+import sys
 import typing
 
 import cqrs
 from cqrs.events.event import INotificationEvent
 
+if sys.version_info >= (3, 11):
+    StrEnum = enum.StrEnum  # novm
+else:
+    # For Python 3.10 compatibility, use regular Enum with string values
+    class StrEnum(str, enum.Enum):
+        """Compatible StrEnum for Python 3.10."""
 
-class EventStatus(enum.StrEnum):
+        def __str__(self) -> str:
+            return self.value
+
+
+class EventStatus(StrEnum):
     NEW = "new"
     PRODUCED = "produced"
     NOT_PRODUCED = "not_produced"

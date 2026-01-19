@@ -1,23 +1,86 @@
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-added-large-files
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.14
-    hooks:
-      - id: ruff
-        args: [ --fix ]
-      - id: ruff-format
-
-  - repo: https://github.com/netromdk/vermin
-    rev: v1.6.0
-    hooks:
-      - id: vermin
-        args: ["--target=3.10-", "--violations", "."]
-        language: python
-        additional_dependencies: ['vermin']
+- hooks:
+  - id: check-toml
+  - id: check-docstring-first
+  - id: check-ast
+  - exclude: (^tests/mock/|^tests/integration/|^tests/fixtures)
+    id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-yaml
+  - id: check-toml
+  - id: check-added-large-files
+  - args:
+    - --pytest-test-first
+    exclude: (^tests/mock/|^tests/integration/|^tests/fixtures)
+    id: name-tests-test
+  - id: check-merge-conflict
+  - id: check-json
+  repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.3.0
+- hooks:
+  - id: add-trailing-comma
+  repo: https://github.com/asottile/add-trailing-comma
+  rev: v3.1.0
+- hooks:
+  - args:
+    - --autofix
+    - --indent
+    - '2'
+    files: ^.*\.yaml$
+    id: pretty-format-yaml
+  - args:
+    - --autofix
+    - --indent
+    - '2'
+    id: pretty-format-toml
+  repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
+  rev: v2.12.0
+- hooks:
+  - id: toml-sort
+  - id: toml-sort-fix
+  repo: https://github.com/pappasam/toml-sort
+  rev: v0.23.1
+- hooks:
+  - id: pycln
+    name: pycln
+    entry: pycln ./
+    language: system
+  repo: local
+- hooks:
+  - id: upgrade-type-hints
+  repo: https://github.com/sondrelg/pep585-upgrade
+  rev: v1.0.1
+- hooks:
+  - id: ruff
+    args: [--fix]
+  - id: ruff-format
+  repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.6.1
+- repo: https://github.com/RobertCraigie/pyright-python
+  rev: v1.1.380
+  hooks:
+  - id: pyright
+    types: [python]
+- repo: https://github.com/netromdk/vermin
+  rev: v1.6.0
+  hooks:
+  - id: vermin
+    args: [--target=3.10-, --violations, --eval-annotations, --backport typing_extensions, --exclude=venv, --exclude=build, --exclude=.git, --exclude=.venv, src, examples, tests]
+    language: python
+    additional_dependencies: [vermin]
+- repo: local
+  hooks:
+  - id: pytest-unit
+    name: unit tests
+    entry: pytest -c ./tests/pytest-config.ini ./tests/unit
+    language: system
+    types: [python]
+    pass_filenames: false
+    always_run: true
+  - id: pytest-integration
+    name: integration tests
+    entry: pytest -c ./tests/pytest-config.ini ./tests/integration
+    language: system
+    types: [python]
+    pass_filenames: false
+    always_run: true

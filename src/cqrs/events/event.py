@@ -10,7 +10,7 @@ import dotenv
 import pydantic
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    from typing import Self  # novm
 else:
     from typing_extensions import Self
 
