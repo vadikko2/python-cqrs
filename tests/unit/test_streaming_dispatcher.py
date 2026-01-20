@@ -4,6 +4,7 @@ from unittest import mock
 import pydantic
 import pytest
 
+import cqrs
 from cqrs.dispatcher import StreamingRequestDispatcher
 from cqrs.events import Event, NotificationEvent
 from cqrs.requests.map import RequestMap
@@ -29,7 +30,7 @@ class AsyncStreamingHandler(
         self._events: list[Event] = []
 
     @property
-    def events(self) -> list[Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:

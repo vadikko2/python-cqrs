@@ -16,7 +16,7 @@ class MockOutboxedEventRepository(repository.OutboxedEventRepository):
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def add(self, event: cqrs.NotificationEvent) -> None:
+    def add(self, event: cqrs.INotificationEvent) -> None:
         MockOutboxedEventRepository.COUNTER += 1
         self.session[MockOutboxedEventRepository.COUNTER] = repository.OutboxedEvent(
             id=MockOutboxedEventRepository.COUNTER,

@@ -1,13 +1,11 @@
 repos:
 - hooks:
-  - id: check-toml
   - id: check-docstring-first
   - id: check-ast
   - exclude: (^tests/mock/|^tests/integration/|^tests/fixtures)
     id: trailing-whitespace
   - id: end-of-file-fixer
   - id: check-yaml
-  - id: check-toml
   - id: check-added-large-files
   - args:
     - --pytest-test-first
@@ -21,25 +19,6 @@ repos:
   - id: add-trailing-comma
   repo: https://github.com/asottile/add-trailing-comma
   rev: v3.1.0
-- hooks:
-  - args:
-    - --autofix
-    - --indent
-    - '2'
-    files: ^.*\.yaml$
-    id: pretty-format-yaml
-  - args:
-    - --autofix
-    - --indent
-    - '2'
-    id: pretty-format-toml
-  repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.12.0
-- hooks:
-  - id: toml-sort
-  - id: toml-sort-fix
-  repo: https://github.com/pappasam/toml-sort
-  rev: v0.23.1
 - hooks:
   - id: pycln
     name: pycln
@@ -61,6 +40,13 @@ repos:
   hooks:
   - id: pyright
     types: [python]
+- repo: https://github.com/netromdk/vermin
+  rev: v1.6.0
+  hooks:
+  - id: vermin
+    args: [--target=3.10-, --violations, --eval-annotations, --backport typing_extensions, --exclude=venv, --exclude=build, --exclude=.git, --exclude=.venv, src, examples, tests]
+    language: python
+    additional_dependencies: [vermin]
 - repo: local
   hooks:
   - id: pytest-unit

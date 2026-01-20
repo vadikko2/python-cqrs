@@ -1,9 +1,9 @@
 import abc
 import typing
 
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 
-E = typing.TypeVar("E", bound=Event, contravariant=True)
+E = typing.TypeVar("E", bound=IEvent, contravariant=True)
 
 
 class EventHandler(abc.ABC, typing.Generic[E]):

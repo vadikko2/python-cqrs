@@ -244,7 +244,7 @@ class CoRMermaid:
         for response_type in sorted(response_types, key=lambda x: x.__name__):
             class_name = response_type.__name__
             lines.append(f"    class {class_name} {{")
-            # Try to get fields if it's a Pydantic model or dataclass
+            # Try to get fields from dataclass or model
             if hasattr(response_type, "__dataclass_fields__"):
                 fields = response_type.__dataclass_fields__
                 for field_name, field_info in fields.items():

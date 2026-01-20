@@ -1,7 +1,9 @@
 import asyncio
+import typing
 
 import pydantic
 
+import cqrs
 from cqrs.events import (
     DomainEvent,
     Event,
@@ -25,7 +27,7 @@ class ProcessItemsCommandHandler(RequestHandler[ProcessItemsCommand, None]):
         self._events: list[Event] = []
 
     @property
-    def events(self) -> list[Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:

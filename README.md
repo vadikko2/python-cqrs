@@ -10,6 +10,9 @@
   <h3>Event-Driven Architecture Framework for Distributed Systems</h3>
   <p>
     <a href="https://pypi.org/project/python-cqrs/">
+      <img src="https://img.shields.io/pypi/pyversions/python-cqrs?logo=python&logoColor=white" alt="Python Versions">
+    </a>
+    <a href="https://pypi.org/project/python-cqrs/">
       <img src="https://img.shields.io/pypi/v/python-cqrs?label=pypi&logo=pypi" alt="PyPI version">
     </a>
     <a href="https://pepy.tech/projects/python-cqrs">
@@ -17,6 +20,9 @@
     </a>
     <a href="https://pepy.tech/projects/python-cqrs">
       <img src="https://pepy.tech/badge/python-cqrs/month" alt="Downloads per month">
+    </a>
+    <a href="https://codecov.io/gh/vadikko2/python-cqrs">
+      <img src="https://img.shields.io/codecov/c/github/vadikko2/python-cqrs?logo=codecov&logoColor=white" alt="Coverage">
     </a>
     <a href="https://mkdocs.python-cqrs.dev/">
       <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
@@ -52,7 +58,8 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 11. Parallel event processing with configurable concurrency limits;
 12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence;
 13. Orchestrated Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms;
-14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization.
+14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization;
+15. Flexible Request and Response types support - use Pydantic-based or Dataclass-based implementations, with the ability to mix and match types based on your needs.
 
 ## Request Handlers
 
@@ -235,6 +242,61 @@ class_diagram = generator.class_diagram()
 ```
 
 Complete example: [CoR Mermaid Diagrams](https://github.com/vadikko2/cqrs/blob/master/examples/cor_mermaid.py)
+
+## Request and Response Types
+
+The library supports both Pydantic-based (`PydanticRequest`/`PydanticResponse`, aliased as `Request`/`Response`) and Dataclass-based (`DCRequest`/`DCResponse`) implementations. You can also implement custom classes by implementing the `IRequest`/`IResponse` interfaces directly.
+
+```python
+import dataclasses
+
+# Pydantic-based (default)
+class CreateUserCommand(cqrs.Request):
+    username: str
+    email: str
+
+class UserResponse(cqrs.Response):
+    user_id: str
+    username: str
+
+# Dataclass-based
+@dataclasses.dataclass
+class CreateProductCommand(cqrs.DCRequest):
+    name: str
+    price: float
+
+@dataclasses.dataclass
+class ProductResponse(cqrs.DCResponse):
+    product_id: str
+    name: str
+
+# Custom implementation
+class CustomRequest(cqrs.IRequest):
+    def __init__(self, user_id: str, action: str):
+        self.user_id = user_id
+        self.action = action
+
+    def to_dict(self) -> dict:
+        return {"user_id": self.user_id, "action": self.action}
+
+    @classmethod
+    def from_dict(cls, **kwargs) -> "CustomRequest":
+        return cls(user_id=kwargs["user_id"], action=kwargs["action"])
+
+class CustomResponse(cqrs.IResponse):
+    def __init__(self, result: str, status: int):
+        self.result = result
+        self.status = status
+
+    def to_dict(self) -> dict:
+        return {"result": self.result, "status": self.status}
+
+    @classmethod
+    def from_dict(cls, **kwargs) -> "CustomResponse":
+        return cls(result=kwargs["result"], status=kwargs["status"])
+```
+
+A complete example can be found in [request_response_types.py](https://github.com/vadikko2/cqrs/blob/master/examples/request_response_types.py)
 
 ## Saga Pattern
 
@@ -871,7 +933,7 @@ async def process_files_stream(
         async for result in mediator.stream(command):
             sse_data = {
                 "type": "progress",
-                "data": result.model_dump(),
+                "data": result.to_dict(),
             }
             yield f"data: {json.dumps(sse_data)}\n\n"
 

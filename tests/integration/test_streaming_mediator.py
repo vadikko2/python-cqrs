@@ -28,7 +28,7 @@ class ProcessItemsCommandHandler(
         self._processed_count = 0
 
     @property
-    def events(self) -> typing.List[events.Event]:
+    def events(self) -> typing.Sequence[events.IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:

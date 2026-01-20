@@ -1,9 +1,9 @@
 import typing
 
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 from cqrs.events import event_handler
 
-_KT = typing.TypeVar("_KT", bound=typing.Type[Event])
+_KT = typing.TypeVar("_KT", bound=typing.Type[IEvent])
 _VT: typing.TypeAlias = typing.List[typing.Type[event_handler.EventHandler]]
 
 

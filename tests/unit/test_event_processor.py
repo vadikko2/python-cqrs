@@ -67,7 +67,6 @@ async def test_event_processor_processes_events_parallel() -> None:
         _TestDomainEvent(item_id="2"),
         _TestDomainEvent(item_id="3"),
     ]
-
     await processor.emit_events(events)
 
     # Wait for background tasks to complete

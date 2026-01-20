@@ -7,12 +7,12 @@ It is placed at the bottom of the dependency hierarchy to avoid circular imports
 
 import typing
 
-from cqrs.requests.request import Request
-from cqrs.response import Response
+from cqrs.requests.request import IRequest
+from cqrs.response import IResponse
 
 # Type variable for request types (contravariant - can accept subtypes)
-ReqT = typing.TypeVar("ReqT", bound=Request, contravariant=True)
+ReqT = typing.TypeVar("ReqT", bound=IRequest, contravariant=True)
 
 # Type variable for response types (covariant - can return subtypes)
-# Can be Response or None
-ResT = typing.TypeVar("ResT", bound=Response | None, covariant=True)
+# Can be IResponse or None
+ResT = typing.TypeVar("ResT", bound=IResponse | None, covariant=True)
