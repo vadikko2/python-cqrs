@@ -36,9 +36,8 @@ jobs:
         ruff format --check src tests examples
 
     - name: Run pyright
-      if: matrix.python-version == '3.12'
       run: |
-        pyright src tests
+        pyright --pythonversion ${{ matrix.python-version }} src tests
 
     - name: Check minimum Python version (vermin)
       run: |

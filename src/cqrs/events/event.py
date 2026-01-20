@@ -246,7 +246,7 @@ class INotificationEvent(IEvent, typing.Generic[PayloadT]):
         event_timestamp: datetime.datetime
         event_name: str
         topic: str
-        payload: PayloadT
+        payload: PayloadT | None
 
         def proto(self) -> typing.Any: ...  # Method for protobuf representation
 
@@ -288,7 +288,7 @@ class DCNotificationEvent(
         default_factory=datetime.datetime.now,
     )
     topic: str = dataclasses.field(default=DEFAULT_OUTPUT_TOPIC)
-    payload: PayloadT = None  # type: ignore[assignment]
+    payload: PayloadT | None = None
 
     def proto(self) -> typing.Any:
         """
@@ -339,7 +339,7 @@ class PydanticNotificationEvent(
     event_name: typing.Text
     topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
 
-    payload: PayloadT = pydantic.Field(default=None)
+    payload: PayloadT | None = pydantic.Field(default=None)
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 

@@ -164,7 +164,8 @@ class SqlAlchemySagaStorage(ISagaStorage):
 
                 result = await session.execute(stmt)
 
-                if result.rowcount == 0:
+                # Type ignore: SQLAlchemy Result from update() has rowcount attribute
+                if result.rowcount == 0:  # type: ignore[attr-defined]
                     # Check if saga exists to distinguish between "not found" and "concurrency error"
                     # But for now, we assume if rowcount is 0 and we checked version, it's concurrency
                     if current_version is not None:
