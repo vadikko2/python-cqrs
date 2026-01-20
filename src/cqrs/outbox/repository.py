@@ -11,7 +11,7 @@ if sys.version_info >= (3, 11):
     StrEnum = enum.StrEnum  # novm
 else:
     # For Python 3.10 compatibility, use regular Enum with string values
-    class StrEnum(str, enum.Enum):
+    class StrEnum(str, enum.Enum):  # type: ignore[misc]
         """Compatible StrEnum for Python 3.10."""
 
         def __str__(self) -> str:

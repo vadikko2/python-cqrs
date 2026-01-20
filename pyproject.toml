@@ -59,7 +59,8 @@ examples = [
   "fastapi==0.109.*",
   "faststream[kafka]==0.5.28",
   "faker>=37.12.0",
-  "uvicorn==0.32.0"
+  "uvicorn==0.32.0",
+  "aiohttp==3.13.2"
 ]
 kafka = ["aiokafka==0.10.0"]
 protobuf = ["protobuf==4.25.5"]

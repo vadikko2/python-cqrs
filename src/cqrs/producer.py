@@ -48,12 +48,12 @@ class EventProducer:
                 return
             await self.repository.update_status(
                 event.id,
-                repository_protocol.EventStatus.NOT_PRODUCED,
+                repository_protocol.EventStatus.NOT_PRODUCED,  # type: ignore[arg-type]
             )
         else:
             if not self.repository:
                 return
             await self.repository.update_status(
                 event.id,
-                repository_protocol.EventStatus.PRODUCED,
+                repository_protocol.EventStatus.PRODUCED,  # type: ignore[arg-type]
             )
