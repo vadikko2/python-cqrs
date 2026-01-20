@@ -37,7 +37,7 @@ jobs:
 
     - name: Run pyright
       run: |
-        pyright --pythonversion ${{ matrix.python-version }} src tests
+        pyright --pythonversion ${{ matrix.python-version }} src tests examples
 
     - name: Check minimum Python version (vermin)
       run: |
