@@ -284,13 +284,12 @@ class DCNotificationEvent(
 
     event_name: str
     payload: PayloadT
-    
+
     event_id: uuid.UUID = dataclasses.field(default_factory=uuid.uuid4)
     event_timestamp: datetime.datetime = dataclasses.field(
         default_factory=datetime.datetime.now,
     )
     topic: str = dataclasses.field(default=DEFAULT_OUTPUT_TOPIC)
-    
 
     def proto(self) -> typing.Any:
         """
@@ -335,15 +334,13 @@ class PydanticNotificationEvent(
     """
 
     payload: PayloadT
-    
+
     event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
     event_timestamp: datetime.datetime = pydantic.Field(
         default_factory=datetime.datetime.now,
     )
     event_name: typing.Text
     topic: typing.Text = pydantic.Field(default=DEFAULT_OUTPUT_TOPIC)
-
-    
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
