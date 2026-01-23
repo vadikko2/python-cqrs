@@ -42,6 +42,7 @@ dev = [
   "ruff==0.6.2",
   "vermin>=1.6.0",
   "pytest-cov>=4.0.0",
+  "pytest-codspeed==4.2.0",
   # Tests
   "aio-pika==9.3.0",  # from rabbit
   "aiokafka==0.10.0",  # from kafka
