@@ -99,8 +99,8 @@ class StreamingItemHandler(
         self._events.clear()
 
     async def handle(  # type: ignore
-            self,
-            request: ProcessItemsCommand,
+        self,
+        request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
         self.called = True
         for item_id in request.item_ids:
@@ -164,7 +164,7 @@ class TestBootstrapStreamingWithDependencyInjector:
         mapper.bind(ItemProcessedDomainEvent, ItemProcessedEventHandler)
 
     async def test_bootstrap_streaming_with_dependency_injector_container(
-            self,
+        self,
     ) -> None:
         """
         Test that bootstrap_streaming works with DependencyInjectorCQRSContainer.
@@ -212,7 +212,7 @@ class TestBootstrapStreamingWithDependencyInjector:
         assert handler.item_service is item_service
 
     async def test_bootstrap_streaming_with_events_and_dependency_injection(
-            self,
+        self,
     ) -> None:
         """
         Test that bootstrap_streaming processes events with dependency injection.
@@ -239,8 +239,8 @@ class TestBootstrapStreamingWithDependencyInjector:
                 self._events.clear()
 
             async def handle(  # type: ignore
-                    self,
-                    request: ProcessItemsCommand,
+                self,
+                request: ProcessItemsCommand,
             ) -> typing.AsyncIterator[ProcessItemResult]:
                 for item_id in request.item_ids:
                     await self.item_service.process_item(item_id)
@@ -306,7 +306,7 @@ class TestBootstrapStreamingWithDependencyInjector:
         assert event_handler.event_logger is event_logger
 
     async def test_bootstrap_streaming_with_parallel_event_handling(
-            self,
+        self,
     ) -> None:
         """
         Test that bootstrap_streaming processes events in parallel with dependency injection.
@@ -333,8 +333,8 @@ class TestBootstrapStreamingWithDependencyInjector:
                 self._events.clear()
 
             async def handle(  # type: ignore
-                    self,
-                    request: ProcessItemsCommand,
+                self,
+                request: ProcessItemsCommand,
             ) -> typing.AsyncIterator[ProcessItemResult]:
                 for item_id in request.item_ids:
                     await self.item_service.process_item(item_id)
@@ -404,7 +404,7 @@ class TestBootstrapStreamingWithDependencyInjector:
         assert event_handler.event_logger is event_logger
 
     async def test_bootstrap_streaming_resolves_handlers_by_interface(
-            self,
+        self,
     ) -> None:
         """
         Test that bootstrap_streaming resolves handlers using interface-based resolution.
@@ -432,8 +432,8 @@ class TestBootstrapStreamingWithDependencyInjector:
                 self._events.clear()
 
             async def handle(  # type: ignore
-                    self,
-                    request: ProcessItemsCommand,
+                self,
+                request: ProcessItemsCommand,
             ) -> typing.AsyncIterator[ProcessItemResult]:
                 self.called = True
                 for item_id in request.item_ids:
@@ -477,7 +477,9 @@ class TestBootstrapStreamingWithDependencyInjector:
         # Verify handler was resolved and dependencies injected via interface
         # The handler should have been resolved during stream execution
         # We can verify this by checking that the item_service (singleton) was used
-        item_service = await cqrs_container.resolve(IItemService)  # Resolve via interface
+        item_service = await cqrs_container.resolve(
+            IItemService
+        )  # Resolve via interface
         assert isinstance(item_service, ItemService)  # Concrete implementation
         assert len(item_service.processed_items) == 2
         assert "item1" in item_service.processed_items
