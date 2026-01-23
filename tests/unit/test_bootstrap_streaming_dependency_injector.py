@@ -478,7 +478,7 @@ class TestBootstrapStreamingWithDependencyInjector:
         # The handler should have been resolved during stream execution
         # We can verify this by checking that the item_service (singleton) was used
         item_service = await cqrs_container.resolve(
-            IItemService
+            IItemService,
         )  # Resolve via interface
         assert isinstance(item_service, ItemService)  # Concrete implementation
         assert len(item_service.processed_items) == 2
