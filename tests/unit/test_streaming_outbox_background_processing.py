@@ -22,7 +22,7 @@ from collections import defaultdict
 import pydantic
 
 import cqrs
-from cqrs.events import DomainEvent, EventHandler, EventMap
+from cqrs.events import DomainEvent, EventHandler, Event
 from cqrs.events.event import IEvent
 from cqrs.message_brokers import devnull
 from cqrs.outbox import mock

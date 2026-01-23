@@ -203,7 +203,7 @@ class TestDependencyInjectorCQRSContainer:
             providers.Factory(
                 OverriddenUserService,
                 repository=container.user_repository,
-            )
+            ),
         )
 
         # Works: Resolve via abstract interface (inheritance match + override)
@@ -329,4 +329,3 @@ class TestDependencyInjectorCQRSContainer:
         assert service.initialized is True
         result = await service.do_work()
         assert result == "work done"
-
