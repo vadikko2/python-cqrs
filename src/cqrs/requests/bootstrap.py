@@ -232,9 +232,35 @@ def bootstrap(
     )
 
 
+@overload
 def setup_streaming_mediator(
     event_emitter: events.EventEmitter,
     container: di_container_impl.DIContainer,
+    middlewares: typing.Iterable[mediator_middlewares.Middleware],
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
+    domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    max_concurrent_event_handlers: int = 10,
+    concurrent_event_handle_enable: bool = True,
+) -> cqrs.StreamingRequestMediator: ...
+
+
+@overload
+def setup_streaming_mediator(
+    event_emitter: events.EventEmitter,
+    container: CQRSContainer,
+    middlewares: typing.Iterable[mediator_middlewares.Middleware],
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
+    domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    max_concurrent_event_handlers: int = 10,
+    concurrent_event_handle_enable: bool = True,
+) -> cqrs.StreamingRequestMediator: ...
+
+
+def setup_streaming_mediator(
+    event_emitter: events.EventEmitter,
+    container: di_container_impl.DIContainer | CQRSContainer,
     middlewares: typing.Iterable[mediator_middlewares.Middleware],
     commands_mapper: typing.Callable[[RequestMap], None] | None = None,
     queries_mapper: typing.Callable[[RequestMap], None] | None = None,
@@ -268,8 +294,36 @@ def setup_streaming_mediator(
     )
 
 
+@overload
 def bootstrap_streaming(
     di_container: di.Container,
+    message_broker: protocol.MessageBroker | None = None,
+    middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
+    on_startup: typing.List[typing.Callable[[], None]] | None = None,
+    max_concurrent_event_handlers: int = 10,
+    concurrent_event_handle_enable: bool = False,
+) -> cqrs.StreamingRequestMediator: ...
+
+
+@overload
+def bootstrap_streaming(
+    di_container: CQRSContainer,
+    message_broker: protocol.MessageBroker | None = None,
+    middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
+    commands_mapper: typing.Callable[[RequestMap], None] | None = None,
+    domain_events_mapper: typing.Callable[[events.EventMap], None] | None = None,
+    queries_mapper: typing.Callable[[RequestMap], None] | None = None,
+    on_startup: typing.List[typing.Callable[[], None]] | None = None,
+    max_concurrent_event_handlers: int = 10,
+    concurrent_event_handle_enable: bool = False,
+) -> cqrs.StreamingRequestMediator: ...
+
+
+def bootstrap_streaming(
+    di_container: di.Container | CQRSContainer,
     message_broker: protocol.MessageBroker | None = None,
     middlewares: typing.Sequence[mediator_middlewares.Middleware] | None = None,
     commands_mapper: typing.Callable[[RequestMap], None] | None = None,
@@ -287,8 +341,15 @@ def bootstrap_streaming(
     for fun in on_startup:
         fun()
 
-    container = di_container_impl.DIContainer()
-    container.attach_external_container(di_container)
+    # If the provided container is a container implemented using di package,
+    # we need to wrap it into our own container
+    if isinstance(di_container, di.Container):
+        container = di_container_impl.DIContainer()
+        container.attach_external_container(di_container)
+
+    # Otherwise, we can use the provided container directly
+    else:
+        container = di_container
 
     event_emitter = setup_event_emitter(
         container,
