@@ -1,4 +1,5 @@
 """Benchmarks for serialization and deserialization performance."""
+
 import dataclasses
 
 import cqrs

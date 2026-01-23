@@ -1,4 +1,5 @@
 """Benchmarks for request handling performance."""
+
 import dataclasses
 import typing
 from collections import defaultdict

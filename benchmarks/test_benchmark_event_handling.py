@@ -1,4 +1,5 @@
 """Benchmarks for event handling performance."""
+
 import dataclasses
 import typing
 
@@ -49,8 +50,7 @@ def test_benchmark_event_processing(benchmark, event_mediator):
 def test_benchmark_multiple_events(benchmark, event_mediator):
     """Benchmark processing multiple events in sequence."""
     events = [
-        UserJoinedEvent(user_id=f"user_{i}", meeting_id="meeting_1")
-        for i in range(10)
+        UserJoinedEvent(user_id=f"user_{i}", meeting_id="meeting_1") for i in range(10)
     ]
 
     async def run():
