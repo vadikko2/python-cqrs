@@ -9,7 +9,7 @@ import pytest
 from cqrs.events import bootstrap
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class UserJoinedEvent(cqrs.DCEvent):
     user_id: str
     meeting_id: str
