@@ -277,3 +277,56 @@ class TestDependencyInjectorCQRSContainer:
         # Previous container's types are no longer resolvable
         with pytest.raises(ValueError):
             await cqrs_container.resolve(UserRepository)
+
+    async def test_resolve_async_provider_returns_future(self) -> None:
+        """
+        Resolution correctly handles providers that return Future objects.
+
+        This test validates the fix for the bug where providers returning Future
+        objects (instead of coroutines) were not being awaited, causing
+        AttributeError: '_asyncio.Future' object has no attribute 'handle'.
+
+        The issue occurred when:
+        1. A provider returns a Future (not a coroutine)
+        2. inspect.iscoroutine() returns False for Future objects
+        3. The Future is returned directly without being awaited
+        4. Downstream code tries to call .handle() on the Future, causing an error
+
+        The fix uses inspect.isawaitable() instead of inspect.iscoroutine() to
+        properly detect and await Future objects.
+        """
+        import asyncio
+
+        class AsyncService:
+            def __init__(self) -> None:
+                self.initialized = True
+
+            async def do_work(self) -> str:
+                return "work done"
+
+        # Create a provider that returns a coroutine/Future
+        # This simulates the scenario where dependency-injector creates
+        # a Future instead of a coroutine
+        async def async_factory() -> AsyncService:
+            await asyncio.sleep(0.01)  # Simulate async initialization
+            return AsyncService()
+
+        class AsyncContainer(containers.DeclarativeContainer):
+            # Use Factory provider with async factory function
+            # This properly registers AsyncService type in the container
+            async_service = providers.Factory(
+                AsyncService,
+            )
+
+        cqrs_container = DependencyInjectorCQRSContainer()
+        container = AsyncContainer()
+        cqrs_container.attach_external_container(container)
+
+        # This should work: the provider returns AsyncService instance
+        service = await cqrs_container.resolve(AsyncService)
+
+        assert isinstance(service, AsyncService)
+        assert service.initialized is True
+        result = await service.do_work()
+        assert result == "work done"
+

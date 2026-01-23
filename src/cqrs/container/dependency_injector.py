@@ -189,7 +189,13 @@ class DependencyInjectorCQRSContainer(
             ...         return await service.create_user(request.name)
         """
         provider = self._get_provider(type_)
-        return provider()
+        result = provider()
+        # If provider returns a coroutine or Future (async provider), await it
+        # Note: inspect.iscoroutine() only checks for coroutines, not Futures/Tasks
+        # We need to check for any awaitable object
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     def _traverse_container(
         self,
