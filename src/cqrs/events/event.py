@@ -1,5 +1,6 @@
 import abc
 import dataclasses
+from dataclass_wizard import fromdict, asdict
 import datetime
 import os
 import typing
@@ -92,7 +93,7 @@ class DCEvent(IEvent):
         Returns:
             A new instance of the event class.
         """
-        return cls(**kwargs)
+        return fromdict(cls, kwargs)
 
     def to_dict(self) -> dict:
         """
@@ -101,7 +102,7 @@ class DCEvent(IEvent):
         Returns:
             A dictionary containing all fields of the dataclass instance.
         """
-        return dataclasses.asdict(self)
+        return asdict(self)
 
 
 class PydanticEvent(pydantic.BaseModel, IEvent, frozen=True):
