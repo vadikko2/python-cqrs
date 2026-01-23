@@ -24,6 +24,9 @@
     <a href="https://codecov.io/gh/vadikko2/python-cqrs">
       <img src="https://img.shields.io/codecov/c/github/vadikko2/python-cqrs?logo=codecov&logoColor=white" alt="Coverage">
     </a>
+    <a href="https://codspeed.io/vadikko2/python-cqrs?utm_source=badge">
+      <img src="https://img.shields.io/endpoint?url=https://codspeed.io/badge.json" alt="CodSpeed">
+    </a>
     <a href="https://mkdocs.python-cqrs.dev/">
       <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
     </a>
@@ -928,16 +931,16 @@ async def process_files_stream(
     mediator: cqrs.StreamingRequestMediator = fastapi.Depends(streaming_mediator_factory),
 ) -> fastapi.responses.StreamingResponse:
     async def generate_sse():
-        yield f"data: {json.dumps({'type': 'start', 'message': 'Processing...'})}\n\n"
+        yield f"data: {json.dumps({'type': 'start', 'message': 'Processing...'})}\\n\\n"
 
         async for result in mediator.stream(command):
             sse_data = {
                 "type": "progress",
                 "data": result.to_dict(),
             }
-            yield f"data: {json.dumps(sse_data)}\n\n"
+            yield f"data: {json.dumps(sse_data)}\\n\\n"
 
-        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+        yield f"data: {json.dumps({'type': 'complete'})}\\n\\n"
 
     return fastapi.responses.StreamingResponse(
         generate_sse(),
@@ -950,8 +953,8 @@ the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/fastap
 
 ## Protobuf messaging
 
-The `python-cqrs` package supports integration with [protobuf](https://developers.google.com/protocol-buffers/).\
-Protocol buffers are Google’s language-neutral, platform-neutral, extensible mechanism for serializing structured data –
+The `python-cqrs` package supports integration with [protobuf](https://developers.google.com/protocol-buffers/).\\
+Protocol buffers are Google's language-neutral, platform-neutral, extensible mechanism for serializing structured data –
 think XML, but smaller, faster, and simpler. You define how you want your data to be structured once, then you can use
 special generated source code to easily write and read your structured data to and from a variety of data streams and
 using a variety of languages.
