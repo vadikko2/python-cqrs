@@ -1,26 +1,29 @@
 """Benchmarks for request handling performance."""
+import dataclasses
 import typing
 from collections import defaultdict
 
+import cqrs
 import di
 import pytest
-
-import cqrs
 from cqrs.requests import bootstrap
 
 STORAGE = defaultdict[str, typing.List[str]](lambda: [])
 
 
-class JoinMeetingCommand(cqrs.Request):
+@dataclasses.dataclass
+class JoinMeetingCommand(cqrs.DCRequest):
     user_id: str
     meeting_id: str
 
 
-class ReadMeetingQuery(cqrs.Request):
+@dataclasses.dataclass
+class ReadMeetingQuery(cqrs.DCRequest):
     meeting_id: str
 
 
-class ReadMeetingQueryResult(cqrs.Response):
+@dataclasses.dataclass
+class ReadMeetingQueryResult(cqrs.DCResponse):
     users: list[str]
 
 
@@ -65,10 +68,10 @@ def mediator():
 def test_benchmark_command_handling(benchmark, mediator):
     """Benchmark command handling performance."""
     command = JoinMeetingCommand(user_id="user_1", meeting_id="meeting_1")
-    
+
     async def run():
         await mediator.send(command)
-    
+
     benchmark(lambda: run())
 
 
@@ -78,10 +81,10 @@ def test_benchmark_query_handling(benchmark, mediator):
     # Setup: Add some data first
     STORAGE["meeting_1"] = ["user_1", "user_2", "user_3"]
     query = ReadMeetingQuery(meeting_id="meeting_1")
-    
+
     async def run():
         return await mediator.send(query)
-    
+
     benchmark(lambda: run())
 
 
@@ -92,9 +95,9 @@ def test_benchmark_multiple_commands(benchmark, mediator):
         JoinMeetingCommand(user_id=f"user_{i}", meeting_id="meeting_2")
         for i in range(10)
     ]
-    
+
     async def run():
         for cmd in commands:
             await mediator.send(cmd)
-    
+
     benchmark(lambda: run())

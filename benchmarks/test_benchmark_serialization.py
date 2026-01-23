@@ -1,17 +1,20 @@
 """Benchmarks for serialization and deserialization performance."""
-import pytest
+import dataclasses
 
 import cqrs
+import pytest
 
 
-class SampleRequest(cqrs.Request):
+@dataclasses.dataclass
+class SampleRequest(cqrs.DCRequest):
     field1: str
     field2: int
     field3: list[str]
     field4: dict[str, int]
 
 
-class SampleResponse(cqrs.Response):
+@dataclasses.dataclass
+class SampleResponse(cqrs.DCResponse):
     result: str
     data: dict[str, str]
 
@@ -25,7 +28,7 @@ def test_benchmark_request_to_dict(benchmark):
         field3=["a", "b", "c"],
         field4={"key1": 1, "key2": 2},
     )
-    
+
     benchmark(lambda: request.to_dict())
 
 
@@ -38,7 +41,7 @@ def test_benchmark_request_from_dict(benchmark):
         "field3": ["a", "b", "c"],
         "field4": {"key1": 1, "key2": 2},
     }
-    
+
     benchmark(lambda: SampleRequest.from_dict(**data))
 
 
@@ -49,7 +52,7 @@ def test_benchmark_response_to_dict(benchmark):
         result="success",
         data={"key1": "value1", "key2": "value2"},
     )
-    
+
     benchmark(lambda: response.to_dict())
 
 
@@ -60,18 +63,18 @@ def test_benchmark_response_from_dict(benchmark):
         "result": "success",
         "data": {"key1": "value1", "key2": "value2"},
     }
-    
+
     benchmark(lambda: SampleResponse.from_dict(**data))
 
 
 @pytest.mark.benchmark
 def test_benchmark_complex_nested_structure(benchmark):
     """Benchmark serialization of complex nested structures."""
-    
+
     class NestedRequest(cqrs.Request):
         level1: dict[str, list[dict[str, str]]]
         level2: list[dict[str, int]]
-    
+
     request = NestedRequest(
         level1={
             "group1": [{"name": "item1", "value": "val1"}] * 5,
@@ -79,5 +82,5 @@ def test_benchmark_complex_nested_structure(benchmark):
         },
         level2=[{"counter": i} for i in range(10)],
     )
-    
+
     benchmark(lambda: request.to_dict())

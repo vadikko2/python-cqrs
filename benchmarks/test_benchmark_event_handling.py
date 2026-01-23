@@ -1,14 +1,15 @@
 """Benchmarks for event handling performance."""
+import dataclasses
 import typing
 
+import cqrs
 import di
 import pytest
-
-import cqrs
 from cqrs.events import bootstrap
 
 
-class UserJoinedEvent(cqrs.Event):
+@dataclasses.dataclass
+class UserJoinedEvent(cqrs.DCEvent):
     user_id: str
     meeting_id: str
 
@@ -37,10 +38,10 @@ def event_mediator():
 def test_benchmark_event_processing(benchmark, event_mediator):
     """Benchmark event processing performance."""
     event = UserJoinedEvent(user_id="user_1", meeting_id="meeting_1")
-    
+
     async def run():
         await event_mediator.send(event)
-    
+
     benchmark(lambda: run())
 
 
@@ -51,18 +52,18 @@ def test_benchmark_multiple_events(benchmark, event_mediator):
         UserJoinedEvent(user_id=f"user_{i}", meeting_id="meeting_1")
         for i in range(10)
     ]
-    
+
     async def run():
         for evt in events:
             await event_mediator.send(evt)
-    
+
     benchmark(lambda: run())
 
 
 @pytest.mark.benchmark
 def test_benchmark_notification_event(benchmark):
     """Benchmark notification event creation and serialization."""
-    
+
     def run():
         event = cqrs.NotificationEvent[UserJoinedEvent](
             event_name="UserJoined",
@@ -70,5 +71,5 @@ def test_benchmark_notification_event(benchmark):
             payload=UserJoinedEvent(user_id="user_1", meeting_id="meeting_1"),
         )
         return event.to_dict()
-    
+
     benchmark(run)
