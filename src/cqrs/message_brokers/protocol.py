@@ -2,6 +2,7 @@ import abc
 import dataclasses
 import typing
 import uuid
+from dataclass_wizard import asdict
 
 
 @dataclasses.dataclass
@@ -28,7 +29,7 @@ class Message:
         Returns:
             A dictionary containing all fields of the message instance.
         """
-        return dataclasses.asdict(self)
+        return asdict(self)
 
 
 class MessageBroker(abc.ABC):

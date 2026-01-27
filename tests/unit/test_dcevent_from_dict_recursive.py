@@ -13,7 +13,7 @@ import uuid
 
 import pytest
 
-from cqrs.events.event import DCEvent, DCDomainEvent, DCNotificationEvent
+from cqrs.events.event import DCDomainEvent, DCNotificationEvent
 
 
 # ============================================================================
@@ -22,7 +22,7 @@ from cqrs.events.event import DCEvent, DCDomainEvent, DCNotificationEvent
 
 
 @dataclasses.dataclass(frozen=True)
-class NestedData(DCEvent):
+class NestedData:
     """Nested dataclass for testing recursive conversion."""
 
     nested_id: uuid.UUID
