@@ -13,7 +13,7 @@ import uuid
 
 import pytest
 
-from cqrs.events.event import DCEvent, DCDomainEvent, DCNotificationEvent
+from cqrs.events.event import DCDomainEvent, DCNotificationEvent
 
 
 # ============================================================================
