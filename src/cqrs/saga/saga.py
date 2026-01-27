@@ -302,6 +302,8 @@ class SagaTransaction(typing.Generic[ContextT]):
 
                 yield step_result
 
+            # Update context one final time before marking as completed
+            await self._state_manager.update_context(self._context)
             await self._state_manager.update_status(SagaStatus.COMPLETED)
 
         except Exception as e:
