@@ -1,8 +1,10 @@
 import datetime
 import logging
+import os
 import typing
 import uuid
 
+import dotenv
 import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,12 +19,23 @@ from cqrs.saga.storage.protocol import ISagaStorage
 Base = registry().generate_base()
 logger = logging.getLogger(__name__)
 
+dotenv.load_dotenv()
+
 DEFAULT_SAGA_EXECUTION_TABLE_NAME = "saga_executions"
 DEFAULT_SAGA_LOG_TABLE_NAME = "saga_logs"
 
+SAGA_EXECUTION_TABLE_NAME = os.getenv(
+    "CQRS_SAGA_EXECUTION_TABLE_NAME",
+    DEFAULT_SAGA_EXECUTION_TABLE_NAME,
+)
+SAGA_LOG_TABLE_NAME = os.getenv(
+    "CQRS_SAGA_LOG_TABLE_NAME",
+    DEFAULT_SAGA_LOG_TABLE_NAME,
+)
+
 
 class SagaExecutionModel(Base):
-    __tablename__ = DEFAULT_SAGA_EXECUTION_TABLE_NAME
+    __tablename__ = SAGA_EXECUTION_TABLE_NAME
 
     id = sqlalchemy.Column(
         sqlalchemy.Uuid,
@@ -68,7 +81,7 @@ class SagaExecutionModel(Base):
 
 
 class SagaLogModel(Base):
-    __tablename__ = DEFAULT_SAGA_LOG_TABLE_NAME
+    __tablename__ = SAGA_LOG_TABLE_NAME
 
     id = sqlalchemy.Column(
         sqlalchemy.BigInteger(),
@@ -80,7 +93,7 @@ class SagaLogModel(Base):
     )
     saga_id = sqlalchemy.Column(
         sqlalchemy.Uuid,
-        sqlalchemy.ForeignKey(f"{DEFAULT_SAGA_EXECUTION_TABLE_NAME}.id"),
+        sqlalchemy.ForeignKey(f"{SAGA_EXECUTION_TABLE_NAME}.id"),
         nullable=False,
         comment="Saga ID",
     )
