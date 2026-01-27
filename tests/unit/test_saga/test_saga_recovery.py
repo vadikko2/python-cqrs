@@ -274,7 +274,7 @@ async def test_recover_saga_raises_on_context_reconstruction_failure(
 
     # Should raise MissingFields when required fields are missing
     from dataclass_wizard.errors import MissingFields
-    
+
     with pytest.raises(MissingFields):
         await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
