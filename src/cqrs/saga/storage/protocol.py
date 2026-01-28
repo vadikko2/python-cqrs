@@ -90,9 +90,10 @@ class ISagaStorage(abc.ABC):
                 updated). None means no staleness filter (backward compatible).
 
         Returns:
-            List of saga IDs (RUNNING, COMPENSATING, or FAILED), ordered by
-            updated_at ascending, with recovery_attempts < max_recovery_attempts,
-            and optionally updated_at older than the staleness threshold.
+            List of saga IDs (RUNNING or COMPENSATING only; FAILED sagas are
+            not included), ordered by updated_at ascending, with
+            recovery_attempts < max_recovery_attempts, and optionally
+            updated_at older than the staleness threshold.
         """
 
     @abc.abstractmethod

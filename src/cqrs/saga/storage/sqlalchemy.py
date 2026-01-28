@@ -321,7 +321,6 @@ class SqlAlchemySagaStorage(ISagaStorage):
         recoverable = (
             SagaStatus.RUNNING,
             SagaStatus.COMPENSATING,
-            SagaStatus.FAILED,
         )
         async with self.session_factory() as session:
             stmt = (

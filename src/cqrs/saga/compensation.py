@@ -54,6 +54,14 @@ class SagaCompensator(typing.Generic[ContextT]):
         """
         await self._storage.update_status(self._saga_id, SagaStatus.COMPENSATING)
 
+        if not completed_steps:
+            logger.info(
+                f"Saga {self._saga_id}: completed_steps is empty, "
+                "skipping compensation (no step.compensate() will be called).",
+            )
+            await self._storage.update_status(self._saga_id, SagaStatus.FAILED)
+            return
+
         # Load history to skip already compensated steps
         history = await self._storage.get_step_history(self._saga_id)
         compensated_steps = {
