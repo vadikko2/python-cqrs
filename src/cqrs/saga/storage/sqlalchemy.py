@@ -78,6 +78,13 @@ class SagaExecutionModel(Base):
         onupdate=func.now(),
         comment="Last update timestamp",
     )
+    recovery_attempts = sqlalchemy.Column(
+        sqlalchemy.Integer,
+        nullable=False,
+        default=0,
+        server_default=sqlalchemy.text("0"),
+        comment="Number of recovery attempts",
+    )
 
 
 class SagaLogModel(Base):
@@ -143,6 +150,7 @@ class SqlAlchemySagaStorage(ISagaStorage):
                     status=SagaStatus.PENDING,
                     context=context,
                     version=1,
+                    recovery_attempts=0,
                 )
                 session.add(execution)
                 await session.commit()
@@ -303,3 +311,57 @@ class SqlAlchemySagaStorage(ISagaStorage):
                 )
                 for row in rows
             ]
+
+    async def get_sagas_for_recovery(
+        self,
+        limit: int,
+        max_recovery_attempts: int = 5,
+        stale_after_seconds: int | None = None,
+    ) -> list[uuid.UUID]:
+        recoverable = (
+            SagaStatus.RUNNING,
+            SagaStatus.COMPENSATING,
+            SagaStatus.FAILED,
+        )
+        async with self.session_factory() as session:
+            stmt = (
+                sqlalchemy.select(SagaExecutionModel.id)
+                .where(SagaExecutionModel.status.in_(recoverable))
+                .where(SagaExecutionModel.recovery_attempts < max_recovery_attempts)
+            )
+            if stale_after_seconds is not None:
+                threshold = datetime.datetime.now(
+                    datetime.timezone.utc,
+                ) - datetime.timedelta(
+                    seconds=stale_after_seconds,
+                )
+                stmt = stmt.where(SagaExecutionModel.updated_at < threshold)
+            stmt = stmt.order_by(SagaExecutionModel.updated_at.asc()).limit(limit)
+            result = await session.execute(stmt)
+            rows = result.scalars().all()
+            return [typing.cast(uuid.UUID, row) for row in rows]
+
+    async def increment_recovery_attempts(
+        self,
+        saga_id: uuid.UUID,
+        new_status: SagaStatus | None = None,
+    ) -> None:
+        async with self.session_factory() as session:
+            try:
+                values: dict[str, typing.Any] = {
+                    "recovery_attempts": SagaExecutionModel.recovery_attempts + 1,
+                    "version": SagaExecutionModel.version + 1,
+                }
+                if new_status is not None:
+                    values["status"] = new_status
+                result = await session.execute(
+                    sqlalchemy.update(SagaExecutionModel)
+                    .where(SagaExecutionModel.id == saga_id)
+                    .values(**values),
+                )
+                if result.rowcount == 0:  # type: ignore[attr-defined]
+                    raise ValueError(f"Saga {saga_id} not found")
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
