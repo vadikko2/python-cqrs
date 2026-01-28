@@ -234,6 +234,14 @@ class SagaTransaction(typing.Generic[ContextT]):
                         for step in reconstructed_steps
                     ]
 
+                    if not self._completed_steps:
+                        logger.warning(
+                            f"Saga {self._saga_id}: no completed steps to compensate "
+                            "(saga failed before any step finished 'act', or step names in "
+                            "storage do not match saga step class names). "
+                            "Marking as FAILED without calling compensate().",
+                        )
+
                     # Immediately proceed to compensation - no forward execution
                     await self._compensate()
 

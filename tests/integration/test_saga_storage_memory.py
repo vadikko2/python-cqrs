@@ -172,7 +172,7 @@ class TestRecoveryMemory:
         storage: MemorySagaStorage,
         test_context: dict[str, str],
     ) -> None:
-        """Positive: returns RUNNING, COMPENSATING, FAILED sagas only."""
+        """Positive: returns RUNNING and COMPENSATING sagas only; FAILED excluded."""
         id1, id2, id3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
         for sid in (id1, id2, id3):
             await storage.create_saga(saga_id=sid, name="saga", context=test_context)
@@ -181,8 +181,9 @@ class TestRecoveryMemory:
         await storage.update_status(id3, SagaStatus.FAILED)
 
         ids = await storage.get_sagas_for_recovery(limit=10)
-        assert set(ids) == {id1, id2, id3}
-        assert len(ids) == 3
+        assert set(ids) == {id1, id2}
+        assert id3 not in ids
+        assert len(ids) == 2
 
     async def test_get_sagas_for_recovery_respects_limit(
         self,

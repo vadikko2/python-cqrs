@@ -123,7 +123,7 @@ class MemorySagaStorage(ISagaStorage):
         max_recovery_attempts: int = 5,
         stale_after_seconds: int | None = None,
     ) -> list[uuid.UUID]:
-        recoverable = (SagaStatus.RUNNING, SagaStatus.COMPENSATING, SagaStatus.FAILED)
+        recoverable = (SagaStatus.RUNNING, SagaStatus.COMPENSATING)
         now = datetime.datetime.now(datetime.timezone.utc)
         threshold = (
             (now - datetime.timedelta(seconds=stale_after_seconds))
