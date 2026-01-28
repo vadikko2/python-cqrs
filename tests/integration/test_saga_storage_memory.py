@@ -283,6 +283,49 @@ class TestRecoveryMemory:
         ids = await storage.get_sagas_for_recovery(limit=10)
         assert sid in ids
 
+    async def test_get_sagas_for_recovery_filters_by_saga_name_when_provided(
+        self,
+        storage: MemorySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: when saga_name is set, only sagas with that name are returned."""
+        id_foo1 = uuid.uuid4()
+        id_foo2 = uuid.uuid4()
+        id_bar = uuid.uuid4()
+        await storage.create_saga(saga_id=id_foo1, name="OrderSaga", context=test_context)
+        await storage.create_saga(saga_id=id_foo2, name="OrderSaga", context=test_context)
+        await storage.create_saga(saga_id=id_bar, name="PaymentSaga", context=test_context)
+        await storage.update_status(id_foo1, SagaStatus.RUNNING)
+        await storage.update_status(id_foo2, SagaStatus.RUNNING)
+        await storage.update_status(id_bar, SagaStatus.RUNNING)
+
+        ids_all = await storage.get_sagas_for_recovery(limit=10)
+        assert len(ids_all) == 3
+        ids_order = await storage.get_sagas_for_recovery(limit=10, saga_name="OrderSaga")
+        assert set(ids_order) == {id_foo1, id_foo2}
+        ids_payment = await storage.get_sagas_for_recovery(limit=10, saga_name="PaymentSaga")
+        assert ids_payment == [id_bar]
+        ids_nonexistent = await storage.get_sagas_for_recovery(
+            limit=10,
+            saga_name="NonExistentSaga",
+        )
+        assert ids_nonexistent == []
+
+    async def test_get_sagas_for_recovery_saga_name_none_returns_all_types(
+        self,
+        storage: MemorySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Backward compat: when saga_name is None, all saga types are returned."""
+        id1 = uuid.uuid4()
+        id2 = uuid.uuid4()
+        await storage.create_saga(saga_id=id1, name="SagaA", context=test_context)
+        await storage.create_saga(saga_id=id2, name="SagaB", context=test_context)
+        await storage.update_status(id1, SagaStatus.RUNNING)
+        await storage.update_status(id2, SagaStatus.RUNNING)
+        ids = await storage.get_sagas_for_recovery(limit=10, saga_name=None)
+        assert set(ids) == {id1, id2}
+
     # --- get_sagas_for_recovery: negative ---
 
     async def test_get_sagas_for_recovery_empty_when_none_recoverable(
@@ -377,3 +420,49 @@ class TestRecoveryMemory:
         unknown_id = uuid.uuid4()
         with pytest.raises(ValueError, match="not found"):
             await storage.increment_recovery_attempts(unknown_id)
+
+    # --- set_recovery_attempts: positive ---
+
+    async def test_set_recovery_attempts_sets_value(
+        self,
+        storage: MemorySagaStorage,
+        saga_id: uuid.UUID,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: recovery_attempts is set to the given value."""
+        await storage.create_saga(saga_id=saga_id, name="saga", context=test_context)
+        await storage.update_status(saga_id, SagaStatus.RUNNING)
+        await storage.increment_recovery_attempts(saga_id)
+        await storage.increment_recovery_attempts(saga_id)
+        assert storage._sagas[saga_id]["recovery_attempts"] == 2
+
+        await storage.set_recovery_attempts(saga_id, 0)
+        assert storage._sagas[saga_id]["recovery_attempts"] == 0
+
+        await storage.set_recovery_attempts(saga_id, 5)
+        assert storage._sagas[saga_id]["recovery_attempts"] == 5
+
+    async def test_set_recovery_attempts_excludes_from_recovery_when_set_to_max(
+        self,
+        storage: MemorySagaStorage,
+        saga_id: uuid.UUID,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: setting to max_recovery_attempts excludes saga from get_sagas_for_recovery."""
+        await storage.create_saga(saga_id=saga_id, name="saga", context=test_context)
+        await storage.update_status(saga_id, SagaStatus.RUNNING)
+        await storage.set_recovery_attempts(saga_id, 5)
+
+        ids = await storage.get_sagas_for_recovery(limit=10, max_recovery_attempts=5)
+        assert saga_id not in ids
+
+    # --- set_recovery_attempts: negative ---
+
+    async def test_set_recovery_attempts_raises_when_saga_not_found(
+        self,
+        storage: MemorySagaStorage,
+    ) -> None:
+        """Negative: raises ValueError when saga_id does not exist."""
+        unknown_id = uuid.uuid4()
+        with pytest.raises(ValueError, match="not found"):
+            await storage.set_recovery_attempts(unknown_id, 0)

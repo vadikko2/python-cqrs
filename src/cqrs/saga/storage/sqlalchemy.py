@@ -317,6 +317,7 @@ class SqlAlchemySagaStorage(ISagaStorage):
         limit: int,
         max_recovery_attempts: int = 5,
         stale_after_seconds: int | None = None,
+        saga_name: str | None = None,
     ) -> list[uuid.UUID]:
         recoverable = (
             SagaStatus.RUNNING,
@@ -328,6 +329,8 @@ class SqlAlchemySagaStorage(ISagaStorage):
                 .where(SagaExecutionModel.status.in_(recoverable))
                 .where(SagaExecutionModel.recovery_attempts < max_recovery_attempts)
             )
+            if saga_name is not None:
+                stmt = stmt.where(SagaExecutionModel.name == saga_name)
             if stale_after_seconds is not None:
                 threshold = datetime.datetime.now(
                     datetime.timezone.utc,
@@ -357,6 +360,28 @@ class SqlAlchemySagaStorage(ISagaStorage):
                     sqlalchemy.update(SagaExecutionModel)
                     .where(SagaExecutionModel.id == saga_id)
                     .values(**values),
+                )
+                if result.rowcount == 0:  # type: ignore[attr-defined]
+                    raise ValueError(f"Saga {saga_id} not found")
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+
+    async def set_recovery_attempts(
+        self,
+        saga_id: uuid.UUID,
+        attempts: int,
+    ) -> None:
+        async with self.session_factory() as session:
+            try:
+                result = await session.execute(
+                    sqlalchemy.update(SagaExecutionModel)
+                    .where(SagaExecutionModel.id == saga_id)
+                    .values(
+                        recovery_attempts=attempts,
+                        version=SagaExecutionModel.version + 1,
+                    ),
                 )
                 if result.rowcount == 0:  # type: ignore[attr-defined]
                     raise ValueError(f"Saga {saga_id} not found")
