@@ -293,13 +293,19 @@ class TestRecoveryMemory:
         id_foo2 = uuid.uuid4()
         id_bar = uuid.uuid4()
         await storage.create_saga(
-            saga_id=id_foo1, name="OrderSaga", context=test_context
+            saga_id=id_foo1,
+            name="OrderSaga",
+            context=test_context,
         )
         await storage.create_saga(
-            saga_id=id_foo2, name="OrderSaga", context=test_context
+            saga_id=id_foo2,
+            name="OrderSaga",
+            context=test_context,
         )
         await storage.create_saga(
-            saga_id=id_bar, name="PaymentSaga", context=test_context
+            saga_id=id_bar,
+            name="PaymentSaga",
+            context=test_context,
         )
         await storage.update_status(id_foo1, SagaStatus.RUNNING)
         await storage.update_status(id_foo2, SagaStatus.RUNNING)
@@ -308,11 +314,13 @@ class TestRecoveryMemory:
         ids_all = await storage.get_sagas_for_recovery(limit=10)
         assert len(ids_all) == 3
         ids_order = await storage.get_sagas_for_recovery(
-            limit=10, saga_name="OrderSaga"
+            limit=10,
+            saga_name="OrderSaga",
         )
         assert set(ids_order) == {id_foo1, id_foo2}
         ids_payment = await storage.get_sagas_for_recovery(
-            limit=10, saga_name="PaymentSaga"
+            limit=10,
+            saga_name="PaymentSaga",
         )
         assert ids_payment == [id_bar]
         ids_nonexistent = await storage.get_sagas_for_recovery(
