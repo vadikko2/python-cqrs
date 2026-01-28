@@ -1,13 +1,20 @@
 """Integration tests for SqlAlchemySagaStorage."""
 
+import asyncio
 import uuid
+from collections.abc import AsyncGenerator
 
 import pytest
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from cqrs.dispatcher.exceptions import SagaConcurrencyError
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
-from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
+from cqrs.saga.storage.sqlalchemy import (
+    SagaExecutionModel,
+    SagaLogModel,
+    SqlAlchemySagaStorage,
+)
 
 # Fixtures init_saga_orm and saga_session_factory are imported from tests/integration/fixtures.py
 
@@ -266,3 +273,203 @@ class TestIntegration:
         _, final_context, final_version = await storage.load_saga_state(saga_id)
         assert final_context == new_context
         assert final_version == 2
+
+
+class TestRecoverySqlAlchemy:
+    """Integration tests for get_sagas_for_recovery and increment_recovery_attempts (SqlAlchemy)."""
+
+    @pytest.fixture(autouse=True)
+    async def _clean_saga_tables(
+        self,
+        saga_session_factory: async_sessionmaker[AsyncSession],
+    ) -> AsyncGenerator[None, None]:
+        """Clear saga tables before each test so get_sagas_for_recovery sees only this test's data."""
+        async with saga_session_factory() as session:
+            await session.execute(delete(SagaLogModel))
+            await session.execute(delete(SagaExecutionModel))
+            await session.commit()
+        yield
+
+    # --- get_sagas_for_recovery: positive ---
+
+    async def test_get_sagas_for_recovery_returns_recoverable_sagas(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: returns RUNNING, COMPENSATING, FAILED sagas only."""
+        id1, id2, id3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        for sid in (id1, id2, id3):
+            await storage.create_saga(saga_id=sid, name="saga", context=test_context)
+        await storage.update_status(id1, SagaStatus.RUNNING)
+        await storage.update_status(id2, SagaStatus.COMPENSATING)
+        await storage.update_status(id3, SagaStatus.FAILED)
+
+        ids = await storage.get_sagas_for_recovery(limit=10)
+        assert set(ids) == {id1, id2, id3}
+        assert len(ids) == 3
+
+    async def test_get_sagas_for_recovery_respects_limit(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: returns at most `limit` saga IDs."""
+        for _ in range(5):
+            sid = uuid.uuid4()
+            await storage.create_saga(saga_id=sid, name="saga", context=test_context)
+            await storage.update_status(sid, SagaStatus.RUNNING)
+
+        ids = await storage.get_sagas_for_recovery(limit=2)
+        assert len(ids) == 2
+
+    async def test_get_sagas_for_recovery_respects_max_recovery_attempts(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: only returns sagas with recovery_attempts < max_recovery_attempts."""
+        id_low = uuid.uuid4()
+        id_high = uuid.uuid4()
+        await storage.create_saga(saga_id=id_low, name="saga", context=test_context)
+        await storage.create_saga(saga_id=id_high, name="saga", context=test_context)
+        await storage.update_status(id_low, SagaStatus.RUNNING)
+        await storage.update_status(id_high, SagaStatus.RUNNING)
+        for _ in range(5):
+            await storage.increment_recovery_attempts(id_high)
+
+        ids = await storage.get_sagas_for_recovery(limit=10, max_recovery_attempts=5)
+        assert id_low in ids
+        assert id_high not in ids
+
+    async def test_get_sagas_for_recovery_ordered_by_updated_at(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: result ordered by updated_at ascending (oldest first)."""
+        id1, id2, id3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+        for sid in (id1, id2, id3):
+            await storage.create_saga(saga_id=sid, name="saga", context=test_context)
+            await storage.update_status(sid, SagaStatus.RUNNING)
+        # Ensure id2 has a strictly later updated_at (DB may use second precision).
+        await asyncio.sleep(1.0)
+        await storage.update_context(id2, {**test_context, "touched": True})
+
+        ids = await storage.get_sagas_for_recovery(limit=10)
+        assert len(ids) == 3
+        assert ids[-1] == id2
+
+    async def test_get_sagas_for_recovery_stale_after_excludes_recently_updated(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: with stale_after_seconds, recently updated sagas are excluded."""
+        id_recent = uuid.uuid4()
+        await storage.create_saga(saga_id=id_recent, name="saga", context=test_context)
+        await storage.update_status(id_recent, SagaStatus.RUNNING)
+        ids = await storage.get_sagas_for_recovery(
+            limit=10,
+            stale_after_seconds=999999,
+        )
+        assert id_recent not in ids
+
+    async def test_get_sagas_for_recovery_without_stale_after_unchanged_behavior(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Backward compat: without stale_after_seconds, recently updated sagas are included."""
+        sid = uuid.uuid4()
+        await storage.create_saga(saga_id=sid, name="saga", context=test_context)
+        await storage.update_status(sid, SagaStatus.RUNNING)
+        ids = await storage.get_sagas_for_recovery(limit=10)
+        assert sid in ids
+
+    # --- get_sagas_for_recovery: negative ---
+
+    async def test_get_sagas_for_recovery_empty_when_none_recoverable(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Negative: returns empty list when no recoverable sagas."""
+        sid = uuid.uuid4()
+        await storage.create_saga(saga_id=sid, name="saga", context=test_context)
+        await storage.update_status(sid, SagaStatus.COMPLETED)
+
+        ids = await storage.get_sagas_for_recovery(limit=10)
+        assert ids == []
+
+    async def test_get_sagas_for_recovery_excludes_pending_and_completed(
+        self,
+        storage: SqlAlchemySagaStorage,
+        test_context: dict[str, str],
+    ) -> None:
+        """Negative: PENDING and COMPLETED sagas are not returned."""
+        id_pending = uuid.uuid4()
+        id_completed = uuid.uuid4()
+        await storage.create_saga(saga_id=id_pending, name="saga", context=test_context)
+        await storage.create_saga(
+            saga_id=id_completed,
+            name="saga",
+            context=test_context,
+        )
+        await storage.update_status(id_completed, SagaStatus.COMPLETED)
+
+        ids = await storage.get_sagas_for_recovery(limit=10)
+        assert id_pending not in ids
+        assert id_completed not in ids
+
+    # --- increment_recovery_attempts: positive ---
+
+    async def test_increment_recovery_attempts_increments_counter(
+        self,
+        storage: SqlAlchemySagaStorage,
+        saga_id: uuid.UUID,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: recovery_attempts increases; saga drops out after max_recovery_attempts."""
+        await storage.create_saga(saga_id=saga_id, name="saga", context=test_context)
+        await storage.update_status(saga_id, SagaStatus.RUNNING)
+
+        ids_before = await storage.get_sagas_for_recovery(
+            limit=10,
+            max_recovery_attempts=5,
+        )
+        assert saga_id in ids_before
+
+        for _ in range(5):
+            await storage.increment_recovery_attempts(saga_id)
+
+        ids_after = await storage.get_sagas_for_recovery(
+            limit=10,
+            max_recovery_attempts=5,
+        )
+        assert saga_id not in ids_after
+
+    async def test_increment_recovery_attempts_with_new_status(
+        self,
+        storage: SqlAlchemySagaStorage,
+        saga_id: uuid.UUID,
+        test_context: dict[str, str],
+    ) -> None:
+        """Positive: optional new_status updates saga status."""
+        await storage.create_saga(saga_id=saga_id, name="saga", context=test_context)
+        await storage.update_status(saga_id, SagaStatus.RUNNING)
+
+        await storage.increment_recovery_attempts(saga_id, new_status=SagaStatus.FAILED)
+        status, _, _ = await storage.load_saga_state(saga_id)
+        assert status == SagaStatus.FAILED
+
+    # --- increment_recovery_attempts: negative ---
+
+    async def test_increment_recovery_attempts_raises_when_saga_not_found(
+        self,
+        storage: SqlAlchemySagaStorage,
+    ) -> None:
+        """Negative: raises ValueError when saga_id does not exist."""
+        unknown_id = uuid.uuid4()
+        with pytest.raises(ValueError, match="not found"):
+            await storage.increment_recovery_attempts(unknown_id)

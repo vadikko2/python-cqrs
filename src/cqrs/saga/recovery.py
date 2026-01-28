@@ -29,6 +29,11 @@ async def recover_saga(
     Already completed steps will be skipped.
     If the saga was in a compensating state, compensation will resume.
 
+    On recovery failure (exception during resume), the storage's
+    increment_recovery_attempts is called automatically so the saga can be
+    retried or excluded by get_sagas_for_recovery(max_recovery_attempts=...).
+    Callers do not need to call increment_recovery_attempts themselves.
+
     Args:
         saga: The saga orchestrator instance.
         saga_id: The ID of the saga to recover.
@@ -109,11 +114,12 @@ async def recover_saga(
             )
             # Re-raise to allow callers to handle this case
             raise
-        # For other RuntimeErrors, log and re-raise
+        # For other RuntimeErrors, recovery failed: increment attempts and re-raise
         logger.error(f"Saga {saga_id} recovery ended with error: {e}")
+        await storage.increment_recovery_attempts(saga_id, new_status=SagaStatus.FAILED)
         raise
     except Exception as e:
         logger.error(f"Saga {saga_id} recovery ended with error: {e}")
-        # The transaction handles exception and runs compensation, so the saga state
-        # should be updated to FAILED (or COMPENSATED) in storage.
+        # Recovery failed: increment attempts so saga can be retried or excluded later
+        await storage.increment_recovery_attempts(saga_id, new_status=SagaStatus.FAILED)
         raise

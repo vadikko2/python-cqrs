@@ -142,9 +142,14 @@ class SagaTransaction(typing.Generic[ContextT]):
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
     ) -> bool:
-        # If an exception occurred, compensate all completed steps
-        # Only compensate if not already compensated in __aiter__
-        if exc_val is not None and not self._compensated:
+        # If an exception occurred, compensate all completed steps.
+        # Do not compensate on GeneratorExit: consumer stopped iteration intentionally
+        # (e.g. to resume later), which is not a failure.
+        if (
+            exc_val is not None
+            and exc_type is not GeneratorExit
+            and not self._compensated
+        ):
             self._error = exc_val
             await self._compensate()
         return False  # Don't suppress the exception
