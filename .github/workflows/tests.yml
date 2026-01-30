@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -27,13 +29,36 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev,examples]"
 
+    - name: Get changed Python files
+      id: changed
+      run: |
+        git fetch origin main master 2>/dev/null || true
+        BASE="origin/main"
+        if ! git rev-parse --verify origin/main >/dev/null 2>&1; then BASE="origin/master"; fi
+        git diff --name-only $BASE...HEAD -- src/ tests/ examples/ | grep -E '\.py$' > changed.txt || true
+        if [ -s changed.txt ]; then
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        fi
+        echo "Changed files:"
+        cat changed.txt || true
+
     - name: Run ruff check
       run: |
-        ruff check src tests examples
+        if [ "${{ steps.changed.outputs.has_changes }}" != "true" ]; then
+          echo "No Python files changed, skipping ruff check"
+          exit 0
+        fi
+        cat changed.txt | xargs -r ruff check --config ruff.toml
 
     - name: Run ruff format check
       run: |
-        ruff format --check src tests examples
+        if [ "${{ steps.changed.outputs.has_changes }}" != "true" ]; then
+          echo "No Python files changed, skipping ruff format"
+          exit 0
+        fi
+        cat changed.txt | xargs -r ruff format --check --config ruff.toml
 
     - name: Run pyright
       run: |
