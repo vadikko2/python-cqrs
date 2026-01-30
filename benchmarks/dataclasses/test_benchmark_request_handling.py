@@ -78,7 +78,11 @@ def test_benchmark_command_handling(benchmark, mediator):
 
 @pytest.mark.benchmark
 def test_benchmark_query_handling(benchmark, mediator):
-    """Benchmark query handling performance."""
+    """
+    Benchmark mediator handling of a ReadMeetingQuery for a preloaded meeting.
+    
+    Preloads STORAGE["meeting_1"] with three users and measures the time taken to send a ReadMeetingQuery for that meeting through the provided mediator using the benchmark fixture.
+    """
     STORAGE["meeting_1"] = ["user_1", "user_2", "user_3"]
     query = ReadMeetingQuery(meeting_id="meeting_1")
 
@@ -94,6 +98,9 @@ def test_benchmark_multiple_commands(benchmark, mediator):
     commands = [JoinMeetingCommand(user_id=f"user_{i}", meeting_id="meeting_2") for i in range(10)]
 
     async def run():
+        """
+        Execute all commands in the enclosing `commands` sequence by sending them to the mediator sequentially.
+        """
         for cmd in commands:
             await mediator.send(cmd)
 

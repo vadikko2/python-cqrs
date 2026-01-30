@@ -48,10 +48,17 @@ def test_benchmark_event_processing(benchmark, event_mediator):
 
 @pytest.mark.benchmark
 def test_benchmark_multiple_events(benchmark, event_mediator):
-    """Benchmark processing multiple events in sequence."""
+    """
+    Benchmark measuring sequential processing of 10 UserJoinedEvent instances.
+    
+    Creates ten UserJoinedEvent objects and measures sending each event in sequence through the provided event_mediator.
+    """
     events = [UserJoinedEvent(user_id=f"user_{i}", meeting_id="meeting_1") for i in range(10)]
 
     async def run():
+        """
+        Iterates over the outer-scope `events` sequence and dispatches each event via the outer-scope `event_mediator`.
+        """
         for evt in events:
             await event_mediator.send(evt)
 
