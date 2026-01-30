@@ -120,7 +120,7 @@ jobs:
 
     - name: Run all tests with coverage
       run: |
-        pytest -c ./tests/pytest-config.ini --cov=src --cov-report=xml --cov-report=term -o cache_dir=/tmp/pytest_cache ./tests
+        pytest -c ./tests/pytest-config.ini --cov=src --cov-report=xml --cov-report=term -o cache_dir=/tmp/pytest_cache ./tests/unit ./tests/integration
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
