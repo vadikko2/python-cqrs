@@ -91,10 +91,7 @@ def test_benchmark_query_handling(benchmark, mediator):
 @pytest.mark.benchmark
 def test_benchmark_multiple_commands(benchmark, mediator):
     """Benchmark handling multiple commands in sequence."""
-    commands = [
-        JoinMeetingCommand(user_id=f"user_{i}", meeting_id="meeting_2")
-        for i in range(10)
-    ]
+    commands = [JoinMeetingCommand(user_id=f"user_{i}", meeting_id="meeting_2") for i in range(10)]
 
     async def run():
         for cmd in commands:

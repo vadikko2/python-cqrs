@@ -2,13 +2,14 @@
 
 import typing
 
-import cqrs
 import di
 import pytest
+
+import cqrs
 from cqrs.events import bootstrap
 
 
-class UserJoinedEvent(cqrs.Event):
+class UserJoinedEvent(cqrs.Event, frozen=True):
     user_id: str
     meeting_id: str
 
@@ -47,9 +48,7 @@ def test_benchmark_event_processing(benchmark, event_mediator):
 @pytest.mark.benchmark
 def test_benchmark_multiple_events(benchmark, event_mediator):
     """Benchmark processing multiple events in sequence."""
-    events = [
-        UserJoinedEvent(user_id=f"user_{i}", meeting_id="meeting_1") for i in range(10)
-    ]
+    events = [UserJoinedEvent(user_id=f"user_{i}", meeting_id="meeting_1") for i in range(10)]
 
     async def run():
         for evt in events:
