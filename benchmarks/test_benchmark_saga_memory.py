@@ -2,9 +2,7 @@
 
 import dataclasses
 import typing
-import uuid
 
-import cqrs
 import pytest
 from cqrs.events.event import Event
 from cqrs.response import Response
