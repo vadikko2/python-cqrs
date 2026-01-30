@@ -31,14 +31,16 @@ repos:
   rev: v1.0.1
 - hooks:
   - id: ruff
-    args: [--fix]
+    args: [--fix, --config, ruff.toml]
   - id: ruff-format
+    args: [--config, ruff.toml]
   repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.6.1
 - repo: https://github.com/RobertCraigie/pyright-python
   rev: v1.1.380
   hooks:
   - id: pyright
+    args: [--project, .]
     types: [python]
 - repo: https://github.com/netromdk/vermin
   rev: v1.6.0
