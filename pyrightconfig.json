@@ -1,7 +1,7 @@
 {
   "venvPath": ".",
   "venv": "venv",
-  "include": ["src", "tests"],
+  "include": ["src", "tests", "benchmarks"],
   "exclude": ["**/__pycache__", "venv", "**/*_pb2.py"],
   "reportMissingImports": "error",
   "reportMissingTypeStubs": false,
