@@ -65,7 +65,7 @@ jobs:
           DATABASE_DSN: mysql+asyncmy://cqrs:cqrs@localhost:3307/test_cqrs
         with:
           mode: simulation
-          run: pytest benchmarks/ --codspeed
+          run: pytest -c ./tests/pytest-config.ini tests/benchmarks/ --codspeed
 
       - name: Stop infrastructure
         if: always()
