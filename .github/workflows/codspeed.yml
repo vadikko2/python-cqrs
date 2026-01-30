@@ -61,8 +61,6 @@ jobs:
 
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v4
-        env:
-          DATABASE_DSN: mysql+asyncmy://cqrs:cqrs@localhost:3307/test_cqrs
         with:
           mode: simulation
           run: pytest -c ./tests/pytest-config.ini tests/benchmarks/ --codspeed

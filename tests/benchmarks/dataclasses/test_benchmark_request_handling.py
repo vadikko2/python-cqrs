@@ -69,6 +69,7 @@ def mediator():
 @pytest.mark.benchmark
 def test_benchmark_command_handling(benchmark, mediator):
     """Benchmark command handling performance."""
+    STORAGE.clear()
     command = JoinMeetingCommand(user_id="user_1", meeting_id="meeting_1")
 
     async def run():
@@ -80,6 +81,7 @@ def test_benchmark_command_handling(benchmark, mediator):
 @pytest.mark.benchmark
 def test_benchmark_query_handling(benchmark, mediator):
     """Benchmark query handling performance."""
+    STORAGE.clear()
     STORAGE["meeting_1"] = ["user_1", "user_2", "user_3"]
     query = ReadMeetingQuery(meeting_id="meeting_1")
 
@@ -92,6 +94,7 @@ def test_benchmark_query_handling(benchmark, mediator):
 @pytest.mark.benchmark
 def test_benchmark_multiple_commands(benchmark, mediator):
     """Benchmark handling multiple commands in sequence."""
+    STORAGE.clear()
     commands = [JoinMeetingCommand(user_id=f"user_{i}", meeting_id="meeting_2") for i in range(10)]
 
     async def run():
