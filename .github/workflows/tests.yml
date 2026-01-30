@@ -16,6 +16,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -27,13 +29,36 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev,examples]"
 
+    - name: Get changed Python files
+      id: changed
+      run: |
+        git fetch origin main master 2>/dev/null || true
+        BASE="origin/main"
+        if ! git rev-parse --verify origin/main >/dev/null 2>&1; then BASE="origin/master"; fi
+        git diff --name-only $BASE...HEAD -- src/ tests/ examples/ | grep -E '\.py$' > changed.txt || true
+        if [ -s changed.txt ]; then
+          echo "has_changes=true" >> $GITHUB_OUTPUT
+        else
+          echo "has_changes=false" >> $GITHUB_OUTPUT
+        fi
+        echo "Changed files:"
+        cat changed.txt || true
+
     - name: Run ruff check
       run: |
-        ruff check src tests examples
+        if [ "${{ steps.changed.outputs.has_changes }}" != "true" ]; then
+          echo "No Python files changed, skipping ruff check"
+          exit 0
+        fi
+        cat changed.txt | xargs -r ruff check --config ruff.toml
 
     - name: Run ruff format check
       run: |
-        ruff format --check src tests examples
+        if [ "${{ steps.changed.outputs.has_changes }}" != "true" ]; then
+          echo "No Python files changed, skipping ruff format"
+          exit 0
+        fi
+        cat changed.txt | xargs -r ruff format --check --config ruff.toml
 
     - name: Run pyright
       run: |
@@ -63,12 +88,46 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
-    - name: Run tests
+    - name: Start infrastructure
       run: |
-        pytest --cov=src --cov-report=xml ./tests/unit
+        docker compose -f docker-compose-test.yml up -d
+
+    - name: Wait for MySQL
+      run: |
+        for i in $(seq 1 30); do
+          if docker compose -f docker-compose-test.yml exec -T mysql_tests mysqladmin ping -h localhost -ucqrs -pcqrs --silent 2>/dev/null; then
+            echo "MySQL is ready"
+            exit 0
+          fi
+          echo "Waiting for MySQL... ($i/30)"
+          sleep 2
+        done
+        echo "MySQL did not become ready in time"
+        exit 1
+
+    - name: Wait for Redis
+      run: |
+        for i in $(seq 1 15); do
+          if docker compose -f docker-compose-test.yml exec -T redis_tests redis-cli ping 2>/dev/null | grep -q PONG; then
+            echo "Redis is ready"
+            exit 0
+          fi
+          echo "Waiting for Redis... ($i/15)"
+          sleep 1
+        done
+        echo "Redis did not become ready in time"
+        exit 1
+
+    - name: Run all tests with coverage
+      run: |
+        pytest -c ./tests/pytest-config.ini --cov=src --cov-report=xml --cov-report=term -o cache_dir=/tmp/pytest_cache ./tests
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: false
+
+    - name: Stop infrastructure
+      if: always()
+      run: docker compose -f docker-compose-test.yml down -v
