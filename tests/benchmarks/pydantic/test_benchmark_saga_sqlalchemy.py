@@ -1,13 +1,10 @@
 """Benchmarks for Saga with SQLAlchemy storage (Pydantic Response). Requires DATABASE_DSN."""
 
-import asyncio
-import os
-
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from cqrs.saga.saga import Saga
-from cqrs.saga.storage.sqlalchemy import Base, SqlAlchemySagaStorage
+from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
 
 from .test_benchmark_saga_memory import (
     OrderContext,
@@ -16,52 +13,6 @@ from .test_benchmark_saga_memory import (
     SagaContainer,
     ShipOrderStep,
 )
-
-
-@pytest.fixture(scope="module")
-def database_dsn() -> str | None:
-    """DATABASE_DSN from environment (set in CI by pytest-config.ini)."""
-    return os.environ.get("DATABASE_DSN") or None
-
-
-async def _init_saga_tables(engine):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
-
-
-@pytest.fixture(scope="module")
-def saga_engine(database_dsn: str | None):
-    """Create async engine for saga storage. Skip if DATABASE_DSN not set."""
-    if not database_dsn:
-        pytest.skip("DATABASE_DSN not set (MySQL required)")
-    engine = create_async_engine(
-        database_dsn,
-        pool_pre_ping=True,
-        pool_size=5,
-        max_overflow=10,
-        echo=False,
-    )
-    asyncio.run(_init_saga_tables(engine))
-    yield engine
-    asyncio.run(engine.dispose())
-
-
-@pytest.fixture(scope="module")
-def saga_session_factory(saga_engine):
-    """Session factory for saga storage."""
-    return async_sessionmaker(
-        saga_engine,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
-
-
-@pytest.fixture
-def sqlalchemy_storage(saga_session_factory: async_sessionmaker[AsyncSession]):
-    """SqlAlchemySagaStorage instance per test."""
-    return SqlAlchemySagaStorage(saga_session_factory)
 
 
 @pytest.fixture
@@ -74,10 +25,7 @@ def saga_container() -> SagaContainer:
 
 
 @pytest.fixture
-def saga_sqlalchemy(
-    saga_container: SagaContainer,
-    sqlalchemy_storage: SqlAlchemySagaStorage,
-) -> Saga[OrderContext]:
+def saga_sqlalchemy(saga_container: SagaContainer) -> Saga[OrderContext]:
     class OrderSaga(Saga[OrderContext]):
         steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
 
@@ -89,44 +37,62 @@ def test_benchmark_saga_sqlalchemy_full_transaction(
     benchmark,
     saga_sqlalchemy: Saga[OrderContext],
     saga_container: SagaContainer,
-    sqlalchemy_storage: SqlAlchemySagaStorage,
+    saga_benchmark_loop_and_engine,
 ):
     """Benchmark full saga transaction with SQLAlchemy storage (MySQL)."""
+    loop, engine = saga_benchmark_loop_and_engine
 
-    async def run() -> None:
-        context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
+    session_factory = async_sessionmaker(
+        engine,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    storage = SqlAlchemySagaStorage(session_factory)
+    context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
+
+    async def run_transaction() -> None:
         async with saga_sqlalchemy.transaction(
             context=context,
             container=saga_container,
-            storage=sqlalchemy_storage,
+            storage=storage,
         ) as transaction:
             async for _ in transaction:
                 pass
 
-    benchmark(lambda: asyncio.run(run()))
+    benchmark(lambda: loop.run_until_complete(run_transaction()))
 
 
 @pytest.mark.benchmark
 def test_benchmark_saga_sqlalchemy_single_step(
     benchmark,
     saga_container: SagaContainer,
-    sqlalchemy_storage: SqlAlchemySagaStorage,
+    saga_benchmark_loop_and_engine,
 ):
     """Benchmark saga with single step (SQLAlchemy storage)."""
+    loop, engine = saga_benchmark_loop_and_engine
 
     class SingleStepSaga(Saga[OrderContext]):
         steps = [ReserveInventoryStep]
 
     saga = SingleStepSaga()
 
-    async def run() -> None:
-        context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
+    session_factory = async_sessionmaker(
+        engine,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    storage = SqlAlchemySagaStorage(session_factory)
+    context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
+
+    async def run_transaction() -> None:
         async with saga.transaction(
             context=context,
             container=saga_container,
-            storage=sqlalchemy_storage,
+            storage=storage,
         ) as transaction:
             async for _ in transaction:
                 pass
 
-    benchmark(lambda: asyncio.run(run()))
+    benchmark(lambda: loop.run_until_complete(run_transaction()))
