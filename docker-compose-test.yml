@@ -1,0 +1,22 @@
+version: '3'
+services:
+  mysql_tests:
+    image: mysql:8.3.0
+    hostname: mysql-dev
+    restart: always
+    environment:
+      MYSQL_PORT: 3306
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: cqrs
+      MYSQL_USER: cqrs
+      MYSQL_PASSWORD: cqrs
+    ports:
+      - 3307:3306
+    command: --init-file /data/application/init.sql
+    volumes:
+      - ./tests/init_database.sql:/data/application/init.sql
+  redis_tests:
+    image: redis:7.2
+    hostname: redis
+    ports:
+      - "6379:6379"
