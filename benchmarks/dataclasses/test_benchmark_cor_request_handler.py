@@ -1,5 +1,6 @@
-"""Benchmarks for Chain of Responsibility (CoR) request handler."""
+"""Benchmarks for Chain of Responsibility (dataclass DCRequest/DCResponse)."""
 
+import dataclasses
 import typing
 
 import cqrs
@@ -9,12 +10,14 @@ from cqrs.requests import bootstrap
 from cqrs.requests.cor_request_handler import CORRequestHandler
 
 
-class TRequest(cqrs.Request):
+@dataclasses.dataclass
+class TRequest(cqrs.DCRequest):
     method: str
     user_id: str
 
 
-class TResult(cqrs.Response):
+@dataclasses.dataclass
+class TResult(cqrs.DCResponse):
     success: bool
     handler_name: str
     message: str = ""

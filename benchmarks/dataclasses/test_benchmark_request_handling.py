@@ -1,4 +1,4 @@
-"""Benchmarks for request handling performance."""
+"""Benchmarks for request handling performance (dataclass DCRequest/DCResponse)."""
 
 import dataclasses
 import typing
@@ -79,7 +79,6 @@ def test_benchmark_command_handling(benchmark, mediator):
 @pytest.mark.benchmark
 def test_benchmark_query_handling(benchmark, mediator):
     """Benchmark query handling performance."""
-    # Setup: Add some data first
     STORAGE["meeting_1"] = ["user_1", "user_2", "user_3"]
     query = ReadMeetingQuery(meeting_id="meeting_1")
 

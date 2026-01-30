@@ -1,4 +1,4 @@
-"""Benchmarks for Saga with SQLAlchemy storage (MySQL). Requires DATABASE_DSN (e.g. in CI)."""
+"""Benchmarks for Saga with SQLAlchemy storage (Pydantic Response). Requires DATABASE_DSN."""
 
 import asyncio
 import os

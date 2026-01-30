@@ -1,6 +1,5 @@
-"""Benchmarks for event handling performance."""
+"""Benchmarks for event handling performance (Pydantic Event)."""
 
-import dataclasses
 import typing
 
 import cqrs
@@ -9,8 +8,7 @@ import pytest
 from cqrs.events import bootstrap
 
 
-@dataclasses.dataclass(frozen=True)
-class UserJoinedEvent(cqrs.DCEvent):
+class UserJoinedEvent(cqrs.Event):
     user_id: str
     meeting_id: str
 

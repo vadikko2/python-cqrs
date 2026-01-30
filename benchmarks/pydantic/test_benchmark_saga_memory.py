@@ -1,4 +1,4 @@
-"""Benchmarks for Saga with memory storage (basic configuration)."""
+"""Benchmarks for Saga with memory storage (Pydantic Response)."""
 
 import dataclasses
 import typing

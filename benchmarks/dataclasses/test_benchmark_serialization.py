@@ -1,4 +1,4 @@
-"""Benchmarks for serialization and deserialization performance."""
+"""Benchmarks for serialization and deserialization (dataclass DCRequest/DCResponse)."""
 
 import dataclasses
 
@@ -72,7 +72,8 @@ def test_benchmark_response_from_dict(benchmark):
 def test_benchmark_complex_nested_structure(benchmark):
     """Benchmark serialization of complex nested structures."""
 
-    class NestedRequest(cqrs.Request):
+    @dataclasses.dataclass
+    class NestedRequest(cqrs.DCRequest):
         level1: dict[str, list[dict[str, str]]]
         level2: list[dict[str, int]]
 

@@ -1,4 +1,4 @@
-"""Benchmarks for Saga with Fallback (with and without AioBreakerAdapter circuit breaker)."""
+"""Benchmarks for Saga with Fallback (dataclass DCResponse)."""
 
 import pytest
 from cqrs.adapters.circuit_breaker import AioBreakerAdapter

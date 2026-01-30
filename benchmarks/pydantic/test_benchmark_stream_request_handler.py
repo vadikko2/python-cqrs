@@ -1,4 +1,4 @@
-"""Benchmarks for StreamingRequestHandler."""
+"""Benchmarks for StreamingRequestHandler (Pydantic Request/Response)."""
 
 import typing
 
@@ -8,14 +8,13 @@ import pytest
 from cqrs.events.event import IEvent
 from cqrs.requests import bootstrap
 from cqrs.requests.request_handler import StreamingRequestHandler
-from cqrs.response import Response
 
 
 class ProcessItemsCommand(cqrs.Request):
     item_ids: list[str]
 
 
-class ProcessItemResult(Response):
+class ProcessItemResult(cqrs.Response):
     item_id: str
     status: str
 
