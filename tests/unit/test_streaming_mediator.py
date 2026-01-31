@@ -42,7 +42,7 @@ class StreamingHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemR
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # type: ignore
+    async def handle(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
@@ -63,6 +63,39 @@ class Container:
 
     async def resolve(self, type_):
         return self._handler
+
+
+async def test_streaming_mediator_stream_returns_async_iterator_consumable_with_async_for() -> None:
+    """
+    Contract: mediator.stream(request) is called without await
+    and returns an AsyncIterator that is consumed with async for.
+    """
+    handler = StreamingHandler()
+    request_map = RequestMap()
+    request_map.bind(ProcessItemsCommand, StreamingHandler)
+    container = Container(handler)
+    event_map = EventMap()
+    message_broker = devnull.DevnullMessageBroker()
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=container,  # type: ignore
+        message_broker=message_broker,
+    )
+    mediator = StreamingRequestMediator(
+        request_map=request_map,
+        container=container,  # type: ignore
+        event_emitter=event_emitter,
+    )
+    request = ProcessItemsCommand(item_ids=["a", "b"])
+    # stream() is called (no await) and returns async iterator
+    async_gen = mediator.stream(request)
+    results = []
+    async for item in async_gen:
+        results.append(item)
+    assert len(results) == 2
+    assert results[0].item_id == "a"
+    assert results[1].item_id == "b"
+    assert handler.called
 
 
 async def test_streaming_mediator_logic() -> None:
@@ -200,7 +233,7 @@ class EventHandlerStreamingHandler(
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # type: ignore
+    async def handle(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:

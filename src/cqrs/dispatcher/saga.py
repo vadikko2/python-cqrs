@@ -53,7 +53,7 @@ class SagaDispatcher:
         self._compensation_retry_delay = compensation_retry_delay
         self._compensation_retry_backoff = compensation_retry_backoff
 
-    async def dispatch(
+    def dispatch(
         self,
         context: SagaContext,
         saga_id: uuid.UUID | None = None,
@@ -61,6 +61,7 @@ class SagaDispatcher:
         """
         Dispatch a saga execution for the given context.
 
+        Called without await; returns an AsyncIterator consumed with async for.
         Yields result after each step execution. After each yield, events are collected
         and included in the dispatch result.
 
@@ -75,6 +76,13 @@ class SagaDispatcher:
         Raises:
             SagaDoesNotExist: If no saga is registered for the context type
         """
+        return self._dispatch_impl(context, saga_id=saga_id)
+
+    async def _dispatch_impl(
+        self,
+        context: SagaContext,
+        saga_id: uuid.UUID | None = None,
+    ) -> typing.AsyncIterator[SagaDispatchResult]:
         # Find saga type by context type
         saga_type = self._saga_map.get(type(context))
         if not saga_type:

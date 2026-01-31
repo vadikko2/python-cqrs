@@ -98,7 +98,7 @@ class StreamingItemHandler(
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # type: ignore
+    async def handle(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
@@ -238,7 +238,7 @@ class TestBootstrapStreamingWithDependencyInjector:
             def clear_events(self) -> None:
                 self._events.clear()
 
-            async def handle(  # type: ignore
+            async def handle(
                 self,
                 request: ProcessItemsCommand,
             ) -> typing.AsyncIterator[ProcessItemResult]:
@@ -332,7 +332,7 @@ class TestBootstrapStreamingWithDependencyInjector:
             def clear_events(self) -> None:
                 self._events.clear()
 
-            async def handle(  # type: ignore
+            async def handle(
                 self,
                 request: ProcessItemsCommand,
             ) -> typing.AsyncIterator[ProcessItemResult]:
@@ -431,7 +431,7 @@ class TestBootstrapStreamingWithDependencyInjector:
             def clear_events(self) -> None:
                 self._events.clear()
 
-            async def handle(  # type: ignore
+            async def handle(
                 self,
                 request: ProcessItemsCommand,
             ) -> typing.AsyncIterator[ProcessItemResult]:

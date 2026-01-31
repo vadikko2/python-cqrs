@@ -219,7 +219,7 @@ class ProcessFilesCommandHandler(
         """Clear events after they have been processed and emitted."""
         self._events.clear()
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         request: ProcessFilesCommand,
     ) -> typing.AsyncIterator[FileProcessedResult]:
@@ -230,8 +230,7 @@ class ProcessFilesCommandHandler(
         in parallel by different event handlers.
         """
         logger.info(
-            f"Starting to process {len(request.file_ids)} files "
-            f"with operation: {request.operation}",
+            f"Starting to process {len(request.file_ids)} files " f"with operation: {request.operation}",
         )
 
         for idx, file_id in enumerate(request.file_ids):
@@ -308,8 +307,7 @@ class FileProcessedEventHandler(cqrs.EventHandler[FileProcessedEvent]):
         """Log file processing."""
         await asyncio.sleep(0.05)  # Simulate processing
         logger.info(
-            f"📄 File {event.file_id} processed: "
-            f"{event.operation} ({event.file_size_mb} MB)",
+            f"📄 File {event.file_id} processed: " f"{event.operation} ({event.file_size_mb} MB)",
         )
 
 
@@ -320,8 +318,7 @@ class FileAnalyticsEventHandler(cqrs.EventHandler[FileAnalyticsEvent]):
         """Update analytics."""
         await asyncio.sleep(0.03)  # Simulate database update
         logger.info(
-            f"📊 Analytics updated for file {event.file_id}: "
-            f"{event.processing_time_ms}ms processing time",
+            f"📊 Analytics updated for file {event.file_id}: " f"{event.processing_time_ms}ms processing time",
         )
 
 

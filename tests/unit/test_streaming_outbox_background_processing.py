@@ -83,7 +83,7 @@ class ProcessServiceStreamingHandler(
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # type: ignore
+    async def handle(
         self,
         request: ProcessServiceCommand,
     ) -> typing.AsyncIterator[ProcessServiceResult]:
@@ -279,7 +279,7 @@ async def test_streaming_outbox_multiple_events_parallel():
         def clear_events(self) -> None:
             self._events.clear()
 
-        async def handle(  # type: ignore
+        async def handle(
             self,
             request: ProcessServiceCommand,
         ) -> typing.AsyncIterator[ProcessServiceResult]:

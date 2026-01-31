@@ -79,7 +79,13 @@ class StreamingRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def handle(self, request: ReqT) -> typing.AsyncIterator[ResT]:
+    def handle(self, request: ReqT) -> typing.AsyncIterator[ResT]:
+        """
+        Handle the request by yielding results as an async generator.
+
+        Subclasses must implement this as an async generator (async def with
+        yield) so that callers receive an AsyncIterator when calling handle().
+        """
         raise NotImplementedError
 
     @abc.abstractmethod

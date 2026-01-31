@@ -31,7 +31,7 @@ class StreamingHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemR
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # pyright: ignore[reportIncompatibleMethodOverride]
+    async def handle(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
