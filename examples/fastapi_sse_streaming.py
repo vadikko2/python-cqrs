@@ -219,7 +219,7 @@ class ProcessFilesCommandHandler(
         """Clear events after they have been processed and emitted."""
         self._events.clear()
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         request: ProcessFilesCommand,
     ) -> typing.AsyncIterator[FileProcessedResult]:

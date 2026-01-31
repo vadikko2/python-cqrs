@@ -347,6 +347,25 @@ def saga_mediator(
 class TestSagaMediatorMemoryStorage:
     """Integration tests for SagaMediator with MemorySagaStorage."""
 
+    async def test_saga_mediator_stream_returns_async_iterator_consumable_with_async_for(
+        self,
+        saga_mediator: cqrs.SagaMediator,
+    ) -> None:
+        """
+        Contract: mediator.stream(context) is called without await
+        and returns an AsyncIterator that is consumed with async for.
+        """
+        context = OrderContext(order_id="contract", user_id="user1", amount=50.0)
+        # stream() is called (no await) and returns async iterator
+        async_gen = saga_mediator.stream(context)
+        step_results = []
+        async for result in async_gen:
+            step_results.append(result)
+        assert len(step_results) == 3
+        assert step_results[0].step_type == ReserveInventoryStep
+        assert step_results[1].step_type == ProcessPaymentStep
+        assert step_results[2].step_type == ShipOrderStep
+
     async def test_saga_mediator_executes_saga_successfully(
         self,
         saga_mediator: cqrs.SagaMediator,

@@ -28,16 +28,23 @@ class StreamingRequestDispatcher:
         self._container = container
         self._middleware_chain = middleware_chain or MiddlewareChain()
 
-    async def dispatch(
+    def dispatch(
         self,
         request: IRequest,
     ) -> typing.AsyncIterator[RequestDispatchResult]:
         """
         Dispatch a request to a streaming handler and yield results.
 
+        Called without await; returns an AsyncIterator consumed with async for.
         After each yield from the handler, events are collected and included
         in the dispatch result. The generator continues until StopIteration.
         """
+        return self._dispatch_impl(request)
+
+    async def _dispatch_impl(
+        self,
+        request: IRequest,
+    ) -> typing.AsyncIterator[RequestDispatchResult]:
         handler_type = self._request_map.get(type(request), None)
         if handler_type is None:
             raise RequestHandlerDoesNotExist(

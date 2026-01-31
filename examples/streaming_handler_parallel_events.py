@@ -177,10 +177,10 @@ class ProcessOrdersCommandHandler(
         """Clear events after they have been processed and emitted."""
         self._events.clear()
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         request: ProcessOrdersCommand,
-    ) -> typing.AsyncIterator[OrderProcessedResult]:  # type: ignore[override]
+    ) -> typing.AsyncIterator[OrderProcessedResult]:
         """
         Process orders one by one, yielding results after each order.
 
@@ -449,15 +449,15 @@ async def main():
     logger.info("Example completed successfully!")
     logger.info("=" * 80)
 
-    # Verify results
-    # Note: Events are processed twice (once by dispatcher, once by emitter),
-    # so we expect double the counts
+    # Allow fire-and-forget parallel event handlers to finish (EventProcessor
+    # uses create_task when concurrent_event_handle_enable=True and does not await)
+    await asyncio.sleep(0.3)
+
+    # Verify results: one event-handler invocation per order per handler type
     assert len(results) == len(order_ids)
-    assert len(EMAIL_SENT_LOG) == len(order_ids) * 2  # Each event handler called twice
-    assert len(AUDIT_LOG) == len(order_ids) * 2  # Each event handler called twice
-    assert (
-        ANALYTICS_STORAGE["total_orders"] == len(order_ids) * 2
-    )  # Each event handler called twice
+    assert len(EMAIL_SENT_LOG) == len(order_ids)
+    assert len(AUDIT_LOG) == len(order_ids)
+    assert ANALYTICS_STORAGE["total_orders"] == len(order_ids)
 
 
 if __name__ == "__main__":

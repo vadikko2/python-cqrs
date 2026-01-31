@@ -188,13 +188,14 @@ class StreamingRequestMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def stream(
+    def stream(
         self,
         request: IRequest,
     ) -> typing.AsyncIterator[IResponse | None]:
         """
         Stream results from a generator-based handler.
 
+        Called without await; returns an AsyncIterator consumed with async for.
         After each yield from the handler:
         1. Events are processed (in parallel with semaphore limit or sequentially
            depending on concurrent_event_handle_enable) via event dispatcher
@@ -203,6 +204,12 @@ class StreamingRequestMediator:
 
         The generator continues until StopIteration is raised.
         """
+        return self._stream_impl(request)
+
+    async def _stream_impl(
+        self,
+        request: IRequest,
+    ) -> typing.AsyncIterator[IResponse | None]:
         async for dispatch_result in self._dispatcher.dispatch(request):
             await self._event_processor.emit_events(dispatch_result.events)
 
@@ -274,7 +281,7 @@ class SagaMediator:
             compensation_retry_backoff=compensation_retry_backoff,  # type: ignore
         )
 
-    async def stream(
+    def stream(
         self,
         context: SagaContext,
         saga_id: uuid.UUID | None = None,
@@ -282,6 +289,7 @@ class SagaMediator:
         """
         Stream results from saga execution.
 
+        Called without await; returns an AsyncIterator consumed with async for.
         After each step execution:
         1. Events are processed (in parallel with semaphore limit or sequentially
            depending on concurrent_event_handle_enable) via event dispatcher
@@ -298,6 +306,13 @@ class SagaMediator:
         Yields:
             SagaStepResult
         """
+        return self._stream_impl(context, saga_id=saga_id)
+
+    async def _stream_impl(
+        self,
+        context: SagaContext,
+        saga_id: uuid.UUID | None = None,
+    ) -> typing.AsyncIterator[SagaStepResult]:
         async for dispatch_result in self._dispatcher.dispatch(
             context,
             saga_id=saga_id,
