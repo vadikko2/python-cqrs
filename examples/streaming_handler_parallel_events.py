@@ -420,6 +420,10 @@ async def main():
     end_time = datetime.now()
     processing_time = (end_time - start_time).total_seconds()
 
+    # Allow fire-and-forget parallel event handlers to finish (EventProcessor
+    # uses create_task when concurrent_event_handle_enable=True and does not await)
+    await asyncio.sleep(0.3)
+
     # Print summary
     logger.info("\n" + "=" * 80)
     logger.info("Processing Summary")
@@ -440,10 +444,6 @@ async def main():
     logger.info("\n" + "=" * 80)
     logger.info("Example completed successfully!")
     logger.info("=" * 80)
-
-    # Allow fire-and-forget parallel event handlers to finish (EventProcessor
-    # uses create_task when concurrent_event_handle_enable=True and does not await)
-    await asyncio.sleep(0.3)
 
     # Verify results: one event-handler invocation per order per handler type
     assert len(results) == len(order_ids)

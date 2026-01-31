@@ -187,7 +187,7 @@ def bootstrap(
 
         # Execute saga (stream() returns AsyncIterator, consumed with async for)
         async for result in mediator.stream(order_context):
-            print(f"Step: {result.step_type.__name__}")
+            print(f"Step: {result.step_result.step_type.__name__}")
 
     Args:
         di_container: DI container (di.Container or CQRSContainer)
