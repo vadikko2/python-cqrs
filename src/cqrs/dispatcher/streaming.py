@@ -69,9 +69,7 @@ class StreamingRequestDispatcher:
 
         if not inspect.isasyncgenfunction(handler.handle):
             handler_name = (
-                handler_type_typed.__name__
-                if hasattr(handler_type_typed, "__name__")
-                else str(handler_type_typed)
+                handler_type_typed.__name__ if hasattr(handler_type_typed, "__name__") else str(handler_type_typed)
             )
             raise TypeError(
                 f"Handler {handler_name}.handle must be an async generator function",

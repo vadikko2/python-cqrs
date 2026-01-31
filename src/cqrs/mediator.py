@@ -172,9 +172,7 @@ class StreamingRequestMediator:
         max_concurrent_event_handlers: int = 1,
         concurrent_event_handle_enable: bool = True,
         *,
-        dispatcher_type: typing.Type[
-            StreamingRequestDispatcher
-        ] = StreamingRequestDispatcher,
+        dispatcher_type: typing.Type[StreamingRequestDispatcher] = StreamingRequestDispatcher,
     ) -> None:
         self._event_processor = EventProcessor(
             event_map=event_map or EventMap(),

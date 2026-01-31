@@ -136,9 +136,7 @@ class InventoryUpdateEvent(cqrs.DomainEvent, frozen=True):
     """Event for inventory updates."""
 
     order_id: str
-    items: list[
-        dict[str, typing.Union[str, int]]
-    ]  # [{"product_id": "prod1", "quantity": 2}]
+    items: list[dict[str, typing.Union[str, int]]]  # [{"product_id": "prod1", "quantity": 2}]
 
 
 class AuditLogEvent(cqrs.DomainEvent, frozen=True):
@@ -198,9 +196,7 @@ class ProcessOrdersCommandHandler(
                 "order_id": order_id,
                 "customer_id": f"customer_{order_id[-1]}",
                 "total_amount": 100.0 + float(order_id[-1]) * 10,
-                "items": [
-                    {"product_id": f"prod_{i}", "quantity": i + 1} for i in range(3)
-                ],
+                "items": [{"product_id": f"prod_{i}", "quantity": i + 1} for i in range(3)],
                 "category": "electronics" if int(order_id[-1]) % 2 == 0 else "clothing",
             }
 
@@ -238,8 +234,7 @@ class ProcessOrdersCommandHandler(
                 InventoryUpdateEvent(
                     order_id=order_id,
                     items=[
-                        {"product_id": item["product_id"], "quantity": item["quantity"]}
-                        for item in order_data["items"]
+                        {"product_id": item["product_id"], "quantity": item["quantity"]} for item in order_data["items"]
                     ],
                 ),
             )
@@ -285,8 +280,7 @@ class OrderProcessedEventHandler(cqrs.EventHandler[OrderProcessedEvent]):
 
         EMAIL_SENT_LOG.append(email_data)
         logger.info(
-            f"📧 Email sent for order {event.order_id} "
-            f"to customer {event.customer_id}",
+            f"📧 Email sent for order {event.order_id} " f"to customer {event.customer_id}",
         )
 
 
@@ -307,8 +301,7 @@ class OrderAnalyticsEventHandler(cqrs.EventHandler[OrderAnalyticsEvent]):
         ANALYTICS_STORAGE["total_orders"] += 1
 
         logger.info(
-            f"📊 Analytics updated for order {event.order_id} "
-            f"in category {event.category}",
+            f"📊 Analytics updated for order {event.order_id} " f"in category {event.category}",
         )
 
 
@@ -330,8 +323,7 @@ class InventoryUpdateEventHandler(cqrs.EventHandler[InventoryUpdateEvent]):
             INVENTORY_STORAGE[product_id] -= quantity
 
         logger.info(
-            f"📦 Inventory updated for order {event.order_id}, "
-            f"items: {len(event.items)}",
+            f"📦 Inventory updated for order {event.order_id}, " f"items: {len(event.items)}",
         )
 
 
