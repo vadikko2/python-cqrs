@@ -1,4 +1,4 @@
-"""Benchmarks for event handling performance (Pydantic Event)."""
+"""Benchmarks for event handling performance (default Event)."""
 
 import asyncio
 import typing

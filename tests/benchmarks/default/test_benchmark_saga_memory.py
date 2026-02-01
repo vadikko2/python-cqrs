@@ -1,4 +1,4 @@
-"""Benchmarks for Saga with memory storage (Pydantic Response)."""
+"""Benchmarks for Saga with memory storage (default Response)."""
 
 import asyncio
 import dataclasses

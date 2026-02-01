@@ -1,4 +1,4 @@
-"""Benchmarks for StreamingRequestHandler (Pydantic Request/Response)."""
+"""Benchmarks for StreamingRequestHandler (default Request/Response)."""
 
 import asyncio
 import typing

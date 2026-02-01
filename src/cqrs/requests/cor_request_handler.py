@@ -46,9 +46,14 @@ class CORRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
         return typing.cast(ResT, None)
 
     @property
-    @abc.abstractmethod
     def events(self) -> typing.Sequence[IEvent]:
-        raise NotImplementedError
+        """
+        Events produced by this handler after :meth:`handle` was called.
+
+        Override in subclasses to return follow-up events. By default returns
+        an empty sequence.
+        """
+        return ()
 
     @abc.abstractmethod
     async def handle(self, request: ReqT) -> ResT | None:

@@ -1,14 +1,14 @@
 import abc
 import dataclasses
-from dataclass_wizard import fromdict, asdict
 import datetime
 import os
+import sys
 import typing
 import uuid
-import sys
 
 import dotenv
 import pydantic
+from dataclass_wizard import asdict, fromdict
 
 if sys.version_info >= (3, 11):
     from typing import Self  # novm
@@ -251,6 +251,8 @@ class INotificationEvent(IEvent, typing.Generic[PayloadT]):
 
         def proto(self) -> typing.Any: ...  # Method for protobuf representation
 
+        def from_proto(self, proto: typing.Any) -> Self: ...
+
 
 @dataclasses.dataclass(frozen=True)
 class DCNotificationEvent(
@@ -300,7 +302,17 @@ class DCNotificationEvent(
             NotImplementedError: This method must be implemented by subclasses
                 that need protobuf serialization.
         """
-        raise NotImplementedError("Method not implemented for dataclass events")
+        raise NotImplementedError("Method not implemented")
+
+    def from_proto(self, proto: typing.Any) -> Self:
+        """
+        Constructs event from proto event object
+
+        Raises:
+            NotImplementedError: This method must be implemented by subclasses
+                that need protobuf deserialization.
+        """
+        raise NotImplementedError("Method not implemented")
 
     def __hash__(self) -> int:
         """
@@ -345,10 +357,33 @@ class PydanticNotificationEvent(
 
     model_config = pydantic.ConfigDict(from_attributes=True)
 
-    def proto(self):
+    def proto(self) -> typing.Any:
+        """
+        Return protobuf representation of the event.
+
+        Raises:
+            NotImplementedError: This method must be implemented by subclasses
+                that need protobuf serialization.
+        """
         raise NotImplementedError("Method not implemented")
 
-    def __hash__(self):
+    def from_proto(self, proto: typing.Any) -> Self:
+        """
+        Constructs event from proto event object
+
+        Raises:
+            NotImplementedError: This method must be implemented by subclasses
+                that need protobuf deserialization.
+        """
+        raise NotImplementedError("Method not implemented")
+
+    def __hash__(self) -> int:
+        """
+        Return the hash of the event based on its event_id.
+
+        Returns:
+            Hash value of the event_id.
+        """
         return hash(self.event_id)
 
 

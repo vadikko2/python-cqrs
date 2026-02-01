@@ -1,4 +1,4 @@
-"""Benchmarks for serialization and deserialization (Pydantic Request/Response)."""
+"""Benchmarks for serialization and deserialization (default Request/Response)."""
 
 import cqrs
 import pytest

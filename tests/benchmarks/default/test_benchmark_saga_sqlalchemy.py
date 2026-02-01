@@ -1,4 +1,4 @@
-"""Benchmarks for Saga with SQLAlchemy storage (Pydantic Response). Requires DATABASE_DSN."""
+"""Benchmarks for Saga with SQLAlchemy storage (default Response). Requires DATABASE_DSN."""
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
