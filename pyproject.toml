@@ -18,13 +18,13 @@ classifiers = [
 dependencies = [
   "dataclass-wizard==0.*",
   "di[anyio]==0.*",
-  "dependency-injector>=4.*",
+  "dependency-injector>=4.0",
   "orjson==3.*",
   "pydantic==2.*",
   "python-dotenv==1.*",
   "retry-async==0.1.*",
   "sqlalchemy[asyncio]==2.0.*",
-  "typing-extensions>=4.*"
+  "typing-extensions>=4.0"
 ]
 description = "Event-Driven Architecture Framework for Distributed Systems"
 maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
