@@ -143,8 +143,10 @@ def bootstrap(
     middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
         middlewares or [],
     )
+    if not any(isinstance(m, logging_middleware.LoggingMiddleware) for m in middlewares_list):
+        middlewares_list.append(logging_middleware.LoggingMiddleware())
     return setup_mediator(
         container,
         events_mapper=events_mapper,
-        middlewares=middlewares_list + [logging_middleware.LoggingMiddleware()],
+        middlewares=middlewares_list,
     )

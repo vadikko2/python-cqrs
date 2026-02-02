@@ -248,11 +248,13 @@ def bootstrap(
     middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
         middlewares or [],
     )
+    if not any(isinstance(m, logging_middleware.LoggingMiddleware) for m in middlewares_list):
+        middlewares_list.append(logging_middleware.LoggingMiddleware())
 
     return setup_saga_mediator(
         event_emitter,
         container,
-        middlewares=middlewares_list + [logging_middleware.LoggingMiddleware()],
+        middlewares=middlewares_list,
         sagas_mapper=sagas_mapper,
         event_map=event_emitter._event_map,
         max_concurrent_event_handlers=max_concurrent_event_handlers,

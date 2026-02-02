@@ -352,6 +352,5 @@ async def test_event_processor_follow_ups_parallel_under_semaphore() -> None:
         concurrent_event_handle_enable=True,
     )
     await processor.emit_events([_FanEvent(id="root")])
-    await asyncio.sleep(0.15)
     assert len(processed) == 4
     assert max_concurrent <= 2

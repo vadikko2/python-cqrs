@@ -1,5 +1,5 @@
-from collections.abc import Sequence
 import abc
+from collections.abc import Sequence
 import typing
 
 from cqrs.events.event import IEvent

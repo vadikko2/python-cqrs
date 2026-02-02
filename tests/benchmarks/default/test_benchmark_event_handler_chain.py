@@ -116,7 +116,6 @@ def test_benchmark_event_chain_three_levels_parallel(
 
     async def run() -> None:
         await processor.emit_events([_EventL1(id="root")])
-        await asyncio.sleep(0.5)
 
     benchmark(lambda: asyncio.run(run()))
 

@@ -27,6 +27,7 @@ class _HandlerL1(EventHandler[_EventL1]):
         return tuple(self._follow_ups)
 
     async def handle(self, event: _EventL1) -> None:
+        self._follow_ups = []
         self.processed.append(event)
         self._follow_ups.append(_EventL2(name="L2_from_" + event.name))
 
