@@ -103,9 +103,7 @@ class SagaTransaction(typing.Generic[ContextT]):
             container,
             self._state_manager,
         )
-        self._fallback_executor: FallbackStepExecutor[ContextT] = FallbackStepExecutor[
-            ContextT
-        ](
+        self._fallback_executor: FallbackStepExecutor[ContextT] = FallbackStepExecutor[ContextT](
             context,
             container,
             self._state_manager,
@@ -146,11 +144,7 @@ class SagaTransaction(typing.Generic[ContextT]):
         # If an exception occurred, compensate all completed steps.
         # Do not compensate on GeneratorExit: consumer stopped iteration intentionally
         # (e.g. to resume later), which is not a failure.
-        if (
-            exc_val is not None
-            and exc_type is not GeneratorExit
-            and not self._compensated
-        ):
+        if exc_val is not None and exc_type is not GeneratorExit and not self._compensated:
             self._error = exc_val
             await self._compensate()
         return False  # Don't suppress the exception
@@ -214,25 +208,19 @@ class SagaTransaction(typing.Generic[ContextT]):
                 # POINT OF NO RETURN: Strict Backward Recovery Strategy
                 if status in (SagaStatus.COMPENSATING, SagaStatus.FAILED):
                     logger.warning(
-                        f"Saga {self._saga_id} is in {status} state. "
-                        "Resuming compensation immediately.",
+                        f"Saga {self._saga_id} is in {status} state. " "Resuming compensation immediately.",
                     )
 
                     # Restore completed steps from history for compensation
-                    completed_act_steps = (
-                        await self._recovery_manager.load_completed_step_names()
-                    )
-                    reconstructed_steps = (
-                        await self._recovery_manager.reconstruct_completed_steps(
-                            completed_act_steps,
-                        )
+                    completed_act_steps = await self._recovery_manager.load_completed_step_names()
+                    reconstructed_steps = await self._recovery_manager.reconstruct_completed_steps(
+                        completed_act_steps,
                     )
                     # Type cast is safe here because steps are reconstructed from the same saga
                     # that uses ContextT, so they have the correct context type
                     # We need to rebuild the list to satisfy type checker's invariance requirements
                     self._completed_steps = [
-                        typing.cast(SagaStepHandler[ContextT, typing.Any], step)
-                        for step in reconstructed_steps
+                        typing.cast(SagaStepHandler[ContextT, typing.Any], step) for step in reconstructed_steps
                     ]
 
                     if not self._completed_steps:
@@ -253,9 +241,7 @@ class SagaTransaction(typing.Generic[ContextT]):
                     )
 
                 # For RUNNING/PENDING status, load history to skip completed steps
-                completed_step_names = (
-                    await self._recovery_manager.load_completed_step_names()
-                )
+                completed_step_names = await self._recovery_manager.load_completed_step_names()
             except ValueError:
                 # If loading fails but ID was provided, create it
                 await self._state_manager.create_saga(
