@@ -666,3 +666,39 @@ class TestNotificationEventFromDictRoundTrip:
         assert restored.payload == original.payload
         assert isinstance(restored.payload, NestedData)
         assert restored.payload.nested_id == payload.nested_id
+
+
+class TestDCNotificationEventProtoAndHash:
+    """Test DCNotificationEvent proto(), from_proto(), and __hash__() methods."""
+
+    def test_proto_raises_not_implemented_error(self):
+        """DCNotificationEvent.proto() raises NotImplementedError by default."""
+        event = SimpleNotificationEvent(
+            event_name="user.created",
+            payload={"user_id": "123"},
+        )
+        with pytest.raises(NotImplementedError, match="Method not implemented"):
+            event.proto()
+
+    def test_from_proto_raises_not_implemented_error(self):
+        """DCNotificationEvent.from_proto() raises NotImplementedError by default."""
+        with pytest.raises(NotImplementedError, match="Method not implemented"):
+            SimpleNotificationEvent.from_proto(None)
+
+    def test_hash_returns_hash_of_event_id(self):
+        """DCNotificationEvent.__hash__() returns hash of event_id."""
+        event_id = uuid.uuid4()
+        event = SimpleNotificationEvent(
+            event_name="user.created",
+            payload={"user_id": "123"},
+            event_id=event_id,
+        )
+        # Call base __hash__ explicitly: subclass is frozen dataclass with dict payload,
+        # so hash(event) would use dataclass __hash__ and fail (dict unhashable).
+        assert DCNotificationEvent.__hash__(event) == hash(event_id)
+        event2 = SimpleNotificationEvent(
+            event_name="other",
+            payload={},
+            event_id=event_id,
+        )
+        assert DCNotificationEvent.__hash__(event) == DCNotificationEvent.__hash__(event2)

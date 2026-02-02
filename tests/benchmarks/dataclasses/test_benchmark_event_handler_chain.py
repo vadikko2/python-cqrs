@@ -63,9 +63,6 @@ class _HandlerL3(EventHandler[_EventL3]):
 
 class _ChainContainer(Container[object]):
     def __init__(self) -> None:
-        self._h1 = _HandlerL1()
-        self._h2 = _HandlerL2()
-        self._h3 = _HandlerL3()
         self._external: object | None = None
 
     @property
@@ -76,12 +73,14 @@ class _ChainContainer(Container[object]):
         self._external = container
 
     async def resolve(self, type_: type) -> EventHandler[IEvent]:
+        # Return fresh instances per resolve so stateful handlers (_HandlerL1/_HandlerL2
+        # _follow_ups) are not shared across concurrent event handling (parallel benchmarks).
         if type_ is _HandlerL1:
-            return self._h1  # type: ignore[return-value]
+            return _HandlerL1()  # type: ignore[return-value]
         if type_ is _HandlerL2:
-            return self._h2  # type: ignore[return-value]
+            return _HandlerL2()  # type: ignore[return-value]
         if type_ is _HandlerL3:
-            return self._h3  # type: ignore[return-value]
+            return _HandlerL3()  # type: ignore[return-value]
         raise KeyError(type_)
 
 

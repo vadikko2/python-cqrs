@@ -63,7 +63,7 @@ examples = [
   "faker>=37.12.0",
   "uvicorn==0.32.0",
   "aiohttp==3.13.2",
-  "protobuf==4.25.5",
+  "protobuf>=4.25.8",
 ]
 kafka = ["aiokafka==0.10.0"]
 rabbit = ["aio-pika==9.3.0"]

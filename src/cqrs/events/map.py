@@ -49,7 +49,7 @@ class EventMap(typing.Dict[_KT, _VT]):
             self[event_type] = [handler_type]
         else:
             if handler_type in self[event_type]:
-                raise KeyError(f"{handler_type} already bind to {event_type}")
+                raise KeyError(f"{handler_type} already bound to {event_type}")
             self[event_type].append(handler_type)
 
     def __setitem__(self, __key: _KT, __value: _VT) -> None:

@@ -251,7 +251,8 @@ class INotificationEvent(IEvent, typing.Generic[PayloadT]):
 
         def proto(self) -> typing.Any: ...  # Method for protobuf representation
 
-        def from_proto(self, proto: typing.Any) -> Self: ...
+        @classmethod
+        def from_proto(cls, proto: typing.Any) -> Self: ...
 
 
 @dataclasses.dataclass(frozen=True)
@@ -304,7 +305,8 @@ class DCNotificationEvent(
         """
         raise NotImplementedError("Method not implemented")
 
-    def from_proto(self, proto: typing.Any) -> Self:
+    @classmethod
+    def from_proto(cls, proto: typing.Any) -> Self:
         """
         Constructs event from proto event object
 
@@ -367,7 +369,8 @@ class PydanticNotificationEvent(
         """
         raise NotImplementedError("Method not implemented")
 
-    def from_proto(self, proto: typing.Any) -> Self:
+    @classmethod
+    def from_proto(cls, proto: typing.Any) -> Self:
         """
         Constructs event from proto event object
 

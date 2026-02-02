@@ -1,5 +1,6 @@
 import asyncio
 import typing
+from collections import deque
 
 from cqrs.events.event import IEvent
 from cqrs.events.event_emitter import EventEmitter
@@ -59,9 +60,10 @@ class EventProcessor:
         Emit all events and process follow-ups in the same pipeline.
 
         In sequential mode, events and follow-ups are processed in BFS order.
-        In parallel mode, each event (and its follow-ups) is processed under the
-        same semaphore limit. Returns when all work is scheduled; in parallel
-        mode, handler tasks may still run after return.
+        In parallel mode, events are processed under the same semaphore limit;
+        as soon as any event completes, its follow-ups are queued and started
+        (FIRST_COMPLETED), without waiting for siblings. Returns when all work
+        is finished.
 
         Args:
             events: Events to emit (e.g. domain events). Handlers may return
@@ -81,27 +83,59 @@ class EventProcessor:
             return
 
         if not self._concurrent_event_handle_enable:
-            # Process events sequentially (BFS: follow-ups re-queued)
-            to_process: list[IEvent] = list(events)
+            # Process events sequentially (BFS: follow-ups re-queued, O(1) popleft)
+            to_process: deque[IEvent] = deque(events)
             while to_process:
-                event = to_process.pop(0)
+                event = to_process.popleft()
                 follow_ups = await self._event_emitter.emit(event)
                 to_process.extend(follow_ups)
         else:
-            # Process events in parallel with semaphore limit (fire-and-forget)
-            for event in events:
-                asyncio.create_task(self._emit_event_with_semaphore(event))
+            # Process events in parallel: start follow-ups as soon as any task completes
+            # (FIRST_COMPLETED), all under the same semaphore
+            await self._emit_events_parallel_first_completed(deque(events))
 
-    async def _emit_event_with_semaphore(self, event: IEvent) -> None:
+    async def _emit_one_event(self, event: IEvent) -> typing.Sequence[IEvent]:
         """
-        Process one event under the semaphore and schedule follow-ups under the same semaphore.
+        Emit one event under the semaphore. Returns follow-up events from the handler.
 
         Args:
             event: The event to emit.
+
+        Returns:
+            Follow-up events to process next, or empty sequence.
         """
         if not self._event_emitter:
-            return
+            return ()
         async with self._event_semaphore:
             follow_ups = await self._event_emitter.emit(event)
-            for follow_up in follow_ups:
-                asyncio.create_task(self._emit_event_with_semaphore(follow_up))
+        if follow_ups is None:
+            return ()
+        return follow_ups
+
+    async def _emit_events_parallel_first_completed(
+        self, initial_events: deque[IEvent]
+    ) -> None:
+        """
+        Process events in parallel under the semaphore; as soon as any task completes,
+        its follow-up events are queued and started, without waiting for siblings.
+        Uses deque for O(1) popleft when taking the next event.
+        """
+        pending_events: deque[IEvent] = initial_events
+        running_tasks: set[asyncio.Task[typing.Sequence[IEvent]]] = set()
+
+        while pending_events or running_tasks:
+            # Start a task for each pending event (semaphore limits concurrency)
+            while pending_events:
+                event = pending_events.popleft()
+                task = asyncio.create_task(self._emit_one_event(event))
+                running_tasks.add(task)
+
+            if not running_tasks:
+                break
+
+            done, running_tasks = await asyncio.wait(
+                running_tasks, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in done:
+                follow_ups = task.result()
+                pending_events.extend(follow_ups)
