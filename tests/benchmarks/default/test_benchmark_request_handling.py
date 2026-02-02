@@ -1,4 +1,4 @@
-"""Benchmarks for request handling performance (Pydantic Request/Response)."""
+"""Benchmarks for request handling performance (default Request/Response)."""
 
 import asyncio
 import typing

@@ -1,4 +1,4 @@
-"""Benchmarks for Chain of Responsibility (Pydantic Request/Response)."""
+"""Benchmarks for Chain of Responsibility (default Request/Response)."""
 
 import asyncio
 import typing

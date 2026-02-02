@@ -1,4 +1,4 @@
-"""Benchmarks for Saga with Fallback (Pydantic Response)."""
+"""Benchmarks for Saga with Fallback (default Response)."""
 
 import asyncio
 

@@ -50,7 +50,7 @@ jobs:
           echo "No Python files changed, skipping ruff check"
           exit 0
         fi
-        cat changed.txt | xargs -r ruff check --config ruff.toml
+        while IFS= read -r f; do [ -f "$f" ] && echo "$f"; done < changed.txt | xargs -r ruff check --config ruff.toml
 
     - name: Run ruff format check
       run: |
@@ -58,7 +58,7 @@ jobs:
           echo "No Python files changed, skipping ruff format"
           exit 0
         fi
-        cat changed.txt | xargs -r ruff format --check --config ruff.toml
+        while IFS= read -r f; do [ -f "$f" ] && echo "$f"; done < changed.txt | xargs -r ruff format --check --config ruff.toml
 
     - name: Run pyright
       run: |

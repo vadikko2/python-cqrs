@@ -27,9 +27,11 @@ class EventDispatcher:
         self,
         event: IEvent,
         handle_type: typing.Type[_EventHandler],
-    ):
+    ) -> None:
         handler: _EventHandler = await self._container.resolve(handle_type)
         await handler.handle(event)
+        for follow_up in handler.events:
+            await self.dispatch(follow_up)
 
     async def dispatch(self, event: IEvent) -> None:
         handler_types = self._event_map.get(type(event), [])
@@ -38,5 +40,6 @@ class EventDispatcher:
                 "Handlers for event %s not found",
                 type(event).__name__,
             )
+            return
         for h_type in handler_types:
             await self._handle_event(event, h_type)

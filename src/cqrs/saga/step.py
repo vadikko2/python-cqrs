@@ -142,18 +142,19 @@ class SagaStepHandler(abc.ABC, typing.Generic[ContextT, Resp]):
         )
 
     @property
-    @abc.abstractmethod
     def events(self) -> typing.Sequence[IEvent]:
         """
         Get the list of domain events produced by this step.
+
+        Override in subclasses to return events generated during :meth:`act`.
+        By default returns an empty sequence.
 
         Returns:
             A sequence of domain events that were generated during the execution
             of the act method. These events can be emitted after the step
             completes successfully.
-
         """
-        raise NotImplementedError
+        return ()
 
     @abc.abstractmethod
     async def act(self, context: ContextT) -> SagaStepResult[ContextT, Resp]:

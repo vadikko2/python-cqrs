@@ -127,7 +127,7 @@ async def test_event_processor_emit_events_with_emitter() -> None:
     event_map = EventMap()
 
     event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    event_emitter.emit = mock.AsyncMock(return_value=())
 
     processor = EventProcessor(
         event_map=event_map,
@@ -260,3 +260,97 @@ async def test_event_processor_respects_semaphore_limit() -> None:
     # Max concurrent should not exceed semaphore limit (2)
     assert max_concurrent <= 2
     assert len(event_handler.processed_events) == 5
+
+
+async def test_event_processor_follow_ups_sequential_bfs() -> None:
+    """Arrange: handler that returns follow-up events. Act: emit_events sequential. Assert: follow-ups processed (BFS)."""
+
+    class _ChainedEvent(DomainEvent, frozen=True):
+        level: int = pydantic.Field()
+        seq: int = pydantic.Field()
+
+    processed: list[_ChainedEvent] = []
+
+    class _ChainedHandler(EventHandler[_ChainedEvent]):
+        @property
+        def events(self) -> tuple[_ChainedEvent, ...]:
+            if not self._last or self._last.level >= 2:
+                return ()
+            return (_ChainedEvent(level=self._last.level + 1, seq=self._last.seq),)
+
+        def __init__(self) -> None:
+            self._last: _ChainedEvent | None = None
+
+        async def handle(self, event: _ChainedEvent) -> None:
+            self._last = event
+            processed.append(event)
+
+    handler = _ChainedHandler()
+    event_map = EventMap()
+    event_map.bind(_ChainedEvent, _ChainedHandler)
+    container = Container(handler)  # type: ignore[arg-type]
+    emitter = EventEmitter(event_map=event_map, container=container)  # type: ignore[arg-type]
+    processor = EventProcessor(
+        event_map=event_map,
+        event_emitter=emitter,
+        concurrent_event_handle_enable=False,
+    )
+    await processor.emit_events([_ChainedEvent(level=0, seq=1)])
+    assert len(processed) == 3  # level 0 -> 1 -> 2
+    assert processed[0].level == 0 and processed[1].level == 1 and processed[2].level == 2
+
+
+async def test_event_processor_follow_ups_parallel_under_semaphore() -> None:
+    """Arrange: handler returns 3 follow-ups, semaphore 2. Act: emit one event. Assert: all 4 processed, max concurrent <= 2."""
+
+    class _FanEvent(DomainEvent, frozen=True):
+        id_: str = pydantic.Field(alias="id")
+        model_config = pydantic.ConfigDict(populate_by_name=True)
+
+    concurrent_count = 0
+    max_concurrent = 0
+    lock = asyncio.Lock()
+    processed: list[_FanEvent] = []
+
+    class _FanHandler(EventHandler[_FanEvent]):
+        def __init__(self) -> None:
+            self._follow_ups: list[_FanEvent] = []
+
+        @property
+        def events(self) -> tuple[_FanEvent, ...]:
+            return tuple(self._follow_ups)
+
+        async def handle(self, event: _FanEvent) -> None:
+            nonlocal concurrent_count, max_concurrent
+            self._follow_ups = []
+            if event.id_ == "root":
+                self._follow_ups = [
+                    _FanEvent(id="c1"),
+                    _FanEvent(id="c2"),
+                    _FanEvent(id="c3"),
+                ]
+            async with lock:
+                concurrent_count += 1
+                max_concurrent = max(max_concurrent, concurrent_count)
+            await asyncio.sleep(0.02)
+            async with lock:
+                concurrent_count -= 1
+            processed.append(event)
+            # Clear after handle so emitter always sees follow-ups from this run only
+            if event.id_ != "root":
+                self._follow_ups = []
+
+    handler = _FanHandler()
+    event_map = EventMap()
+    event_map.bind(_FanEvent, _FanHandler)
+    container = Container(handler)  # type: ignore[arg-type]
+    emitter = EventEmitter(event_map=event_map, container=container)  # type: ignore[arg-type]
+    processor = EventProcessor(
+        event_map=event_map,
+        event_emitter=emitter,
+        max_concurrent_event_handlers=2,
+        concurrent_event_handle_enable=True,
+    )
+    await processor.emit_events([_FanEvent(id="root")])
+    assert len(processed) == 4
+    assert max_concurrent <= 2

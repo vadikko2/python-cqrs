@@ -220,10 +220,12 @@ def bootstrap(
     middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
         middlewares or [],
     )
+    if not any(isinstance(m, logging_middleware.LoggingMiddleware) for m in middlewares_list):
+        middlewares_list.append(logging_middleware.LoggingMiddleware())
     return setup_mediator(
         event_emitter,
         container,
-        middlewares=middlewares_list + [logging_middleware.LoggingMiddleware()],
+        middlewares=middlewares_list,
         commands_mapper=commands_mapper,
         queries_mapper=queries_mapper,
         event_map=event_emitter._event_map,
@@ -359,10 +361,12 @@ def bootstrap_streaming(
     middlewares_list: typing.List[mediator_middlewares.Middleware] = list(
         middlewares or [],
     )
+    if not any(isinstance(m, logging_middleware.LoggingMiddleware) for m in middlewares_list):
+        middlewares_list.append(logging_middleware.LoggingMiddleware())
     return setup_streaming_mediator(
         event_emitter,
         container,
-        middlewares=middlewares_list + [logging_middleware.LoggingMiddleware()],
+        middlewares=middlewares_list,
         commands_mapper=commands_mapper,
         queries_mapper=queries_mapper,
         domain_events_mapper=domain_events_mapper,
