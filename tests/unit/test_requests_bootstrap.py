@@ -12,8 +12,7 @@ import pytest
 import cqrs
 from cqrs import events
 from cqrs.container import di as di_container_impl
-from cqrs.container.protocol import Container as CQRSContainer
-from cqrs.message_brokers import devnull, protocol
+from cqrs.message_brokers import devnull
 from cqrs.middlewares import base as mediator_middlewares, logging as logging_middleware
 from cqrs.requests import bootstrap
 from cqrs.requests.map import RequestMap
@@ -42,7 +41,7 @@ class MockCQRSContainer:
 
 
 # Stub event/handler used to make EventMap non-empty (empty EventMap is falsy)
-class _StubEvent(events.DomainEvent):
+class _StubEvent(events.DomainEvent, frozen=True):
     pass
 
 
@@ -186,7 +185,7 @@ class TestSetupMediator:
             request_map_received.append(m)
 
         # Act
-        mediator = bootstrap.setup_mediator(
+        bootstrap.setup_mediator(
             emitter,
             container,
             middlewares=middlewares,

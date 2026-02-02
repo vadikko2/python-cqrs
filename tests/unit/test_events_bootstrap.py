@@ -7,7 +7,6 @@ Covers setup_mediator and bootstrap for EventMediator (increased coverage).
 import typing
 
 import di
-import pytest
 
 import cqrs
 from cqrs import events

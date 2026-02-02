@@ -14,7 +14,7 @@ import cqrs
 from cqrs import events
 from cqrs.container import di as di_container_impl
 from cqrs.message_brokers import devnull
-from cqrs.middlewares import base as mediator_middlewares, logging as logging_middleware
+from cqrs.middlewares import logging as logging_middleware
 from cqrs.requests import bootstrap as requests_bootstrap
 from cqrs.requests.map import SagaMap
 from cqrs.saga import bootstrap
