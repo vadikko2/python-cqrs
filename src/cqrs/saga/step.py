@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import dataclasses
 import typing
+import uuid
 
 from cqrs.events.event import IEvent
 from cqrs.response import IResponse
@@ -17,8 +18,6 @@ class SagaStepResult(typing.Generic[ContextT, Resp]):
     Result of a saga step execution.
 
     Contains the response from the step's act method and metadata about the step.
-    The step_type field uses typing.Any for compatibility,
-    but the actual runtime type is Type[SagaStepHandler[ContextT, Resp]].
 
     This is an internal data structure used by the saga pattern implementation.
 
@@ -29,6 +28,8 @@ class SagaStepResult(typing.Generic[ContextT, Resp]):
         error_message: Error message if with_error is True
         error_traceback: Error traceback lines if with_error is True
         error_type: Type of exception if with_error is True
+        saga_id: ID of the saga this step belongs to (set by execution layer).
+                 Enables client code to trigger compensation immediately if the saga fails.
 
     Example::
 
@@ -40,11 +41,12 @@ class SagaStepResult(typing.Generic[ContextT, Resp]):
     """
 
     response: Resp
-    step_type: typing.Any  # type: ignore[assignment]  # Actual type: Type[SagaStepHandler[ContextT, Resp]]
+    step_type: type[SagaStepHandler[ContextT, Resp]]
     with_error: bool = False
     error_message: str | None = None
     error_traceback: list[str] | None = None
     error_type: typing.Type[Exception] | None = None
+    saga_id: uuid.UUID | None = None
 
 
 class SagaStepHandler(abc.ABC, typing.Generic[ContextT, Resp]):

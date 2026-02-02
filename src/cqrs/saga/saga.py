@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import types
 import typing
@@ -278,7 +279,10 @@ class SagaTransaction(typing.Generic[ContextT]):
                     if step_result is not None and executed_step is not None:
                         # Track completed step for compensation
                         self._completed_steps.append(executed_step)
-                        yield step_result
+                        yield dataclasses.replace(
+                            step_result,
+                            saga_id=self._saga_id,
+                        )
                     elif executed_step is None:
                         # Step was skipped (already completed), restore it for compensation
                         primary_name = step_item.step.__name__
@@ -313,7 +317,10 @@ class SagaTransaction(typing.Generic[ContextT]):
                 step = await self._container.resolve(step_type)
                 self._completed_steps.append(step)
 
-                yield step_result
+                yield dataclasses.replace(
+                    step_result,
+                    saga_id=self._saga_id,
+                )
 
             # Update context one final time before marking as completed
             await self._state_manager.update_context(self._context)
