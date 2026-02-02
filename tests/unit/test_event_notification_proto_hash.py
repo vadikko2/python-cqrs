@@ -7,7 +7,7 @@ import pytest
 from cqrs.events.event import PydanticNotificationEvent
 
 
-class SimplePydanticNotificationEvent(PydanticNotificationEvent[dict]):
+class SimplePydanticNotificationEvent(PydanticNotificationEvent[dict], frozen=True):
     """Minimal Pydantic notification event for testing."""
 
     event_name: str = "test.event"

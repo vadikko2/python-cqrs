@@ -113,7 +113,8 @@ class EventProcessor:
         return follow_ups
 
     async def _emit_events_parallel_first_completed(
-        self, initial_events: deque[IEvent]
+        self,
+        initial_events: deque[IEvent],
     ) -> None:
         """
         Process events in parallel under the semaphore; as soon as any task completes,
@@ -134,7 +135,8 @@ class EventProcessor:
                 break
 
             done, running_tasks = await asyncio.wait(
-                running_tasks, return_when=asyncio.FIRST_COMPLETED
+                running_tasks,
+                return_when=asyncio.FIRST_COMPLETED,
             )
             for task in done:
                 follow_ups = task.result()
