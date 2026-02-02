@@ -168,4 +168,4 @@ tmp/
 # UV lock
 uv.lock
 
-.codespeed/
+.codspeed/
