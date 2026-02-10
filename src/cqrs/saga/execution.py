@@ -10,7 +10,7 @@ from cqrs.saga.fallback import Fallback
 from cqrs.saga.models import ContextT, SagaContext
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.enums import SagaStepStatus
-from cqrs.saga.storage.protocol import ISagaStorage
+from cqrs.saga.storage.protocol import ISagaStorage, SagaStorageRun
 
 logger = logging.getLogger("cqrs.saga")
 
@@ -21,7 +21,7 @@ class SagaStateManager:
     def __init__(
         self,
         saga_id: typing.Any,
-        storage: ISagaStorage,
+        storage: ISagaStorage | SagaStorageRun,
     ) -> None:
         """
         Initialize state manager.
@@ -79,7 +79,7 @@ class SagaRecoveryManager:
     def __init__(
         self,
         saga_id: typing.Any,
-        storage: ISagaStorage,
+        storage: ISagaStorage | SagaStorageRun,
         container: Container,
         saga_steps: list[type[SagaStepHandler] | Fallback],
     ) -> None:
@@ -105,11 +105,7 @@ class SagaRecoveryManager:
             Set of step names that have been completed
         """
         history = await self._storage.get_step_history(self._saga_id)
-        return {
-            e.step_name
-            for e in history
-            if e.status == SagaStepStatus.COMPLETED and e.action == "act"
-        }
+        return {e.step_name for e in history if e.status == SagaStepStatus.COMPLETED and e.action == "act"}
 
     async def reconstruct_completed_steps(
         self,

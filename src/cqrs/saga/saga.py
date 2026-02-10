@@ -16,7 +16,7 @@ from cqrs.saga.fallback import Fallback
 from cqrs.saga.models import ContextT
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
-from cqrs.saga.storage.protocol import ISagaStorage
+from cqrs.saga.storage.protocol import ISagaStorage, SagaStorageRun
 from cqrs.saga.validation import (
     SagaContextTypeExtractor,
     SagaStepValidator,
@@ -160,69 +160,101 @@ class SagaTransaction(typing.Generic[ContextT]):
         This ensures data consistency and prevents "zombie states" where a saga is
         partially compensated and partially executed.
 
-        Strategy Overview:
-        - Forward Execution (RUNNING/PENDING): Execute steps sequentially, skipping
-          already completed steps for idempotency.
-        - Point of No Return: If saga status is COMPENSATING or FAILED, immediately
-          resume compensation without attempting forward execution. This prevents
-          inconsistent states where partial compensation conflicts with new execution.
-        - Local Retries: Retry logic is handled at the step level (within step.act()).
-          While retrying, saga status remains RUNNING, allowing recovery to continue
-          forward execution if the retry succeeds.
-        - Global Failure: Once all local retries are exhausted and saga transitions
-          to COMPENSATING, the path forward is permanently closed. Only compensation
-          can proceed.
-
-        Yields:
-            SagaStepResult for each successfully executed step.
-
-        Raises:
-            Exception: If any step fails, compensation is triggered and
-                      the exception is re-raised. Also raised when recovering
-                      a saga in COMPENSATING/FAILED status.
+        When storage supports create_run(), uses one session per saga and checkpoint
+        commits (fewer commits and sessions). Otherwise uses the legacy path.
         """
-        # 1. Initialization / Recovery
+        try:
+            run_cm = self._storage.create_run()
+        except NotImplementedError:
+            run_cm = None
+
+        if run_cm is not None:
+            async with run_cm as run:
+                async for step_result in self._execute(run):
+                    yield step_result
+        else:
+            async for step_result in self._execute(None):
+                yield step_result
+
+    async def _execute(
+        self,
+        run: SagaStorageRun | None,
+    ) -> typing.AsyncIterator[SagaStepResult[ContextT, typing.Any]]:
+        """Run saga steps; use run for storage when provided and commit at checkpoints."""
+        if run is not None:
+            state_manager = SagaStateManager(self._saga_id, run)
+            recovery_manager = SagaRecoveryManager(
+                self._saga_id,
+                run,
+                self._container,
+                self._saga.steps,
+            )
+            step_executor = SagaStepExecutor(
+                self._context,
+                self._container,
+                state_manager,
+            )
+            fallback_executor = FallbackStepExecutor(
+                self._context,
+                self._container,
+                state_manager,
+            )
+            compensator = SagaCompensator(
+                self._saga_id,
+                self._context,
+                run,
+                self._compensator._retry_count,
+                self._compensator._retry_delay,
+                self._compensator._retry_backoff,
+                on_after_compensate_step=run.commit,
+            )
+        else:
+            state_manager = self._state_manager
+            recovery_manager = self._recovery_manager
+            step_executor = self._step_executor
+            fallback_executor = self._fallback_executor
+            compensator = self._compensator
+
         completed_step_names: set[str] = set()
 
         if self._is_new_saga:
-            await self._state_manager.create_saga(
+            await state_manager.create_saga(
                 self._saga.__class__.__name__,
                 self._context,
             )
-            await self._state_manager.update_status(SagaStatus.RUNNING)
+            await state_manager.update_status(SagaStatus.RUNNING)
+            if run is not None:
+                await run.commit()
         else:
-            # Try to recover state
             try:
-                status, _, _ = await self._storage.load_saga_state(
-                    self._saga_id,
-                    read_for_update=True,
-                )
+                if run is not None:
+                    status, _, _ = await run.load_saga_state(
+                        self._saga_id,
+                        read_for_update=True,
+                    )
+                else:
+                    status, _, _ = await self._storage.load_saga_state(
+                        self._saga_id,
+                        read_for_update=True,
+                    )
 
-                # Check for terminal states first
                 if status == SagaStatus.COMPLETED:
                     logger.info(
                         f"Saga {self._saga_id} is already {status}. Skipping execution.",
                     )
                     return
 
-                # POINT OF NO RETURN: Strict Backward Recovery Strategy
                 if status in (SagaStatus.COMPENSATING, SagaStatus.FAILED):
                     logger.warning(
                         f"Saga {self._saga_id} is in {status} state. " "Resuming compensation immediately.",
                     )
-
-                    # Restore completed steps from history for compensation
-                    completed_act_steps = await self._recovery_manager.load_completed_step_names()
-                    reconstructed_steps = await self._recovery_manager.reconstruct_completed_steps(
+                    completed_act_steps = await recovery_manager.load_completed_step_names()
+                    reconstructed_steps = await recovery_manager.reconstruct_completed_steps(
                         completed_act_steps,
                     )
-                    # Type cast is safe here because steps are reconstructed from the same saga
-                    # that uses ContextT, so they have the correct context type
-                    # We need to rebuild the list to satisfy type checker's invariance requirements
                     self._completed_steps = [
                         typing.cast(SagaStepHandler[ContextT, typing.Any], step) for step in reconstructed_steps
                     ]
-
                     if not self._completed_steps:
                         logger.warning(
                             f"Saga {self._saga_id}: no completed steps to compensate "
@@ -230,47 +262,44 @@ class SagaTransaction(typing.Generic[ContextT]):
                             "storage do not match saga step class names). "
                             "Marking as FAILED without calling compensate().",
                         )
-
-                    # Immediately proceed to compensation - no forward execution
-                    await self._compensate()
-
-                    # Raise exception to signal that saga was recovered in failed state
+                    await compensator.compensate_steps(self._completed_steps)
+                    if run is not None:
+                        await run.commit()
                     raise RuntimeError(
                         f"Saga {self._saga_id} was recovered in {status} state "
                         "and compensation was completed. Forward execution is not allowed.",
                     )
 
-                # For RUNNING/PENDING status, load history to skip completed steps
-                completed_step_names = await self._recovery_manager.load_completed_step_names()
+                completed_step_names = await recovery_manager.load_completed_step_names()
             except ValueError:
-                # If loading fails but ID was provided, create it
-                await self._state_manager.create_saga(
+                await state_manager.create_saga(
                     self._saga.__class__.__name__,
                     self._context,
                 )
-                await self._state_manager.update_status(SagaStatus.RUNNING)
+                await state_manager.update_status(SagaStatus.RUNNING)
+                if run is not None:
+                    await run.commit()
 
         step_name = "unknown_step"
         try:
             for step_item in self._saga.steps:
-                # Check if this is a Fallback wrapper
                 if isinstance(step_item, Fallback):
                     (
                         step_result,
                         executed_step,
-                    ) = await self._fallback_executor.execute_fallback_step(
+                    ) = await fallback_executor.execute_fallback_step(
                         step_item,
                         completed_step_names,
                     )
                     if step_result is not None and executed_step is not None:
-                        # Track completed step for compensation
                         self._completed_steps.append(executed_step)
+                        if run is not None:
+                            await run.commit()
                         yield dataclasses.replace(
                             step_result,
                             saga_id=self._saga_id,
                         )
                     elif executed_step is None:
-                        # Step was skipped (already completed), restore it for compensation
                         primary_name = step_item.step.__name__
                         fallback_name = step_item.fallback.__name__
                         if primary_name in completed_step_names:
@@ -281,47 +310,45 @@ class SagaTransaction(typing.Generic[ContextT]):
                             self._completed_steps.append(step)
                     continue
 
-                # Regular step handling
                 step_type = step_item
                 step_name = step_type.__name__
 
-                # 2. Skip logic (Idempotency)
                 if step_name in completed_step_names:
-                    # Restore step instance to completed_steps for potential compensation
                     step = await self._container.resolve(step_type)
                     self._completed_steps.append(step)
                     logger.debug(f"Skipping already completed step: {step_name}")
                     continue
 
-                # 3. Execution
-                step_result = await self._step_executor.execute_step(
+                step_result = await step_executor.execute_step(
                     step_type,
                     step_name,
                 )
-
-                # Track completed step for compensation
                 step = await self._container.resolve(step_type)
                 self._completed_steps.append(step)
-
+                if run is not None:
+                    await run.commit()
                 yield dataclasses.replace(
                     step_result,
                     saga_id=self._saga_id,
                 )
 
-            # Update context one final time before marking as completed
-            await self._state_manager.update_context(self._context)
-            await self._state_manager.update_status(SagaStatus.COMPLETED)
+            await state_manager.update_context(self._context)
+            await state_manager.update_status(SagaStatus.COMPLETED)
+            if run is not None:
+                await run.commit()
 
         except Exception as e:
-            # Log failure for the specific step
-            await self._state_manager.log_step(
+            await state_manager.log_step(
                 step_name,
                 "act",
                 SagaStepStatus.FAILED,
                 str(e),
             )
             self._error = e
-            await self._compensate()
+            self._compensated = True
+            await compensator.compensate_steps(self._completed_steps)
+            if run is not None:
+                await run.commit()
             raise
 
     async def _compensate(self) -> None:

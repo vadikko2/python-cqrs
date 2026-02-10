@@ -55,6 +55,8 @@ WHAT THIS EXAMPLE DEMONSTRATES
 
 4. Saga Storage and Logging:
    - SagaStorage persists saga state and execution history
+   - MemorySagaStorage and SqlAlchemySagaStorage support create_run(): execution
+     uses one session per saga and checkpoint commits (fewer commits, better performance)
    - Each step execution is logged (act/compensate, status, timestamp)
    - Storage enables recovery of interrupted sagas
    - Use storage.get_step_history() to view execution log
@@ -283,8 +285,7 @@ class ShippingService:
 
         self._shipments[shipment_id] = tracking_number
         print(
-            f"  ✓ Created shipment {shipment_id} for order {order_id} "
-            f"(tracking: {tracking_number})",
+            f"  ✓ Created shipment {shipment_id} for order {order_id} " f"(tracking: {tracking_number})",
         )
         return shipment_id, tracking_number
 
@@ -478,8 +479,10 @@ async def run_successful_saga() -> None:
     payment_service = PaymentService()
     shipping_service = ShippingService()
 
-    # Create saga storage for persistence
-    # In production, use SQLAlchemySagaStorage or another persistent storage
+    # Create saga storage for persistence.
+    # MemorySagaStorage (and SqlAlchemySagaStorage) support create_run():
+    # execution uses one session per saga and checkpoint commits for better performance.
+    # In production, use SqlAlchemySagaStorage or another persistent storage.
     storage = MemorySagaStorage()
 
     # Setup DI container

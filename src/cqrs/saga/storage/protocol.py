@@ -1,9 +1,56 @@
 import abc
+import contextlib
 import typing
 import uuid
 
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.models import SagaLogEntry
+
+
+class SagaStorageRun(typing.Protocol):
+    """Protocol for a scoped saga storage run (one session, checkpoint commits).
+
+    Returned by ISagaStorage.create_run(). Methods do not commit; the caller
+    must call commit() at checkpoints. Session is never exposed.
+    """
+
+    async def create_saga(
+        self,
+        saga_id: uuid.UUID,
+        name: str,
+        context: dict[str, typing.Any],
+    ) -> None: ...
+    async def update_context(
+        self,
+        saga_id: uuid.UUID,
+        context: dict[str, typing.Any],
+        current_version: int | None = None,
+    ) -> None: ...
+    async def update_status(
+        self,
+        saga_id: uuid.UUID,
+        status: SagaStatus,
+    ) -> None: ...
+    async def log_step(
+        self,
+        saga_id: uuid.UUID,
+        step_name: str,
+        action: typing.Literal["act", "compensate"],
+        status: SagaStepStatus,
+        details: str | None = None,
+    ) -> None: ...
+    async def load_saga_state(
+        self,
+        saga_id: uuid.UUID,
+        *,
+        read_for_update: bool = False,
+    ) -> tuple[SagaStatus, dict[str, typing.Any], int]: ...
+    async def get_step_history(
+        self,
+        saga_id: uuid.UUID,
+    ) -> list[SagaLogEntry]: ...
+    async def commit(self) -> None: ...
+    async def rollback(self) -> None: ...
 
 
 class ISagaStorage(abc.ABC):
@@ -214,3 +261,23 @@ class ISagaStorage(abc.ABC):
             attempts: The value to set recovery_attempts to (e.g. 0 to reset,
                 or max_recovery_attempts to exclude from recovery).
         """
+
+    def create_run(
+        self,
+    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
+        """Create a scoped run (one session) for saga execution with checkpoint commits.
+
+        Optional. When implemented, the orchestrator uses one session per saga
+        and calls commit() only at checkpoints (after create+RUNNING, after each
+        step, at completion, during compensation). Reduces commits and sessions.
+        The yielded object has the same mutation/read methods as this storage
+        but does not commit; caller must call commit() or rollback().
+
+        Returns:
+            Async context manager yielding a run object (SagaStorageRun).
+            Session is never exposed outside the storage implementation.
+
+        Raises:
+            NotImplementedError: If this storage does not support scoped runs.
+        """
+        raise NotImplementedError("This storage does not support create_run()")
