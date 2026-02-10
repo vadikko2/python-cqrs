@@ -7,7 +7,7 @@ import typing
 from cqrs.saga.models import ContextT
 from cqrs.saga.step import SagaStepHandler
 from cqrs.saga.storage.enums import SagaStepStatus, SagaStatus
-from cqrs.saga.storage.protocol import ISagaStorage
+from cqrs.saga.storage.protocol import ISagaStorage, SagaStorageRun
 
 logger = logging.getLogger("cqrs.saga")
 
@@ -19,10 +19,11 @@ class SagaCompensator(typing.Generic[ContextT]):
         self,
         saga_id: typing.Any,
         context: ContextT,
-        storage: ISagaStorage,
+        storage: ISagaStorage | SagaStorageRun,
         retry_count: int = 3,
         retry_delay: float = 1.0,
         retry_backoff: float = 2.0,
+        on_after_compensate_step: typing.Callable[[], typing.Awaitable[None]] | None = None,
     ) -> None:
         """
         Initialize compensator.
@@ -30,10 +31,12 @@ class SagaCompensator(typing.Generic[ContextT]):
         Args:
             saga_id: UUID of the saga
             context: Saga context
-            storage: Saga storage implementation
+            storage: Saga storage implementation (or run object with same interface)
             retry_count: Number of retry attempts for compensation
             retry_delay: Initial delay between retries in seconds
             retry_backoff: Backoff multiplier for exponential delay
+            on_after_compensate_step: Optional async callback after each successfully
+                compensated step (e.g. run.commit() for checkpoint).
         """
         self._saga_id = saga_id
         self._context = context
@@ -41,6 +44,7 @@ class SagaCompensator(typing.Generic[ContextT]):
         self._retry_count = retry_count
         self._retry_delay = retry_delay
         self._retry_backoff = retry_backoff
+        self._on_after_compensate_step = on_after_compensate_step
 
     async def compensate_steps(
         self,
@@ -65,14 +69,10 @@ class SagaCompensator(typing.Generic[ContextT]):
         # Load history to skip already compensated steps
         history = await self._storage.get_step_history(self._saga_id)
         compensated_steps = {
-            e.step_name
-            for e in history
-            if e.status == SagaStepStatus.COMPLETED and e.action == "compensate"
+            e.step_name for e in history if e.status == SagaStepStatus.COMPLETED and e.action == "compensate"
         }
 
-        compensation_errors: list[
-            tuple[SagaStepHandler[ContextT, typing.Any], Exception]
-        ] = []
+        compensation_errors: list[tuple[SagaStepHandler[ContextT, typing.Any], Exception]] = []
 
         for step in reversed(completed_steps):
             step_name = step.__class__.__name__
@@ -101,6 +101,8 @@ class SagaCompensator(typing.Generic[ContextT]):
                     "compensate",
                     SagaStepStatus.COMPLETED,
                 )
+                if self._on_after_compensate_step is not None:
+                    await self._on_after_compensate_step()
 
             except Exception as compensation_error:
                 await self._storage.log_step(

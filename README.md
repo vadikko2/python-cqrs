@@ -43,29 +43,29 @@
 
 ## Overview
 
-This is a package for implementing the CQRS (Command Query Responsibility Segregation) pattern in Python applications.
-It provides a set of abstractions and utilities to help separate read and write use cases, ensuring better scalability,
-performance, and maintainability of the application.
+An event-driven framework for building distributed systems in Python. It centers on CQRS (Command Query Responsibility Segregation) and extends into messaging, sagas, and reliable event delivery — so you can separate read and write flows, react to events from the bus, run distributed transactions with compensation, and publish events via Transaction Outbox. The result is clearer structure, better scalability, and easier evolution of the application.
 
 This package is a fork of the [diator](https://github.com/akhundMurad/diator)
-project ([documentation](https://akhundmurad.github.io/diator/)) with several enhancements:
+project ([documentation](https://akhundmurad.github.io/diator/)) with several enhancements, ordered by importance:
 
-1. Support for Pydantic [v2.*](https://docs.pydantic.dev/2.8/);
-2. `Kafka` support using [aiokafka](https://github.com/aio-libs/aiokafka);
-3. Added `EventMediator` for handling `Notification` and `ECST` events coming from the bus;
-4. Redesigned the event and request mapping mechanism to handlers;
-5. Added `bootstrap` for easy setup;
-6. Added support for [Transaction Outbox](https://microservices.io/patterns/data/transactional-outbox.html), ensuring
-   that `Notification` and `ECST` events are sent to the broker;
-7. FastAPI supporting;
-8. FastStream supporting;
-9. [Protobuf](https://protobuf.dev/) events supporting;
-10. `StreamingRequestMediator` and `StreamingRequestHandler` for handling streaming requests with real-time progress updates;
-11. Parallel event processing with configurable concurrency limits;
-12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence;
-13. Orchestrated Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms;
-14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization;
-15. Flexible Request and Response types support - use Pydantic-based or Dataclass-based implementations, with the ability to mix and match types based on your needs.
+**Core framework**
+
+1. Redesigned the event and request mapping mechanism to handlers;
+2. `EventMediator` for handling `Notification` and `ECST` events coming from the bus;
+3. `bootstrap` for easy setup;
+4. **Transaction Outbox**, ensuring that `Notification` and `ECST` events are sent to the broker;
+5. **Orchestrated Saga** pattern for distributed transactions with automatic compensation and recovery;
+6. `StreamingRequestMediator` and `StreamingRequestHandler` for streaming requests with real-time progress updates;
+7. **Chain of Responsibility** with `CORRequestHandler` for processing requests through multiple handlers in sequence;
+8. **Parallel event processing** with configurable concurrency limits.
+
+**Also**
+
+- **Typing:** Pydantic [v2.*](https://docs.pydantic.dev/2.8/) and `IRequest`/`IResponse` interfaces — use Pydantic-based, dataclass-based, or custom Request/Response implementations.
+- **Broker:** Kafka via [aiokafka](https://github.com/aio-libs/aiokafka).
+- **Integration:** Ready for integration with FastAPI and FastStream.
+- **Documentation:** Built-in Mermaid diagram generation (Sequence and Class diagrams).
+- **Protobuf:** Interface-level support for converting Notification events to Protobuf and back.
 
 ## Request Handlers
 
@@ -303,6 +303,63 @@ class CustomResponse(cqrs.IResponse):
 ```
 
 A complete example can be found in [request_response_types.py](https://github.com/vadikko2/cqrs/blob/master/examples/request_response_types.py)
+
+## Mapping
+
+To bind commands, queries and events with specific handlers, you can use the registries `EventMap` and `RequestMap`.
+
+```python
+from cqrs import requests, events
+
+from app import commands, command_handlers
+from app import queries, query_handlers
+from app import events as event_models, event_handlers
+
+
+def init_commands(mapper: requests.RequestMap) -> None:
+    mapper.bind(commands.JoinMeetingCommand, command_handlers.JoinMeetingCommandHandler)
+
+def init_queries(mapper: requests.RequestMap) -> None:
+    mapper.bind(queries.ReadMeetingQuery, query_handlers.ReadMeetingQueryHandler)
+
+def init_events(mapper: events.EventMap) -> None:
+    mapper.bind(events.NotificationEvent[events_models.NotificationMeetingRoomClosed], event_handlers.MeetingRoomClosedNotificationHandler)
+    mapper.bind(events.NotificationEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
+```
+
+## Bootstrap
+
+The `python-cqrs` package implements a set of bootstrap utilities designed to simplify the initial configuration of an
+application.
+
+```python
+import functools
+
+from cqrs.events import bootstrap as event_bootstrap
+from cqrs.requests import bootstrap as request_bootstrap
+
+from app import dependencies, mapping, orm
+
+
+@functools.lru_cache
+def mediator_factory():
+    return request_bootstrap.bootstrap(
+        di_container=dependencies.setup_di(),
+        commands_mapper=mapping.init_commands,
+        queries_mapper=mapping.init_queries,
+        domain_events_mapper=mapping.init_events,
+        on_startup=[orm.init_store_event_mapper],
+    )
+
+
+@functools.lru_cache
+def event_mediator_factory():
+    return event_bootstrap.bootstrap(
+        di_container=dependencies.setup_di(),
+        events_mapper=mapping.init_events,
+        on_startup=[orm.init_store_event_mapper],
+    )
+```
 
 ## Saga Pattern
 
@@ -689,17 +746,7 @@ loop.run_until_complete(periodically_task())
 A complete example can be found in
 the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/kafka_outboxed_event_producing.py)
 
-## Transaction log tailing
-
-If the Outbox polling strategy does not suit your needs, I recommend exploring
-the [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html) pattern.
-The current version of the python-cqrs package does not support the implementation of this pattern.
-
-> [!TIP]
-> However, it can be implemented
-> using [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html),
-> which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in
-> Kafka (or any other broker).
+**Transaction log tailing.** If Outbox polling does not suit you, consider [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html). The package does not implement it; you can use [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html) to tail the Outbox and produce events to Kafka.
 
 ## DI container
 
@@ -765,64 +812,9 @@ Complete examples can be found in:
 - [Simple example](https://github.com/vadikko2/cqrs/blob/master/examples/dependency_injector_integration_simple_example.py)
 - [Practical example with FastAPI](https://github.com/vadikko2/cqrs/blob/master/examples/dependency_injector_integration_practical_example.py)
 
-## Mapping
-
-To bind commands, queries and events with specific handlers, you can use the registries `EventMap` and `RequestMap`.
-
-```python
-from cqrs import requests, events
-
-from app import commands, command_handlers
-from app import queries, query_handlers
-from app import events as event_models, event_handlers
-
-
-def init_commands(mapper: requests.RequestMap) -> None:
-    mapper.bind(commands.JoinMeetingCommand, command_handlers.JoinMeetingCommandHandler)
-
-def init_queries(mapper: requests.RequestMap) -> None:
-    mapper.bind(queries.ReadMeetingQuery, query_handlers.ReadMeetingQueryHandler)
-
-def init_events(mapper: events.EventMap) -> None:
-    mapper.bind(events.NotificationEvent[events_models.NotificationMeetingRoomClosed], event_handlers.MeetingRoomClosedNotificationHandler)
-    mapper.bind(events.NotificationEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
-```
-
-## Bootstrap
-
-The `python-cqrs` package implements a set of bootstrap utilities designed to simplify the initial configuration of an
-application.
-
-```python
-import functools
-
-from cqrs.events import bootstrap as event_bootstrap
-from cqrs.requests import bootstrap as request_bootstrap
-
-from app import dependencies, mapping, orm
-
-
-@functools.lru_cache
-def mediator_factory():
-    return request_bootstrap.bootstrap(
-        di_container=dependencies.setup_di(),
-        commands_mapper=mapping.init_commands,
-        queries_mapper=mapping.init_queries,
-        domain_events_mapper=mapping.init_events,
-        on_startup=[orm.init_store_event_mapper],
-    )
-
-
-@functools.lru_cache
-def event_mediator_factory():
-    return event_bootstrap.bootstrap(
-        di_container=dependencies.setup_di(),
-        events_mapper=mapping.init_events,
-        on_startup=[orm.init_store_event_mapper],
-    )
-```
-
 ## Integration with presentation layers
+
+The framework is ready for integration with **FastAPI** and **FastStream**.
 
 > [!TIP]
 > I recommend reading the useful
@@ -956,8 +948,5 @@ the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/fastap
 
 ## Protobuf messaging
 
-The `python-cqrs` package supports integration with [protobuf](https://developers.google.com/protocol-buffers/).\\
-Protocol buffers are Google's language-neutral, platform-neutral, extensible mechanism for serializing structured data –
-think XML, but smaller, faster, and simpler. You define how you want your data to be structured once, then you can use
-special generated source code to easily write and read your structured data to and from a variety of data streams and
-using a variety of languages.
+The `python-cqrs` package supports integration with [protobuf](https://developers.google.com/protocol-buffers/).
+There is interface-level support for converting Notification events to Protobuf and back. Protocol buffers are Google's language-neutral, platform-neutral, extensible mechanism for serializing structured data – think XML, but smaller, faster, and simpler. You define how you want your data to be structured once, then you can use special generated source code to easily write and read your structured data to and from a variety of data streams and using a variety of languages.

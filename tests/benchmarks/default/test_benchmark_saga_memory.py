@@ -1,6 +1,11 @@
-"""Benchmarks for Saga with memory storage (default Response)."""
+"""Benchmarks for Saga with memory storage (default Response).
+
+- Benchmarks named *_run_* use the scoped run path (create_run, checkpoint commits).
+- Benchmarks named *_legacy_* use the legacy path (no create_run, commit per storage call).
+"""
 
 import asyncio
+import contextlib
 import dataclasses
 import typing
 
@@ -11,6 +16,7 @@ from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.memory import MemorySagaStorage
+from cqrs.saga.storage.protocol import SagaStorageRun
 
 
 @dataclasses.dataclass
@@ -138,6 +144,20 @@ def memory_storage() -> MemorySagaStorage:
     return MemorySagaStorage()
 
 
+class MemorySagaStorageLegacy(MemorySagaStorage):
+    """Memory storage without create_run: forces legacy path (commit per call)."""
+
+    def create_run(
+        self,
+    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
+        raise NotImplementedError("Legacy storage: create_run disabled for benchmark")
+
+
+@pytest.fixture
+def memory_storage_legacy() -> MemorySagaStorageLegacy:
+    return MemorySagaStorageLegacy()
+
+
 @pytest.fixture
 def saga_with_memory_storage(
     saga_container: SagaContainer,
@@ -150,13 +170,13 @@ def saga_with_memory_storage(
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_memory_full_transaction(
+def test_benchmark_saga_memory_run_full_transaction(
     benchmark,
     saga_with_memory_storage: Saga[OrderContext],
     saga_container: SagaContainer,
     memory_storage: MemorySagaStorage,
 ):
-    """Benchmark full saga transaction with memory storage (3 steps)."""
+    """Benchmark full saga transaction with memory storage, scoped run (3 steps)."""
 
     async def run() -> None:
         context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
@@ -172,13 +192,13 @@ def test_benchmark_saga_memory_full_transaction(
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_memory_single_step(
+def test_benchmark_saga_memory_run_single_step(
     benchmark,
     saga_with_memory_storage: Saga[OrderContext],
     saga_container: SagaContainer,
     memory_storage: MemorySagaStorage,
 ):
-    """Benchmark saga with single step (memory storage)."""
+    """Benchmark saga with single step, scoped run (memory storage)."""
 
     class SingleStepSaga(Saga[OrderContext]):
         steps = [ReserveInventoryStep]
@@ -199,17 +219,96 @@ def test_benchmark_saga_memory_single_step(
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_memory_ten_transactions(
+def test_benchmark_saga_memory_run_ten_transactions(
     benchmark,
     saga_with_memory_storage: Saga[OrderContext],
     saga_container: SagaContainer,
     memory_storage: MemorySagaStorage,
 ):
-    """Benchmark 10 saga transactions in sequence (memory storage)."""
+    """Benchmark 10 saga transactions in sequence, scoped run (memory storage)."""
 
     async def run() -> None:
         for i in range(10):
             storage = MemorySagaStorage()
+            context = OrderContext(
+                order_id=f"ord_{i}",
+                user_id=f"user_{i}",
+                amount=100.0 + i,
+            )
+            async with saga_with_memory_storage.transaction(
+                context=context,
+                container=saga_container,
+                storage=storage,
+            ) as transaction:
+                async for _ in transaction:
+                    pass
+
+    benchmark(lambda: asyncio.run(run()))
+
+
+# ---- Legacy path (no create_run, commit per storage call) ----
+
+
+@pytest.mark.benchmark
+def test_benchmark_saga_memory_legacy_full_transaction(
+    benchmark,
+    saga_with_memory_storage: Saga[OrderContext],
+    saga_container: SagaContainer,
+    memory_storage_legacy: MemorySagaStorageLegacy,
+):
+    """Benchmark full saga transaction with memory storage, legacy path (3 steps)."""
+
+    async def run() -> None:
+        context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
+        async with saga_with_memory_storage.transaction(
+            context=context,
+            container=saga_container,
+            storage=memory_storage_legacy,
+        ) as transaction:
+            async for _ in transaction:
+                pass
+
+    benchmark(lambda: asyncio.run(run()))
+
+
+@pytest.mark.benchmark
+def test_benchmark_saga_memory_legacy_single_step(
+    benchmark,
+    saga_with_memory_storage: Saga[OrderContext],
+    saga_container: SagaContainer,
+    memory_storage_legacy: MemorySagaStorageLegacy,
+):
+    """Benchmark saga with single step, legacy path (memory storage)."""
+
+    class SingleStepSaga(Saga[OrderContext]):
+        steps = [ReserveInventoryStep]
+
+    saga = SingleStepSaga()
+
+    async def run() -> None:
+        context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
+        async with saga.transaction(
+            context=context,
+            container=saga_container,
+            storage=memory_storage_legacy,
+        ) as transaction:
+            async for _ in transaction:
+                pass
+
+    benchmark(lambda: asyncio.run(run()))
+
+
+@pytest.mark.benchmark
+def test_benchmark_saga_memory_legacy_ten_transactions(
+    benchmark,
+    saga_with_memory_storage: Saga[OrderContext],
+    saga_container: SagaContainer,
+):
+    """Benchmark 10 saga transactions in sequence, legacy path (memory storage)."""
+
+    async def run() -> None:
+        for i in range(10):
+            storage = MemorySagaStorageLegacy()
             context = OrderContext(
                 order_id=f"ord_{i}",
                 user_id=f"user_{i}",

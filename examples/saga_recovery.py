@@ -57,6 +57,8 @@ WHAT THIS EXAMPLE DEMONSTRATES
 ================================================================================
 
 1. Saga State Persistence:
+   - MemorySagaStorage/SqlAlchemySagaStorage use create_run(): one session per saga,
+     checkpoint commits after each step (fewer commits, better performance)
    - Saga state is saved to storage after each step
    - Storage tracks which steps completed successfully
    - Context data is persisted for recovery
@@ -289,8 +291,7 @@ class ShippingService:
 
         self._shipments[shipment_id] = tracking_number
         logger.info(
-            f"  ✓ Created shipment {shipment_id} for order {order_id} "
-            f"(tracking: {tracking_number})",
+            f"  ✓ Created shipment {shipment_id} for order {order_id} " f"(tracking: {tracking_number})",
         )
         return shipment_id, tracking_number
 
@@ -534,7 +535,7 @@ async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
     print("=" * 70)
     print("\nSimulating server crash after first step...")
 
-    # Setup services and storage
+    # Setup services and storage (MemorySagaStorage uses create_run(): scoped run, checkpoint commits)
     inventory_service = InventoryService()
     payment_service = PaymentService()
     shipping_service = ShippingService()
@@ -604,8 +605,7 @@ async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
     print("\n  Execution log (SagaLog) before recovery:")
     for entry in history:
         print(
-            f"    [{entry.timestamp.strftime('%H:%M:%S')}] "
-            f"{entry.step_name}.{entry.action}: {entry.status.value}",
+            f"    [{entry.timestamp.strftime('%H:%M:%S')}] " f"{entry.step_name}.{entry.action}: {entry.status.value}",
         )
 
     print("\n⚠️  Problem: Order is incomplete!")
@@ -676,8 +676,7 @@ async def recover_interrupted_saga(
     print("\n  Execution log (SagaLog):")
     for entry in history:
         print(
-            f"    [{entry.timestamp.strftime('%H:%M:%S')}] "
-            f"{entry.step_name}.{entry.action}: {entry.status.value}",
+            f"    [{entry.timestamp.strftime('%H:%M:%S')}] " f"{entry.step_name}.{entry.action}: {entry.status.value}",
         )
 
     print("\n✅ System is now in consistent state!")
@@ -699,7 +698,7 @@ async def simulate_interrupted_compensation() -> tuple[uuid.UUID, MemorySagaStor
     print("=" * 70)
     print("\nSimulating failure during compensation...")
 
-    # Setup services
+    # Setup services and storage (scoped run via create_run() when supported)
     inventory_service = InventoryService()
     payment_service = PaymentService()
     shipping_service = ShippingService()
@@ -786,8 +785,7 @@ async def simulate_interrupted_compensation() -> tuple[uuid.UUID, MemorySagaStor
     print("\n  Execution log (SagaLog) before recovery:")
     for entry in history:
         print(
-            f"    [{entry.timestamp.strftime('%H:%M:%S')}] "
-            f"{entry.step_name}.{entry.action}: {entry.status.value}",
+            f"    [{entry.timestamp.strftime('%H:%M:%S')}] " f"{entry.step_name}.{entry.action}: {entry.status.value}",
         )
 
     print("\n⚠️  Problem: Compensation incomplete!")
@@ -852,8 +850,7 @@ async def recover_interrupted_compensation(
     print("\n  Execution log (SagaLog):")
     for entry in history:
         print(
-            f"    [{entry.timestamp.strftime('%H:%M:%S')}] "
-            f"{entry.step_name}.{entry.action}: {entry.status.value}",
+            f"    [{entry.timestamp.strftime('%H:%M:%S')}] " f"{entry.step_name}.{entry.action}: {entry.status.value}",
         )
 
     print("\n✅ System is now in consistent state!")

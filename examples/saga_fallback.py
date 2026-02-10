@@ -147,8 +147,7 @@ class PrimaryStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
         """Primary step that always raises an error."""
         self._call_count += 1
         logger.info(
-            f"  [PrimaryStep] Executing act() for order {context.order_id} "
-            f"(call #{self._call_count})...",
+            f"  [PrimaryStep] Executing act() for order {context.order_id} " f"(call #{self._call_count})...",
         )
         raise RuntimeError("Primary step failed - service unavailable")
 
@@ -302,7 +301,7 @@ async def main() -> None:
         ),
     )
 
-    # Create saga storage
+    # Create saga storage (supports create_run(): one session per saga, checkpoint commits)
     storage = MemorySagaStorage()
     di_container.bind(
         di.bind_by_type(

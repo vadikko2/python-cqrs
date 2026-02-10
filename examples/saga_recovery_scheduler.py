@@ -50,6 +50,8 @@ WHAT THIS EXAMPLE DEMONSTRATES
    - while True with asyncio.sleep(interval_seconds)
    - get_sagas_for_recovery(limit, max_recovery_attempts, stale_after_seconds)
    - Per-saga recover_saga() only; increment_recovery_attempts is done inside recover_saga on failure
+   - When storage supports create_run() (e.g. MemorySagaStorage, SqlAlchemySagaStorage),
+     saga execution uses one session per saga and checkpoint commits
 
 2. Staleness filter (stale_after_seconds):
    - Only sagas not updated recently are considered (avoids recovering
@@ -631,7 +633,7 @@ async def main() -> None:
         "  3. recover_saga() per saga (increment_recovery_attempts on failure is internal)",
     )
 
-    storage = MemorySagaStorage()
+    storage = MemorySagaStorage()  # supports create_run(): scoped run when executing sagas
 
     saga_id = await create_interrupted_saga(storage)
     storage._sagas[saga_id]["updated_at"] = datetime.datetime.now(
