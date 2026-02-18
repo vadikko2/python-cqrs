@@ -281,7 +281,20 @@ class ShippingService:
         items: list[str],
         address: str,
     ) -> tuple[str, str]:
-        """Create a shipment for the order."""
+        """
+        Create a shipment record for the given order and generate a tracking number.
+        
+        Parameters:
+            order_id (str): Identifier of the order.
+            items (list[str]): Items included in the shipment.
+            address (str): Destination shipping address.
+        
+        Returns:
+            tuple[str, str]: A tuple containing the shipment ID and the tracking number.
+        
+        Raises:
+            ValueError: If `address` is empty.
+        """
         if not address:
             raise ValueError("Shipping address is required")
 
@@ -519,16 +532,12 @@ class SimpleContainer(cqrs_container.Container[typing.Any]):
 
 async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
     """
-    Simulate a saga that gets interrupted after the first step.
-
-    This simulates what happens when:
-    - Server crashes after completing ReserveInventoryStep
-    - Network timeout occurs
-    - Process is killed during execution
-    - Database connection is lost
-
+    Simulate a saga that is interrupted after the inventory reservation step to produce a recoverable persisted state.
+    
     Returns:
-        Tuple of (saga_id, storage) so we can recover it later.
+        tuple:
+            saga_id (uuid.UUID): Identifier of the created saga.
+            storage (MemorySagaStorage): In-memory storage containing the persisted saga state and step history for recovery.
     """
     print("\n" + "=" * 70)
     print("SCENARIO 1: Simulating Interrupted Saga")
@@ -622,13 +631,13 @@ async def recover_interrupted_saga(
     storage: MemorySagaStorage,
 ) -> None:
     """
-    Recover and complete the interrupted saga.
-
-    This demonstrates how recovery ensures eventual consistency by:
-    1. Loading saga state from storage
-    2. Reconstructing context
-    3. Resuming execution from last completed step
-    4. Completing remaining steps
+    Recover and complete an interrupted saga using persisted state.
+    
+    Loads the saga state from storage, reconstructs the saga context, resumes execution from the last completed step, and completes any remaining steps to restore eventual consistency.
+    
+    Parameters:
+        saga_id (uuid.UUID): Identifier of the saga instance to recover.
+        storage (MemorySagaStorage): Durable storage containing the saga's persisted state and step history.
     """
     print("\n" + "=" * 70)
     print("SCENARIO 2: Recovering Interrupted Saga")
@@ -688,10 +697,12 @@ async def recover_interrupted_saga(
 
 async def simulate_interrupted_compensation() -> tuple[uuid.UUID, MemorySagaStorage]:
     """
-    Simulate a saga that fails and gets interrupted during compensation.
-
-    This shows recovery of compensation logic, which is critical for
-    maintaining consistency when rollback is interrupted.
+    Simulate a saga that fails and is interrupted during compensation.
+    
+    Sets up services, a saga, and a failing shipment step to trigger compensation that is then artificially interrupted; returns identifiers and storage state for performing recovery in a separate run.
+    
+    Returns:
+        tuple[uuid.UUID, MemorySagaStorage]: The saga ID and the in-memory storage containing the persisted saga state and step history after the simulated interruption.
     """
     print("\n" + "=" * 70)
     print("SCENARIO 3: Simulating Interrupted Compensation")
@@ -801,10 +812,13 @@ async def recover_interrupted_compensation(
     storage: MemorySagaStorage,
 ) -> None:
     """
-    Recover and complete the interrupted compensation.
-
-    This ensures that even if compensation is interrupted, it will
-    eventually complete, releasing all resources.
+    Recover and complete an interrupted compensation for a saga.
+    
+    Loads the saga state from the provided storage using the given saga identifier and drives any incomplete compensation steps to completion, ensuring resources (inventory, payments, shipments) are released and the system reaches a consistent state. Progress and final status are printed to stdout.
+    
+    Parameters:
+        saga_id (uuid.UUID): Identifier of the saga to recover.
+        storage (MemorySagaStorage): Persistent storage containing the saga state and step history.
     """
     print("\n" + "=" * 70)
     print("SCENARIO 4: Recovering Interrupted Compensation")
