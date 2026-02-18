@@ -28,11 +28,23 @@ class SqlAlchemySagaStorageLegacy(SqlAlchemySagaStorage):
     def create_run(
         self,
     ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
+        """
+        Disable creation of a scoped SagaStorageRun for legacy storage used in benchmarks.
+        
+        Raises:
+            NotImplementedError: Always raised with message "Legacy storage: create_run disabled for benchmark".
+        """
         raise NotImplementedError("Legacy storage: create_run disabled for benchmark")
 
 
 @pytest.fixture
 def saga_container() -> SagaContainer:
+    """
+    Create and return a SagaContainer pre-registered with the ReserveInventoryStep, ProcessPaymentStep, and ShipOrderStep instances.
+    
+    Returns:
+        SagaContainer: A container with the three steps already registered.
+    """
     container = SagaContainer()
     container.register(ReserveInventoryStep, ReserveInventoryStep())
     container.register(ProcessPaymentStep, ProcessPaymentStep())
@@ -103,6 +115,11 @@ def test_benchmark_saga_sqlalchemy_single_step(
     context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
 
     async def run_transaction() -> None:
+        """
+        Execute the saga transaction lifecycle by entering the saga's transaction context and iterating its steps to completion.
+        
+        This function opens the saga transaction using the surrounding `saga`, `saga_container`, `storage`, and `context`, then consumes the transaction iterator to drive all saga steps to completion.
+        """
         async with saga.transaction(
             context=context,
             container=saga_container,
@@ -124,7 +141,11 @@ def test_benchmark_saga_sqlalchemy_legacy_full_transaction(
     saga_container: SagaContainer,
     saga_benchmark_loop_and_engine,
 ):
-    """Benchmark full saga transaction with SQLAlchemy storage, legacy path (MySQL)."""
+    """
+    Benchmark a full saga transaction using SQLAlchemy storage in legacy mode.
+    
+    Runs a complete saga (three-step OrderSaga) against SqlAlchemySagaStorageLegacy, which disables `create_run` so the storage exercises the legacy commit-per-call path. The benchmark executes the saga transaction in the provided event loop and database engine fixture.
+    """
     loop, engine = saga_benchmark_loop_and_engine
 
     session_factory = async_sessionmaker(
@@ -137,6 +158,11 @@ def test_benchmark_saga_sqlalchemy_legacy_full_transaction(
     context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
 
     async def run_transaction() -> None:
+        """
+        Execute the configured saga transaction and iterate through all its steps to completion.
+        
+        This coroutine opens a transaction using the surrounding `saga_sqlalchemy`, `saga_container`, `context`, and `storage` variables and consumes the transaction iterator without performing additional actions.
+        """
         async with saga_sqlalchemy.transaction(
             context=context,
             container=saga_container,
@@ -154,7 +180,11 @@ def test_benchmark_saga_sqlalchemy_legacy_single_step(
     saga_container: SagaContainer,
     saga_benchmark_loop_and_engine,
 ):
-    """Benchmark saga with single step, legacy path (SQLAlchemy storage)."""
+    """
+    Benchmark executing a single-step Saga using legacy SQLAlchemy storage (commit-per-call path).
+    
+    Constructs a SingleStepSaga with ReserveInventoryStep, creates a SqlAlchemySagaStorageLegacy backed by the provided engine/session factory, and measures running a full saga transaction (iterating the transaction to completion) using the provided event loop via the benchmark fixture.
+    """
     loop, engine = saga_benchmark_loop_and_engine
 
     class SingleStepSaga(Saga[OrderContext]):
@@ -172,6 +202,11 @@ def test_benchmark_saga_sqlalchemy_legacy_single_step(
     context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
 
     async def run_transaction() -> None:
+        """
+        Execute the saga transaction lifecycle by entering the saga's transaction context and iterating its steps to completion.
+        
+        This function opens the saga transaction using the surrounding `saga`, `saga_container`, `storage`, and `context`, then consumes the transaction iterator to drive all saga steps to completion.
+        """
         async with saga.transaction(
             context=context,
             container=saga_container,

@@ -19,18 +19,48 @@ class SagaStorageRun(typing.Protocol):
         saga_id: uuid.UUID,
         name: str,
         context: dict[str, typing.Any],
-    ) -> None: ...
+    ) -> None: """
+        Create a new saga execution record with initial PENDING status and version 1.
+        
+        Parameters:
+            saga_id (uuid.UUID): Unique identifier for the saga (primary key).
+            name (str): Human-friendly name used for diagnostics and filtering.
+            context (dict[str, Any]): JSON-serializable initial saga context to persist.
+        """
+        ...
     async def update_context(
         self,
         saga_id: uuid.UUID,
         context: dict[str, typing.Any],
         current_version: int | None = None,
-    ) -> None: ...
+    ) -> None: """
+        Persist a snapshot of the saga's execution context, optionally using optimistic locking.
+        
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga to update.
+            context (dict[str, Any]): JSON-serializable context object to store as the new snapshot.
+            current_version (int | None): If provided, perform an optimistic-locking update that succeeds only
+                if the stored version matches this value; on success the stored version is incremented.
+        
+        Raises:
+            SagaConcurrencyError: If `current_version` is provided and does not match the stored version.
+        """
+        ...
     async def update_status(
         self,
         saga_id: uuid.UUID,
         status: SagaStatus,
-    ) -> None: ...
+    ) -> None: """
+        Set the global status for the saga identified by `saga_id`.
+        
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga to update.
+            status (SagaStatus): New global status to persist (for example RUNNING, COMPLETED, COMPENSATING).
+        
+        Notes:
+            This operation does not commit the storage session; the caller must call `commit()` on the active run or session to persist the change.
+        """
+        ...
     async def log_step(
         self,
         saga_id: uuid.UUID,
@@ -38,19 +68,58 @@ class SagaStorageRun(typing.Protocol):
         action: typing.Literal["act", "compensate"],
         status: SagaStepStatus,
         details: str | None = None,
-    ) -> None: ...
+    ) -> None: """
+        Append a step transition to the saga's execution log.
+        
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga whose log will be appended.
+            step_name (str): Logical name of the step (used for diagnostics and replay).
+            action (Literal["act", "compensate"]): Whether this entry records the primary action ("act") or its compensating action ("compensate").
+            status (SagaStepStatus): The step transition status to record (e.g., started, completed, failed, compensated).
+            details (str | None): Optional human-readable details or diagnostics about the transition.
+        """
+        ...
     async def load_saga_state(
         self,
         saga_id: uuid.UUID,
         *,
         read_for_update: bool = False,
-    ) -> tuple[SagaStatus, dict[str, typing.Any], int]: ...
+    ) -> tuple[SagaStatus, dict[str, typing.Any], int]: """
+        Load the current saga execution state.
+        
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga to load.
+            read_for_update (bool): If True, acquire a database lock for update to prevent concurrent modifications.
+        
+        Returns:
+            tuple[SagaStatus, dict[str, Any], int]: A tuple containing the saga's global status, the latest persisted context (JSON-serializable), and the current optimistic-locking version number.
+        """
+        ...
     async def get_step_history(
         self,
         saga_id: uuid.UUID,
-    ) -> list[SagaLogEntry]: ...
-    async def commit(self) -> None: ...
-    async def rollback(self) -> None: ...
+    ) -> list[SagaLogEntry]: """
+        Retrieve the chronological step log for a saga.
+        
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga whose step history to retrieve.
+        
+        Returns:
+            list[SagaLogEntry]: Ordered list of step log entries for the saga, from oldest to newest.
+        """
+        ...
+    async def commit(self) -> None: """
+Finalize the storage run by persisting and committing all pending changes made during this session.
+
+This method makes the run's checkpointed changes durable; the caller is responsible for invoking commit at logical checkpoints to persist session state.
+"""
+...
+    async def rollback(self) -> None: """
+Abort the current storage run and revert any uncommitted changes in the session.
+
+This releases the run's transactional state without persisting pending updates so that the storage remains as it was before the run began.
+"""
+...
 
 
 class ISagaStorage(abc.ABC):
@@ -265,19 +334,15 @@ class ISagaStorage(abc.ABC):
     def create_run(
         self,
     ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
-        """Create a scoped run (one session) for saga execution with checkpoint commits.
-
-        Optional. When implemented, the orchestrator uses one session per saga
-        and calls commit() only at checkpoints (after create+RUNNING, after each
-        step, at completion, during compensation). Reduces commits and sessions.
-        The yielded object has the same mutation/read methods as this storage
-        but does not commit; caller must call commit() or rollback().
-
+        """
+        Create a scoped async run context for a single saga execution session with checkpointed commits.
+        
+        The context manager yields a SagaStorageRun that provides the same mutation/read methods as the storage but does not commit automatically; the caller must call commit() or rollback() at desired checkpoints.
+        
         Returns:
-            Async context manager yielding a run object (SagaStorageRun).
-            Session is never exposed outside the storage implementation.
-
+            contextlib.AbstractAsyncContextManager[SagaStorageRun]: Async context manager yielding a SagaStorageRun session.
+        
         Raises:
-            NotImplementedError: If this storage does not support scoped runs.
+            NotImplementedError: If the storage backend does not support scoped runs.
         """
         raise NotImplementedError("This storage does not support create_run()")

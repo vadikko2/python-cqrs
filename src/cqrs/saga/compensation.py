@@ -26,17 +26,16 @@ class SagaCompensator(typing.Generic[ContextT]):
         on_after_compensate_step: typing.Callable[[], typing.Awaitable[None]] | None = None,
     ) -> None:
         """
-        Initialize compensator.
-
-        Args:
-            saga_id: UUID of the saga
-            context: Saga context
-            storage: Saga storage implementation (or run object with same interface)
-            retry_count: Number of retry attempts for compensation
-            retry_delay: Initial delay between retries in seconds
-            retry_backoff: Backoff multiplier for exponential delay
-            on_after_compensate_step: Optional async callback after each successfully
-                compensated step (e.g. run.commit() for checkpoint).
+        Create a SagaCompensator configured to perform compensation of completed saga steps with retry and optional post-step callback.
+        
+        Parameters:
+            saga_id: Identifier of the saga.
+            context: Saga execution context passed to step compensation handlers.
+            storage: Storage or run object implementing saga persistence operations.
+            retry_count: Maximum number of attempts per step before giving up.
+            retry_delay: Initial delay in seconds before the first retry.
+            retry_backoff: Multiplier applied to the delay for each successive retry (exponential backoff).
+            on_after_compensate_step: Optional async callback invoked after each step is successfully compensated.
         """
         self._saga_id = saga_id
         self._context = context
@@ -51,10 +50,15 @@ class SagaCompensator(typing.Generic[ContextT]):
         completed_steps: list[SagaStepHandler[ContextT, typing.Any]],
     ) -> None:
         """
-        Compensate all completed steps in reverse order with retry mechanism.
-
-        Args:
-            completed_steps: List of completed step handlers to compensate
+        Compensates completed saga steps in reverse order, applying retry logic and recording step statuses.
+        
+        Compensates each handler from last to first, skipping steps already recorded as compensated in the saga history. Updates the saga status to COMPENSATING at the start and logs per-step statuses (STARTED, COMPLETED, FAILED) in storage. After a step completes, the optional on_after_compensate_step callback (if provided) is awaited. If any step fails after all retry attempts, the saga is marked as FAILED. If no completed steps are provided, no compensation is attempted and the saga is marked as FAILED.
+        
+        Parameters:
+            completed_steps (list[SagaStepHandler[ContextT, typing.Any]]): Handlers corresponding to steps that completed during the saga; these will be compensated in reverse order.
+        
+        Returns:
+            None
         """
         await self._storage.update_status(self._saga_id, SagaStatus.COMPENSATING)
 
