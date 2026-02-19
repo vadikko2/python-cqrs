@@ -1,18 +1,12 @@
 import pytest
 import os
+from sqlalchemy import event
 import asyncio
 from sqlalchemy.ext import asyncio as sqla_async
 import dotenv
 
 dotenv.load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
 
 @pytest.fixture(scope="session")
 async def engine():
@@ -28,6 +22,12 @@ async def session(engine):
 
     session_maker = sqla_async.async_sessionmaker(bind=connection, expire_on_commit=False)
     session = session_maker()
+    await session.begin_nested()
+
+    @event.listens_for(session.sync_session, "after_transaction_end")
+    def restart_savepoint(sess, trans):
+        if trans.nested and trans.parent and not trans.parent.nested:
+            sess.begin_nested()
 
     yield session
 
