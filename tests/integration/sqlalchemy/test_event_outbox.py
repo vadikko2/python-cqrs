@@ -78,7 +78,7 @@ class TestOutbox:
 
     @pytest.fixture(autouse=True)
     async def cleanup_table(self, session, setup_db):
-        await session.execute(sqla.text(f"TRUNCATE TABLE {TestOutboxModel.__tablename__}"))
+        await session.execute(sqla.delete(TestOutboxModel))
         await session.commit()
         yield
 
@@ -166,7 +166,7 @@ class TestOutbox:
         await outbox_repo.commit()
 
         assert event
-        assert event.id == event_over_get_all_events_method.id  # noqa
+        assert event.id == event_over_get_all_events_method.id
 
     async def test_get_new_event_negative(self, outbox_repo):
         """
