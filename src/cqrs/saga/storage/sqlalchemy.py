@@ -3,6 +3,7 @@ import logging
 import os
 import typing
 import uuid
+import sys
 from cqrs.dispatcher.exceptions import SagaConcurrencyError
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.models import SagaLogEntry
