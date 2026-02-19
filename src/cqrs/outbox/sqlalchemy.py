@@ -274,3 +274,18 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
 
     async def rollback(self):
         await self.session.rollback()
+
+
+@warnings.deprecated()
+def rebind_outbox_model(
+    model: typing.Any,
+    new_base: DeclarativeMeta,
+    table_name: typing.Text | None = None,
+):
+    model.__bases__ = (new_base,)
+    model.__table__.name = table_name or model.__table__.name
+    new_base.metadata._add_table(
+        model.__table__.name,
+        model.__table__.schema,
+        model.__table__,
+    )
