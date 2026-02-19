@@ -8,6 +8,11 @@ import cqrs
 from cqrs import compressors
 from cqrs.outbox import map, repository
 
+if sys.version_info < (3, 13):
+    from typing_extensions import deprecated
+else:
+    from warnings import deprecated
+
 try:
     import sqlalchemy
     from sqlalchemy import func
@@ -275,7 +280,7 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
         await self.session.rollback()
 
 
-@warnings.deprecated()
+@depricated("This function is deprecated; use `OutboxModelMixin` instead")
 def rebind_outbox_model(
     model: typing.Any,
     new_base: DeclarativeMeta,
