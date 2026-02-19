@@ -46,7 +46,7 @@ async def init_saga_orm(engine):
     yield
 
 
-`@pytest.fixture`(scope="session")
+@pytest.fixture(scope="session")
 def saga_session_factory(engine, _init_saga_orm):
     return sqla_async.async_sessionmaker(engine, expire_on_commit=False)
     return sqla_async.async_sessionmaker(saga_engine, expire_on_commit=False)
