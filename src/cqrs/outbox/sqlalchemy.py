@@ -3,7 +3,6 @@ import logging
 import typing
 import uuid
 import orjson
-import uuid6
 
 import cqrs
 from cqrs import compressors
