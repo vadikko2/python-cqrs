@@ -6,7 +6,7 @@ from sqlalchemy.ext import asyncio as sqla_async
 import dotenv
 
 dotenv.load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./.cqrs_test.db")
 
 @pytest.fixture(scope="session")
 async def engine():
@@ -49,4 +49,3 @@ async def init_saga_orm(engine):
 @pytest.fixture(scope="session")
 def saga_session_factory(engine, _init_saga_orm):
     return sqla_async.async_sessionmaker(engine, expire_on_commit=False)
-    return sqla_async.async_sessionmaker(saga_engine, expire_on_commit=False)
