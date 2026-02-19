@@ -1,14 +1,26 @@
-import asyncio
+import dataclasses
 import logging
 import types
 import typing
 import uuid
 
 from cqrs.container.protocol import Container
+from cqrs.saga.compensation import SagaCompensator
+from cqrs.saga.execution import (
+    FallbackStepExecutor,
+    SagaRecoveryManager,
+    SagaStateManager,
+    SagaStepExecutor,
+)
+from cqrs.saga.fallback import Fallback
 from cqrs.saga.models import ContextT
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.protocol import ISagaStorage
+from cqrs.saga.validation import (
+    SagaContextTypeExtractor,
+    SagaStepValidator,
+)
 
 logger = logging.getLogger("cqrs.saga")
 
@@ -74,15 +86,36 @@ class SagaTransaction(typing.Generic[ContextT]):
         self._completed_steps: list[SagaStepHandler[ContextT, typing.Any]] = []
         self._error: BaseException | None = None
         self._compensated: bool = False
-        self._compensation_retry_count = compensation_retry_count
-        self._compensation_retry_delay = compensation_retry_delay
-        self._compensation_retry_backoff = compensation_retry_backoff
 
         self._saga_id = saga_id or uuid.uuid4()
-        # If saga_id was passed, we assume it's an existing saga if it exists in storage,
-        # but here we treat it as new if not checking storage explicitly.
-        # Ideally, we should check storage in __aiter__.
         self._is_new_saga = saga_id is None
+
+        # Initialize components
+        self._state_manager = SagaStateManager(self._saga_id, storage)
+        self._recovery_manager = SagaRecoveryManager(
+            self._saga_id,
+            storage,
+            container,
+            saga.steps,
+        )
+        self._step_executor: SagaStepExecutor[ContextT] = SagaStepExecutor[ContextT](
+            context,
+            container,
+            self._state_manager,
+        )
+        self._fallback_executor: FallbackStepExecutor[ContextT] = FallbackStepExecutor[ContextT](
+            context,
+            container,
+            self._state_manager,
+        )
+        self._compensator: SagaCompensator[ContextT] = SagaCompensator[ContextT](
+            self._saga_id,
+            context,
+            storage,
+            compensation_retry_count,
+            compensation_retry_delay,
+            compensation_retry_backoff,
+        )
 
     @property
     def saga_id(self) -> uuid.UUID:
@@ -108,9 +141,10 @@ class SagaTransaction(typing.Generic[ContextT]):
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
     ) -> bool:
-        # If an exception occurred, compensate all completed steps
-        # Only compensate if not already compensated in __aiter__
-        if exc_val is not None and not self._compensated:
+        # If an exception occurred, compensate all completed steps.
+        # Do not compensate on GeneratorExit: consumer stopped iteration intentionally
+        # (e.g. to resume later), which is not a failure.
+        if exc_val is not None and exc_type is not GeneratorExit and not self._compensated:
             self._error = exc_val
             await self._compensate()
         return False  # Don't suppress the exception
@@ -150,18 +184,12 @@ class SagaTransaction(typing.Generic[ContextT]):
         # 1. Initialization / Recovery
         completed_step_names: set[str] = set()
 
-        # Determine if we need to create or load
-        # If ID was provided, we check if it exists (basic check logic)
-        # For simplicity, if _is_new_saga is True, we create.
-        # If it was False, we try to load.
-
         if self._is_new_saga:
-            await self._storage.create_saga(
-                self._saga_id,
+            await self._state_manager.create_saga(
                 self._saga.__class__.__name__,
-                self._context.to_dict(),
+                self._context,
             )
-            await self._storage.update_status(self._saga_id, SagaStatus.RUNNING)
+            await self._state_manager.update_status(SagaStatus.RUNNING)
         else:
             # Try to recover state
             try:
@@ -178,29 +206,30 @@ class SagaTransaction(typing.Generic[ContextT]):
                     return
 
                 # POINT OF NO RETURN: Strict Backward Recovery Strategy
-                # If saga is in COMPENSATING or FAILED status, we must complete compensation
-                # and never attempt forward execution. This prevents inconsistent states
-                # where partial compensation conflicts with new execution attempts.
                 if status in (SagaStatus.COMPENSATING, SagaStatus.FAILED):
                     logger.warning(
-                        f"Saga {self._saga_id} is in {status} state. "
-                        "Resuming compensation immediately.",
+                        f"Saga {self._saga_id} is in {status} state. " "Resuming compensation immediately.",
                     )
 
                     # Restore completed steps from history for compensation
-                    history = await self._storage.get_step_history(self._saga_id)
-                    completed_act_steps = {
-                        e.step_name
-                        for e in history
-                        if e.status == SagaStepStatus.COMPLETED and e.action == "act"
-                    }
+                    completed_act_steps = await self._recovery_manager.load_completed_step_names()
+                    reconstructed_steps = await self._recovery_manager.reconstruct_completed_steps(
+                        completed_act_steps,
+                    )
+                    # Type cast is safe here because steps are reconstructed from the same saga
+                    # that uses ContextT, so they have the correct context type
+                    # We need to rebuild the list to satisfy type checker's invariance requirements
+                    self._completed_steps = [
+                        typing.cast(SagaStepHandler[ContextT, typing.Any], step) for step in reconstructed_steps
+                    ]
 
-                    # Reconstruct completed_steps list in order for proper compensation
-                    for step_type in self._saga.steps:
-                        step_name = step_type.__name__
-                        if step_name in completed_act_steps:
-                            step = await self._container.resolve(step_type)
-                            self._completed_steps.append(step)
+                    if not self._completed_steps:
+                        logger.warning(
+                            f"Saga {self._saga_id}: no completed steps to compensate "
+                            "(saga failed before any step finished 'act', or step names in "
+                            "storage do not match saga step class names). "
+                            "Marking as FAILED without calling compensate().",
+                        )
 
                     # Immediately proceed to compensation - no forward execution
                     await self._compensate()
@@ -212,26 +241,48 @@ class SagaTransaction(typing.Generic[ContextT]):
                     )
 
                 # For RUNNING/PENDING status, load history to skip completed steps
-                history = await self._storage.get_step_history(self._saga_id)
-                completed_step_names = {
-                    e.step_name
-                    for e in history
-                    if e.status == SagaStepStatus.COMPLETED and e.action == "act"
-                }
+                completed_step_names = await self._recovery_manager.load_completed_step_names()
             except ValueError:
-                # If loading fails but ID was provided, maybe treat as new?
-                # Or raise error. Assuming strict consistency for now.
-                # If the user provided an ID that doesn't exist, create it.
-                await self._storage.create_saga(
-                    self._saga_id,
+                # If loading fails but ID was provided, create it
+                await self._state_manager.create_saga(
                     self._saga.__class__.__name__,
-                    self._context.to_dict(),
+                    self._context,
                 )
-                await self._storage.update_status(self._saga_id, SagaStatus.RUNNING)
+                await self._state_manager.update_status(SagaStatus.RUNNING)
 
         step_name = "unknown_step"
         try:
-            for step_type in self._saga.steps:
+            for step_item in self._saga.steps:
+                # Check if this is a Fallback wrapper
+                if isinstance(step_item, Fallback):
+                    (
+                        step_result,
+                        executed_step,
+                    ) = await self._fallback_executor.execute_fallback_step(
+                        step_item,
+                        completed_step_names,
+                    )
+                    if step_result is not None and executed_step is not None:
+                        # Track completed step for compensation
+                        self._completed_steps.append(executed_step)
+                        yield dataclasses.replace(
+                            step_result,
+                            saga_id=self._saga_id,
+                        )
+                    elif executed_step is None:
+                        # Step was skipped (already completed), restore it for compensation
+                        primary_name = step_item.step.__name__
+                        fallback_name = step_item.fallback.__name__
+                        if primary_name in completed_step_names:
+                            step = await self._container.resolve(step_item.step)
+                            self._completed_steps.append(step)
+                        elif fallback_name in completed_step_names:
+                            step = await self._container.resolve(step_item.fallback)
+                            self._completed_steps.append(step)
+                    continue
+
+                # Regular step handling
+                step_type = step_item
                 step_name = step_type.__name__
 
                 # 2. Skip logic (Idempotency)
@@ -242,41 +293,28 @@ class SagaTransaction(typing.Generic[ContextT]):
                     logger.debug(f"Skipping already completed step: {step_name}")
                     continue
 
-                # Resolve step handler from DI container
-                step = await self._container.resolve(step_type)
-
                 # 3. Execution
-                await self._storage.log_step(
-                    self._saga_id,
+                step_result = await self._step_executor.execute_step(
+                    step_type,
                     step_name,
-                    "act",
-                    SagaStepStatus.STARTED,
                 )
 
-                step_result = await step.act(self._context)
-
+                # Track completed step for compensation
+                step = await self._container.resolve(step_type)
                 self._completed_steps.append(step)
 
-                # 4. Commit State
-                await self._storage.update_context(
-                    self._saga_id,
-                    self._context.to_dict(),
-                )
-                await self._storage.log_step(
-                    self._saga_id,
-                    step_name,
-                    "act",
-                    SagaStepStatus.COMPLETED,
+                yield dataclasses.replace(
+                    step_result,
+                    saga_id=self._saga_id,
                 )
 
-                yield step_result
-
-            await self._storage.update_status(self._saga_id, SagaStatus.COMPLETED)
+            # Update context one final time before marking as completed
+            await self._state_manager.update_context(self._context)
+            await self._state_manager.update_status(SagaStatus.COMPLETED)
 
         except Exception as e:
             # Log failure for the specific step
-            await self._storage.log_step(
-                self._saga_id,
+            await self._state_manager.log_step(
                 step_name,
                 "act",
                 SagaStepStatus.FAILED,
@@ -287,134 +325,20 @@ class SagaTransaction(typing.Generic[ContextT]):
             raise
 
     async def _compensate(self) -> None:
-        """
-        Compensate all completed steps in reverse order with retry mechanism.
-        """
+        """Compensate all completed steps in reverse order with retry mechanism."""
         # Prevent double compensation
         if self._compensated:
             return
 
         self._compensated = True
-
-        await self._storage.update_status(self._saga_id, SagaStatus.COMPENSATING)
-
-        # Load history to skip already compensated steps
-        history = await self._storage.get_step_history(self._saga_id)
-        compensated_steps = {
-            e.step_name
-            for e in history
-            if e.status == SagaStepStatus.COMPLETED and e.action == "compensate"
-        }
-
-        compensation_errors: list[
-            tuple[SagaStepHandler[ContextT, typing.Any], Exception]
-        ] = []
-
-        for step in reversed(self._completed_steps):
-            step_name = step.__class__.__name__
-
-            if step_name in compensated_steps:
-                logger.debug(f"Skipping already compensated step: {step_name}")
-                continue
-
-            try:
-                await self._storage.log_step(
-                    self._saga_id,
-                    step_name,
-                    "compensate",
-                    SagaStepStatus.STARTED,
-                )
-
-                await self._compensate_step_with_retry(step)
-
-                await self._storage.update_context(
-                    self._saga_id,
-                    self._context.to_dict(),
-                )
-                await self._storage.log_step(
-                    self._saga_id,
-                    step_name,
-                    "compensate",
-                    SagaStepStatus.COMPLETED,
-                )
-
-            except Exception as compensation_error:
-                await self._storage.log_step(
-                    self._saga_id,
-                    step_name,
-                    "compensate",
-                    SagaStepStatus.FAILED,
-                    str(compensation_error),
-                )
-                # Store both step and error for better error reporting
-                compensation_errors.append((step, compensation_error))
-
-        # If compensation failed after all retries
-        if compensation_errors:
-            for step, comp_error in compensation_errors:
-                step_name = step.__class__.__name__
-                logger.error(
-                    f"Compensation failed for step '{step_name}' after {self._compensation_retry_count} attempts. "
-                    f"Error: {type(comp_error).__name__}: {comp_error}",
-                    exc_info=comp_error,
-                )
-            # Mark as failed eventually
-            await self._storage.update_status(self._saga_id, SagaStatus.FAILED)
-        else:
-            # If all compensations succeeded (or were skipped), we effectively failed the saga transaction
-            # but successfully compensated. The saga status is FAILED.
-            await self._storage.update_status(self._saga_id, SagaStatus.FAILED)
-
-    async def _compensate_step_with_retry(
-        self,
-        step: SagaStepHandler[ContextT, typing.Any],
-    ) -> None:
-        """
-        Compensate a single step with retry mechanism and exponential backoff.
-
-        Args:
-            step: The step handler to compensate
-
-        Raises:
-            Exception: If compensation fails after all retry attempts
-        """
-        step_name = step.__class__.__name__
-
-        last_exception: Exception | None = None
-        for attempt in range(1, self._compensation_retry_count + 1):
-            try:
-                await step.compensate(self._context)
-                logger.debug(
-                    f"Successfully compensated step '{step_name}' on attempt {attempt}",
-                )
-                return
-            except Exception as e:
-                last_exception = e
-                if attempt < self._compensation_retry_count:
-                    # Calculate exponential backoff delay
-                    delay = self._compensation_retry_delay * (
-                        self._compensation_retry_backoff ** (attempt - 1)
-                    )
-                    logger.warning(
-                        f"Compensation attempt {attempt}/{self._compensation_retry_count} failed for step '{step_name}': {e}. "
-                        f"Retrying in {delay:.2f}s...",
-                    )
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error(
-                        f"Compensation failed for step '{step_name}' after {self._compensation_retry_count} attempts: {e}",
-                    )
-
-        # If we get here, all retries failed
-        if last_exception:
-            raise last_exception
+        await self._compensator.compensate_steps(self._completed_steps)
 
 
 class Saga(typing.Generic[ContextT]):
     """
-    Declarative saga class that defines steps and context type.
+    Saga class that defines steps and context type.
 
-    Saga is a simple declarative class that serves as a container for:
+    Saga is a simple class that serves as a container for:
     - List of step handler types to execute in order
     - Context type (via Generic parameter)
 
@@ -433,161 +357,39 @@ class Saga(typing.Generic[ContextT]):
                 ShipOrderStep,
             ]
 
+        saga = OrderSaga()
+
     Note:
-        Steps are validated at class creation time to ensure they handle
-        the correct context type.
+        Steps are validated at class creation time via __init_subclass__ to ensure
+        they handle the correct context type.
     """
 
-    steps: typing.ClassVar[list[typing.Type[SagaStepHandler]]]
-
-    # Steps should be defined as a class attribute in subclasses
-    # Example: steps = [Step1, Step2, ...]
-    # This is validated in __init_subclass__
+    steps: typing.ClassVar[list[type[SagaStepHandler] | Fallback]] = []
 
     def __init_subclass__(cls, **kwargs: typing.Any) -> None:
+        """Validate steps when subclass is created."""
+        super().__init_subclass__(**kwargs)
+        cls._validate_steps()
+
+    @classmethod
+    def _validate_steps(cls) -> None:
         """
-        Validate saga steps when subclass is created.
+        Validate saga steps.
 
         Ensures that:
-        1. Steps attribute is defined
-        2. All steps handle the correct context type
+        1. Steps is a list
+        2. All steps are valid step handler types or Fallback instances
+        3. All steps handle the correct context type
         """
-        super().__init_subclass__(**kwargs)
+        # Extract context type from Generic parameter
+        context_type = SagaContextTypeExtractor.extract_from_class(cls, Saga)
 
-        # Get the context type from Generic parameter
-        # This works by checking the __orig_bases__ for the Generic type
-        context_type: type[ContextT] | None = None
-
-        # Try to get context type from __orig_bases__
-        if hasattr(cls, "__orig_bases__"):
-            for base in cls.__orig_bases__:  # type: ignore[attr-defined]
-                # Check if this is a GenericAlias for Saga
-                if isinstance(base, types.GenericAlias) and base.__origin__ is Saga:  # type: ignore[attr-defined]
-                    args = typing.get_args(base)
-                    if args:
-                        context_type = args[0]  # type: ignore[assignment]
-                        break
-                # Fallback for older Python versions or different typing implementations
-                elif hasattr(base, "__origin__") and base.__origin__ is Saga:  # type: ignore[attr-defined]
-                    args = typing.get_args(base)
-                    if args:
-                        context_type = args[0]  # type: ignore[assignment]
-                        break
-
-        # If we couldn't determine context type from Generic, try alternative methods
-        if context_type is None:
-            # Try to get it from __class_getitem__ result
-            if hasattr(cls, "__args__") and cls.__args__:  # type: ignore[attr-defined]
-                context_type = cls.__args__[0]  # type: ignore[assignment,index]
-
-        # Check if steps attribute exists
-        if not hasattr(cls, "steps"):
-            raise TypeError(
-                f"{cls.__name__} must define 'steps' as a class attribute. "
-                "Example: steps = [Step1, Step2, ...]",
-            )
-
-        steps = getattr(cls, "steps", [])
-
-        if not isinstance(steps, list):
-            raise TypeError(
-                f"{cls.__name__}.steps must be a list of step handler types, "
-                f"got {type(steps).__name__}",
-            )
-
-        if not steps:
-            # Empty steps list is allowed (though unusual)
-            return
-
-        # Validate each step
-        for i, step_type in enumerate(steps):
-            if not isinstance(step_type, type):
-                raise TypeError(
-                    f"{cls.__name__}.steps[{i}] must be a class type, "
-                    f"got {type(step_type).__name__}",
-                )
-
-            # Check if step is a subclass of SagaStepHandler
-            if not issubclass(step_type, SagaStepHandler):
-                raise TypeError(
-                    f"{cls.__name__}.steps[{i}] ({step_type.__name__}) "
-                    "must be a subclass of SagaStepHandler",
-                )
-
-            # Try to validate context type compatibility
-            # We check the __orig_bases__ of the step handler to see what context it expects
-            if context_type is not None:
-                step_context_type: type | None = None
-
-                # Try to get step's context type from its generic bases
-                if hasattr(step_type, "__orig_bases__"):
-                    for base in step_type.__orig_bases__:  # type: ignore[attr-defined]
-                        # Check if this is a GenericAlias for SagaStepHandler
-                        if (
-                            isinstance(base, types.GenericAlias)
-                            and base.__origin__ is SagaStepHandler
-                        ):  # type: ignore[attr-defined]
-                            args = typing.get_args(base)
-                            if args:
-                                step_context_type = args[0]
-                                break
-                        # Fallback
-                        elif (
-                            hasattr(base, "__origin__")
-                            and base.__origin__ is SagaStepHandler
-                        ):  # type: ignore[attr-defined]
-                            args = typing.get_args(base)
-                            if args:
-                                step_context_type = args[0]
-                                break
-
-                # If we found the step's context type, validate it matches
-                if step_context_type is not None:
-                    # Get origin types to handle type variables and unions
-                    origin_context = getattr(context_type, "__origin__", context_type)
-                    origin_step_context = getattr(
-                        step_context_type,
-                        "__origin__",
-                        step_context_type,
-                    )
-
-                    # Check if types match exactly
-                    if origin_context != origin_step_context:
-                        # Check if they're compatible types (subclass relationship)
-                        # This allows subclasses of the expected context type
-                        if isinstance(origin_context, type) and isinstance(
-                            origin_step_context,
-                            type,
-                        ):
-                            if not issubclass(origin_context, origin_step_context):
-                                raise TypeError(
-                                    f"{cls.__name__}.steps[{i}] ({step_type.__name__}) "
-                                    f"expects context type {step_context_type.__name__}, "
-                                    f"but saga expects {context_type.__name__}. "
-                                    "Steps must handle the same context type as the saga.",
-                                )
-                        else:
-                            # For non-type origins (like TypeVar), we can't validate at class creation time
-                            # but we log a warning
-                            logger.warning(
-                                f"{cls.__name__}.steps[{i}] ({step_type.__name__}) "
-                                f"may have incompatible context type. "
-                                f"Saga expects {context_type.__name__}, "
-                                f"step expects {step_context_type.__name__}.",
-                            )
-
-    def __init__(self) -> None:
-        """
-        Initialize a declarative saga instance.
-
-        Steps must be defined as a class attribute, not passed to __init__.
-        """
-        # Ensure steps attribute exists (should be set as class attribute)
-        if not hasattr(self, "steps"):
-            raise TypeError(
-                f"{self.__class__.__name__} must define 'steps' as a class attribute. "
-                "Example: steps = [Step1, Step2, ...]",
-            )
+        # Create validator and validate steps
+        validator = SagaStepValidator(
+            saga_name=cls.__name__,
+            context_type=context_type,
+        )
+        validator.validate_steps(cls.steps)
 
     @property
     def steps_count(self) -> int:

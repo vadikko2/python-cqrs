@@ -4,6 +4,7 @@ from unittest import mock
 import pydantic
 import pytest
 
+import cqrs
 from cqrs.dispatcher import StreamingRequestDispatcher
 from cqrs.events import Event, NotificationEvent
 from cqrs.requests.map import RequestMap
@@ -29,13 +30,13 @@ class AsyncStreamingHandler(
         self._events: list[Event] = []
 
     @property
-    def events(self) -> list[Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
@@ -56,6 +57,25 @@ class StreamingContainer:
 
     async def resolve(self, type_):
         return self._handler
+
+
+async def test_streaming_handler_handle_returns_async_iterator_consumable_with_async_for() -> None:
+    """
+    Contract: StreamingRequestHandler.handle(request) is called without await
+    and returns an AsyncIterator that is consumed with async for.
+    """
+    handler = AsyncStreamingHandler()
+    request = ProcessItemsCommand(item_ids=["a", "b"])
+    # handle() is called (no await) and returns async generator
+    async_gen = handler.handle(request)
+    # Can be iterated with async for
+    results = []
+    async for item in async_gen:
+        results.append(item)
+    assert len(results) == 2
+    assert results[0].item_id == "a"
+    assert results[1].item_id == "b"
+    assert handler.called
 
 
 async def test_async_streaming_dispatcher_logic() -> None:

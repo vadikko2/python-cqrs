@@ -1,33 +1,52 @@
 from __future__ import annotations
 
 import abc
+import dataclasses
 import typing
+import uuid
 
-import pydantic
-
-from cqrs.events.event import Event
-from cqrs.response import Response
+from cqrs.events.event import IEvent
+from cqrs.response import IResponse
 from cqrs.saga.models import ContextT
 
-Resp = typing.TypeVar("Resp", bound=Response | None, covariant=True)
+Resp = typing.TypeVar("Resp", bound=IResponse | None, covariant=True)
 
 
-class SagaStepResult(pydantic.BaseModel, typing.Generic[ContextT, Resp]):
+@dataclasses.dataclass(frozen=True)
+class SagaStepResult(typing.Generic[ContextT, Resp]):
     """
     Result of a saga step execution.
 
     Contains the response from the step's act method and metadata about the step.
-    The step_type field uses typing.Any for Pydantic validation compatibility,
-    but the actual runtime type is Type[SagaStepHandler[ContextT, Resp]].
+
+    This is an internal data structure used by the saga pattern implementation.
+
+    Args:
+        response: The response object from the step (can be None)
+        step_type: Type of the step handler that produced this result
+        with_error: Whether the step resulted in an error
+        error_message: Error message if with_error is True
+        error_traceback: Error traceback lines if with_error is True
+        error_type: Type of exception if with_error is True
+        saga_id: ID of the saga this step belongs to (set by execution layer).
+                 Enables client code to trigger compensation immediately if the saga fails.
+
+    Example::
+
+        result = SagaStepResult(
+            response=response,
+            step_type=ReserveInventoryStep,
+            with_error=False
+        )
     """
 
     response: Resp
-    step_type: typing.Any  # type: ignore[assignment]  # Actual type: Type[SagaStepHandler[ContextT, Resp]]
-
+    step_type: type[SagaStepHandler[ContextT, Resp]]
     with_error: bool = False
     error_message: str | None = None
     error_traceback: list[str] | None = None
     error_type: typing.Type[Exception] | None = None
+    saga_id: uuid.UUID | None = None
 
 
 class SagaStepHandler(abc.ABC, typing.Generic[ContextT, Resp]):
@@ -93,7 +112,7 @@ class SagaStepHandler(abc.ABC, typing.Generic[ContextT, Resp]):
 
     def _generate_step_result(
         self,
-        response: Response | None,
+        response: IResponse | None,
         with_error: bool = False,
         error_message: str | None = None,
         error_traceback: list[str] | None = None,
@@ -125,18 +144,19 @@ class SagaStepHandler(abc.ABC, typing.Generic[ContextT, Resp]):
         )
 
     @property
-    @abc.abstractmethod
-    def events(self) -> typing.List[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         """
         Get the list of domain events produced by this step.
 
+        Override in subclasses to return events generated during :meth:`act`.
+        By default returns an empty sequence.
+
         Returns:
-            A list of domain events that were generated during the execution
+            A sequence of domain events that were generated during the execution
             of the act method. These events can be emitted after the step
             completes successfully.
-
         """
-        raise NotImplementedError
+        return ()
 
     @abc.abstractmethod
     async def act(self, context: ContextT) -> SagaStepResult[ContextT, Resp]:
@@ -177,3 +197,10 @@ class SagaStepHandler(abc.ABC, typing.Generic[ContextT, Resp]):
 
         """
         raise NotImplementedError
+
+
+__all__ = (
+    "SagaStepResult",
+    "SagaStepHandler",
+    "Resp",
+)

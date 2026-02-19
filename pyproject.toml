@@ -9,71 +9,68 @@ authors = [
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "License :: OSI Approved :: MIT License",
-  "Operating System :: OS Independent"
+  "Programming Language :: Python :: 3.12"
 ]
 dependencies = [
+  "dataclass-wizard==0.*",
+  "di[anyio]==0.*",
+  "dependency-injector>=4.0",
+  "orjson==3.*",
   "pydantic==2.*",
-  "orjson==3.9.15",
-  "di[anyio]==0.79.2",
-  "retry-async==0.1.4",
-  "python-dotenv==1.0.1",
-  "dependency-injector>=4.48.2",
+  "retry-async==0.1.*",
+  "python-dotenv==1.*",
   "uuid6>=2025.0.1",
-  "aio-pika>=9.3.0",
-  "confluent-kafka>=2.6.0",
+  "typing-extensions>=4.0"
 ]
-description = "Python CQRS pattern implementation"
+description = "Event-Driven Architecture Framework for Distributed Systems"
 maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
 name = "python-cqrs"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "4.4.6"
+version = "4.8.2"
 
 [project.optional-dependencies]
+aiobreaker = ["aiobreaker>=0.3.0"]
 dev = [
   # Develope tools
   "pycln==2.5.0",
   "pre-commit==3.8.0",
-  "pyright==1.1.377",
+  "pyright==1.1.408",
   "ruff==0.6.2",
+  "vermin>=1.6.0",
+  "pytest-cov>=4.0.0",
+  "pytest-codspeed==4.2.0",
   # Tests
-  "aiokafka==0.10.0",
+  "aio-pika==9.3.0",  # from rabbit
+  "aiokafka==0.10.0",  # from kafka
+  "requests==2.*",  # from aiokafka
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
   "cryptography==42.0.2",
   "sqlalchemy[asyncio]==2.0.*",
   "asyncmy==0.2.9",
-  "requests>=2.32.5",
-  "confluent-kafka==2.6.0",
-  "protobuf==4.25.5",
-  "aio-pika==9.3.0"
+  "redis>=5.0.0",
+  # Circuit breaker for tests
+  "aiobreaker>=0.3.0"  # from aiobreaker
 ]
 examples = [
   "fastapi==0.109.*",
-  "uvicorn==0.32.0",
   "faststream[kafka]==0.5.28",
-  "faker>=37.12.0"
+  "faker>=37.12.0",
+  "uvicorn==0.32.0",
+  "aiohttp==3.13.2",
+  "protobuf>=4.25.8",
 ]
-kafka = [
-  "aiokafka==0.10.0",
-  # for SchemaRegistry
-  "confluent-kafka==2.6.0"
-]
-protobuf = ["protobuf==4.25.5"]
-rabbit = [
-  "aio-pika==9.3.0"
-]
-sqlalchemy = [
-  "sqlalchemy[asyncio]==2.0.*"
-]
+kafka = ["aiokafka==0.10.0"]
+rabbit = ["aio-pika==9.3.0"]
 
 [project.urls]
-Documentation = "https://vadikko2.github.io/python-cqrs-mkdocs/"
+Documentation = "https://mkdocs.python-cqrs.dev/"
 Issues = "https://github.com/vadikko2/python-cqrs/issues"
 Repository = "https://github.com/vadikko2/python-cqrs"
 

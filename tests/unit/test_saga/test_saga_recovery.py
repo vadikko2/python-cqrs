@@ -272,8 +272,10 @@ async def test_recover_saga_raises_on_context_reconstruction_failure(
 
     saga = TestSaga()
 
-    # Should raise TypeError when required fields are missing
-    with pytest.raises(TypeError):
+    # Should raise MissingFields when required fields are missing
+    from dataclass_wizard.errors import MissingFields
+
+    with pytest.raises(MissingFields):
         await recover_saga(saga, saga_id, OrderContext, saga_container, storage)
 
     assert not reserve_step.act_called
@@ -485,7 +487,7 @@ async def test_recover_saga_updates_context_during_recovery(
     # Verify context was updated in storage
     status, updated_context, _ = await storage.load_saga_state(saga_id)
     assert status == SagaStatus.COMPLETED
-    assert updated_context["order_id"] == "123"
+    assert updated_context["orderId"] == "123"
 
 
 async def test_recover_saga_with_mock_storage_exception(

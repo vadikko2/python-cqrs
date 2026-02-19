@@ -291,7 +291,7 @@ class ReserveInventoryStep(
         self._events: list[cqrs.Event] = []
 
     @property
-    def events(self) -> list[cqrs.Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return self._events.copy()
 
     async def act(
@@ -325,7 +325,7 @@ class ProcessPaymentStep(
         self._events: list[cqrs.Event] = []
 
     @property
-    def events(self) -> list[cqrs.Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return self._events.copy()
 
     async def act(
@@ -356,7 +356,7 @@ class ShipOrderStep(SagaStepHandler[OrderContext, ShipOrderResponse]):
         self._events: list[cqrs.Event] = []
 
     @property
-    def events(self) -> list[cqrs.Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return self._events.copy()
 
     async def act(
@@ -449,9 +449,7 @@ def mediator_factory() -> cqrs.SagaMediator:
 def serialize_response(response: Response | None) -> dict[str, typing.Any]:
     if response is None:
         return {}
-    if isinstance(response, pydantic.BaseModel):
-        return response.model_dump()
-    return {"response": str(response)}
+    return response.to_dict()
 
 
 @app.post("/process-order")

@@ -3,6 +3,7 @@ from unittest import mock
 
 import pydantic
 
+from cqrs import Event
 from cqrs.events import (
     DomainEvent,
     EventEmitter,
@@ -49,20 +50,27 @@ async def test_event_processor_processes_events_parallel() -> None:
     event_map.bind(_TestDomainEvent, _TestEventHandler)
     container = Container(event_handler)
 
-    processor = EventProcessor(
+    event_emitter = EventEmitter(
         event_map=event_map,
         container=container,  # type: ignore
+    )
+
+    processor = EventProcessor(
+        event_map=event_map,
+        event_emitter=event_emitter,
         max_concurrent_event_handlers=2,
         concurrent_event_handle_enable=True,
     )
 
-    events = [
+    events: list[Event] = [
         _TestDomainEvent(item_id="1"),
         _TestDomainEvent(item_id="2"),
         _TestDomainEvent(item_id="3"),
     ]
+    await processor.emit_events(events)
 
-    await processor.process_events(events)  # type: ignore[arg-type]
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
 
     assert len(event_handler.processed_events) == 3
     assert all(event in event_handler.processed_events for event in events)
@@ -75,20 +83,25 @@ async def test_event_processor_processes_events_sequentially() -> None:
     event_map.bind(_TestDomainEvent, _TestEventHandler)
     container = Container(event_handler)
 
-    processor = EventProcessor(
+    event_emitter = EventEmitter(
         event_map=event_map,
         container=container,  # type: ignore
+    )
+
+    processor = EventProcessor(
+        event_map=event_map,
+        event_emitter=event_emitter,
         max_concurrent_event_handlers=2,
         concurrent_event_handle_enable=False,
     )
 
-    events = [
+    events: list[Event] = [
         _TestDomainEvent(item_id="1"),
         _TestDomainEvent(item_id="2"),
         _TestDomainEvent(item_id="3"),
     ]
 
-    await processor.process_events(events)  # type: ignore[arg-type]
+    await processor.emit_events(events)
 
     assert len(event_handler.processed_events) == 3
     assert all(event in event_handler.processed_events for event in events)
@@ -99,14 +112,12 @@ async def test_event_processor_processes_empty_events_list() -> None:
     event_handler = _TestEventHandler()
     event_map = EventMap()
     event_map.bind(_TestDomainEvent, _TestEventHandler)
-    container = Container(event_handler)
 
     processor = EventProcessor(
         event_map=event_map,
-        container=container,  # type: ignore
     )
 
-    await processor.process_events([])
+    await processor.emit_events([])
 
     assert len(event_handler.processed_events) == 0
 
@@ -114,14 +125,12 @@ async def test_event_processor_processes_empty_events_list() -> None:
 async def test_event_processor_emit_events_with_emitter() -> None:
     """Test that EventProcessor emits events via EventEmitter."""
     event_map = EventMap()
-    container = Container(_TestEventHandler())
 
     event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    event_emitter.emit = mock.AsyncMock(return_value=())
 
     processor = EventProcessor(
         event_map=event_map,
-        container=container,  # type: ignore
         event_emitter=event_emitter,
     )
 
@@ -133,25 +142,25 @@ async def test_event_processor_emit_events_with_emitter() -> None:
     events_copy = events.copy()
     await processor.emit_events(events_copy)  # type: ignore[arg-type]  # type: ignore[arg-type]
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert event_emitter.emit.call_count == 2
-    # Check that events were passed to emit (order may vary due to pop)
+    # Check that events were passed to emit (order may vary)
     emitted_events = [call[0][0] for call in event_emitter.emit.call_args_list]
     assert events[0] in emitted_events
     assert events[1] in emitted_events
-    # Events should be popped from the list (internal copy is modified)
-    assert len(events_copy) == 0
     # Original list should remain unchanged
     assert len(events) == 2
+    assert len(events_copy) == 2
 
 
 async def test_event_processor_emit_events_without_emitter() -> None:
     """Test that EventProcessor does nothing when EventEmitter is None."""
     event_map = EventMap()
-    container = Container(_TestEventHandler())
 
     processor = EventProcessor(
         event_map=event_map,
-        container=container,  # type: ignore
         event_emitter=None,
     )
 
@@ -171,12 +180,14 @@ async def test_event_processor_process_and_emit_events() -> None:
     event_map.bind(_TestDomainEvent, _TestEventHandler)
     container = Container(event_handler)
 
-    event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    # Create real EventEmitter to process events, but wrap message_broker with mock
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=container,  # type: ignore
+    )
 
     processor = EventProcessor(
         event_map=event_map,
-        container=container,  # type: ignore
         event_emitter=event_emitter,
         max_concurrent_event_handlers=2,
         concurrent_event_handle_enable=True,
@@ -187,12 +198,13 @@ async def test_event_processor_process_and_emit_events() -> None:
         _TestDomainEvent(item_id="2"),
     ]
 
-    await processor.process_and_emit_events(events.copy())  # type: ignore[arg-type]  # type: ignore[arg-type]
+    await processor.emit_events(events)  # type: ignore[arg-type]  # type: ignore[arg-type]
+
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
 
     # Events should be processed
     assert len(event_handler.processed_events) == 2
-    # Events should be emitted
-    assert event_emitter.emit.call_count == 2
     # Original list should not be modified (copy is used internally)
     assert len(events) == 2
 
@@ -226,44 +238,119 @@ async def test_event_processor_respects_semaphore_limit() -> None:
     event_map.bind(_TestDomainEvent, TrackingEventHandler)
     container = Container(event_handler)  # type: ignore
 
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=container,  # type: ignore
+    )
+
     # Use semaphore limit of 2
     processor = EventProcessor(
         event_map=event_map,
-        container=container,  # type: ignore
+        event_emitter=event_emitter,
         max_concurrent_event_handlers=2,
         concurrent_event_handle_enable=True,
     )
 
     events = [_TestDomainEvent(item_id=str(i)) for i in range(5)]
+    await processor.emit_events(events)  # type: ignore[arg-type]
 
-    await processor.process_events(events)  # type: ignore[arg-type]
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.2)
 
     # Max concurrent should not exceed semaphore limit (2)
     assert max_concurrent <= 2
     assert len(event_handler.processed_events) == 5
 
 
-async def test_event_processor_with_middleware_chain() -> None:
-    """Test that EventProcessor works with middleware chain."""
-    from cqrs.middlewares.base import MiddlewareChain
+async def test_event_processor_follow_ups_sequential_bfs() -> None:
+    """Arrange: handler that returns follow-up events. Act: emit_events sequential. Assert: follow-ups processed (BFS)."""
 
-    event_handler = _TestEventHandler()
+    class _ChainedEvent(DomainEvent, frozen=True):
+        level: int = pydantic.Field()
+        seq: int = pydantic.Field()
+
+    processed: list[_ChainedEvent] = []
+
+    class _ChainedHandler(EventHandler[_ChainedEvent]):
+        @property
+        def events(self) -> tuple[_ChainedEvent, ...]:
+            if not self._last or self._last.level >= 2:
+                return ()
+            return (_ChainedEvent(level=self._last.level + 1, seq=self._last.seq),)
+
+        def __init__(self) -> None:
+            self._last: _ChainedEvent | None = None
+
+        async def handle(self, event: _ChainedEvent) -> None:
+            self._last = event
+            processed.append(event)
+
+    handler = _ChainedHandler()
     event_map = EventMap()
-    event_map.bind(_TestDomainEvent, _TestEventHandler)
-    container = Container(event_handler)
-
-    middleware_chain = MiddlewareChain()
-
+    event_map.bind(_ChainedEvent, _ChainedHandler)
+    container = Container(handler)  # type: ignore[arg-type]
+    emitter = EventEmitter(event_map=event_map, container=container)  # type: ignore[arg-type]
     processor = EventProcessor(
         event_map=event_map,
-        container=container,  # type: ignore
-        middleware_chain=middleware_chain,
+        event_emitter=emitter,
+        concurrent_event_handle_enable=False,
     )
+    await processor.emit_events([_ChainedEvent(level=0, seq=1)])
+    assert len(processed) == 3  # level 0 -> 1 -> 2
+    assert processed[0].level == 0 and processed[1].level == 1 and processed[2].level == 2
 
-    events = [
-        _TestDomainEvent(item_id="1"),
-    ]
 
-    await processor.process_events(events)  # type: ignore[arg-type]
+async def test_event_processor_follow_ups_parallel_under_semaphore() -> None:
+    """Arrange: handler returns 3 follow-ups, semaphore 2. Act: emit one event. Assert: all 4 processed, max concurrent <= 2."""
 
-    assert len(event_handler.processed_events) == 1
+    class _FanEvent(DomainEvent, frozen=True):
+        id_: str = pydantic.Field(alias="id")
+        model_config = pydantic.ConfigDict(populate_by_name=True)
+
+    concurrent_count = 0
+    max_concurrent = 0
+    lock = asyncio.Lock()
+    processed: list[_FanEvent] = []
+
+    class _FanHandler(EventHandler[_FanEvent]):
+        def __init__(self) -> None:
+            self._follow_ups: list[_FanEvent] = []
+
+        @property
+        def events(self) -> tuple[_FanEvent, ...]:
+            return tuple(self._follow_ups)
+
+        async def handle(self, event: _FanEvent) -> None:
+            nonlocal concurrent_count, max_concurrent
+            self._follow_ups = []
+            if event.id_ == "root":
+                self._follow_ups = [
+                    _FanEvent(id="c1"),
+                    _FanEvent(id="c2"),
+                    _FanEvent(id="c3"),
+                ]
+            async with lock:
+                concurrent_count += 1
+                max_concurrent = max(max_concurrent, concurrent_count)
+            await asyncio.sleep(0.02)
+            async with lock:
+                concurrent_count -= 1
+            processed.append(event)
+            # Clear after handle so emitter always sees follow-ups from this run only
+            if event.id_ != "root":
+                self._follow_ups = []
+
+    handler = _FanHandler()
+    event_map = EventMap()
+    event_map.bind(_FanEvent, _FanHandler)
+    container = Container(handler)  # type: ignore[arg-type]
+    emitter = EventEmitter(event_map=event_map, container=container)  # type: ignore[arg-type]
+    processor = EventProcessor(
+        event_map=event_map,
+        event_emitter=emitter,
+        max_concurrent_event_handlers=2,
+        concurrent_event_handle_enable=True,
+    )
+    await processor.emit_events([_FanEvent(id="root")])
+    assert len(processed) == 4
+    assert max_concurrent <= 2

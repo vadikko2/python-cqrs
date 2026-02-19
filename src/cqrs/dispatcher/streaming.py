@@ -6,7 +6,7 @@ from cqrs.dispatcher.exceptions import RequestHandlerDoesNotExist
 from cqrs.dispatcher.models import RequestDispatchResult
 from cqrs.middlewares.base import MiddlewareChain
 from cqrs.requests.map import RequestMap
-from cqrs.requests.request import Request
+from cqrs.requests.request import IRequest
 from cqrs.requests.request_handler import StreamingRequestHandler
 
 
@@ -28,16 +28,23 @@ class StreamingRequestDispatcher:
         self._container = container
         self._middleware_chain = middleware_chain or MiddlewareChain()
 
-    async def dispatch(
+    def dispatch(
         self,
-        request: Request,
+        request: IRequest,
     ) -> typing.AsyncIterator[RequestDispatchResult]:
         """
         Dispatch a request to a streaming handler and yield results.
 
+        Called without await; returns an AsyncIterator consumed with async for.
         After each yield from the handler, events are collected and included
         in the dispatch result. The generator continues until StopIteration.
         """
+        return self._dispatch_impl(request)
+
+    async def _dispatch_impl(
+        self,
+        request: IRequest,
+    ) -> typing.AsyncIterator[RequestDispatchResult]:
         handler_type = self._request_map.get(type(request), None)
         if handler_type is None:
             raise RequestHandlerDoesNotExist(
@@ -62,9 +69,7 @@ class StreamingRequestDispatcher:
 
         if not inspect.isasyncgenfunction(handler.handle):
             handler_name = (
-                handler_type_typed.__name__
-                if hasattr(handler_type_typed, "__name__")
-                else str(handler_type_typed)
+                handler_type_typed.__name__ if hasattr(handler_type_typed, "__name__") else str(handler_type_typed)
             )
             raise TypeError(
                 f"Handler {handler_name}.handle must be an async generator function",
@@ -72,9 +77,8 @@ class StreamingRequestDispatcher:
 
         async_gen = handler.handle(request)
         async for response in async_gen:
-            events = handler.events.copy()
-            if hasattr(handler, "clear_events"):
-                handler.clear_events()
+            events = list(handler.events)
+            handler.clear_events()
             yield RequestDispatchResult(
                 response=response,
                 events=events,

@@ -3,6 +3,7 @@
 import inspect
 import typing
 
+from cqrs.saga.fallback import Fallback
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler
 
@@ -54,15 +55,49 @@ class SagaMermaid:
         # Generate participant aliases for better readability
         participants = ["S as Saga"]
         step_aliases: dict[str, str] = {}
+        fallback_aliases: dict[str, str] = {}
+        step_idx = 1
 
-        for idx, step_type in enumerate(steps, start=1):
-            step_name = step_type.__name__
-            # Create short alias (S1, S2, S3, etc.)
-            alias = f"S{idx}"
-            step_aliases[step_name] = alias
-            # Truncate long step names for better diagram readability
-            display_name = step_name if len(step_name) <= 30 else step_name[:27] + "..."
-            participants.append(f"{alias} as {display_name}")
+        # Process steps and extract participants (including fallback steps)
+        for step_item in steps:
+            if isinstance(step_item, Fallback):
+                # Handle Fallback wrapper
+                primary_name = step_item.step.__name__
+                fallback_name = step_item.fallback.__name__
+
+                # Create aliases for primary and fallback
+                primary_alias = f"S{step_idx}"
+                fallback_alias = f"F{step_idx}"
+                step_aliases[primary_name] = primary_alias
+                fallback_aliases[fallback_name] = fallback_alias
+
+                # Truncate long names
+                primary_display = (
+                    primary_name
+                    if len(primary_name) <= 30
+                    else primary_name[:27] + "..."
+                )
+                fallback_display = (
+                    fallback_name
+                    if len(fallback_name) <= 30
+                    else fallback_name[:27] + "..."
+                )
+
+                participants.append(f"{primary_alias} as {primary_display}")
+                participants.append(
+                    f"{fallback_alias} as {fallback_display} (fallback)",
+                )
+                step_idx += 1
+            else:
+                # Regular step
+                step_name = step_item.__name__
+                alias = f"S{step_idx}"
+                step_aliases[step_name] = alias
+                display_name = (
+                    step_name if len(step_name) <= 30 else step_name[:27] + "..."
+                )
+                participants.append(f"{alias} as {display_name}")
+                step_idx += 1
 
         lines = ["sequenceDiagram"]
         lines.extend(f"    participant {p}" for p in participants)
@@ -70,49 +105,100 @@ class SagaMermaid:
 
         # Generate successful execution flow
         lines.append("    Note over S: Successful Execution Flow")
-        for idx, step_type in enumerate(steps):
-            step_name = step_type.__name__
-            alias = step_aliases[step_name]
-            lines.append(f"    S->>{alias}: act()")
-            lines.append(f"    {alias}-->>S: success")
-        lines.append("    Note over S: Saga Completed")
-        lines.append("")
-
-        # Generate failure and compensation flow
-        lines.append("    Note over S: Failure & Compensation Flow")
-        # Execute steps until failure
-        if len(steps) > 1:
-            # Show all steps except the last one succeeding
-            for step_type in steps[:-1]:
-                step_name = step_type.__name__
+        for step_item in steps:
+            if isinstance(step_item, Fallback):
+                # Fallback: show primary step succeeding
+                primary_name = step_item.step.__name__
+                primary_alias = step_aliases[primary_name]
+                lines.append(f"    S->>{primary_alias}: act()")
+                lines.append(f"    {primary_alias}-->>S: success")
+            else:
+                # Regular step
+                step_name = step_item.__name__
                 alias = step_aliases[step_name]
                 lines.append(f"    S->>{alias}: act()")
                 lines.append(f"    {alias}-->>S: success")
+        lines.append("    Note over S: Saga Completed")
+        lines.append("")
+
+        # Generate failure and compensation flow with fallback
+        lines.append("    Note over S: Failure & Compensation Flow")
+        if len(steps) > 1:
+            # Show all steps except the last one succeeding
+            for step_item in steps[:-1]:
+                if isinstance(step_item, Fallback):
+                    primary_name = step_item.step.__name__
+                    primary_alias = step_aliases[primary_name]
+                    lines.append(f"    S->>{primary_alias}: act()")
+                    lines.append(f"    {primary_alias}-->>S: success")
+                else:
+                    step_name = step_item.__name__
+                    alias = step_aliases[step_name]
+                    lines.append(f"    S->>{alias}: act()")
+                    lines.append(f"    {alias}-->>S: success")
 
             # Show last step failing
             last_step = steps[-1]
-            last_alias = step_aliases[last_step.__name__]
-            lines.append(f"    S->>{last_alias}: act()")
-            lines.append(f"    {last_alias}-->>S: error")
+            if isinstance(last_step, Fallback):
+                # Fallback step: show primary failing, then fallback succeeding
+                primary_name = last_step.step.__name__
+                fallback_name = last_step.fallback.__name__
+                primary_alias = step_aliases[primary_name]
+                fallback_alias = fallback_aliases[fallback_name]
+
+                lines.append(f"    S->>{primary_alias}: act()")
+                lines.append(f"    {primary_alias}-->>S: error")
+                lines.append("    Note over S: Fallback triggered")
+                lines.append(f"    S->>{fallback_alias}: act()")
+                lines.append(f"    {fallback_alias}-->>S: success")
+            else:
+                # Regular step failing
+                last_alias = step_aliases[last_step.__name__]
+                lines.append(f"    S->>{last_alias}: act()")
+                lines.append(f"    {last_alias}-->>S: error")
+
             lines.append("")
 
             # Compensate completed steps in reverse order
             lines.append("    Note over S: Compensation (reverse order)")
             # Compensate all steps before the failing one (in reverse order)
-            for step_type in reversed(steps[:-1]):
-                step_name = step_type.__name__
-                alias = step_aliases[step_name]
-                lines.append(f"    S->>{alias}: compensate()")
-                lines.append(f"    {alias}-->>S: success")
+            for step_item in reversed(steps[:-1]):
+                if isinstance(step_item, Fallback):
+                    # For fallback steps, compensate the step that actually executed
+                    # In success case, it's the primary; in failure case, it could be fallback
+                    # For simplicity, show primary compensation
+                    primary_name = step_item.step.__name__
+                    primary_alias = step_aliases[primary_name]
+                    lines.append(f"    S->>{primary_alias}: compensate()")
+                    lines.append(f"    {primary_alias}-->>S: success")
+                else:
+                    step_name = step_item.__name__
+                    alias = step_aliases[step_name]
+                    lines.append(f"    S->>{alias}: compensate()")
+                    lines.append(f"    {alias}-->>S: success")
         else:
             # Single step scenario
             single_step = steps[0]
-            single_alias = step_aliases[single_step.__name__]
-            lines.append(f"    S->>{single_alias}: act()")
-            lines.append(f"    {single_alias}-->>S: error")
-            lines.append(
-                "    Note over S: No compensation needed (step failed before completion)",
-            )
+            if isinstance(single_step, Fallback):
+                # Fallback step: show primary failing, then fallback succeeding
+                primary_name = single_step.step.__name__
+                fallback_name = single_step.fallback.__name__
+                primary_alias = step_aliases[primary_name]
+                fallback_alias = fallback_aliases[fallback_name]
+
+                lines.append(f"    S->>{primary_alias}: act()")
+                lines.append(f"    {primary_alias}-->>S: error")
+                lines.append("    Note over S: Fallback triggered")
+                lines.append(f"    S->>{fallback_alias}: act()")
+                lines.append(f"    {fallback_alias}-->>S: success")
+                lines.append("    Note over S: Saga Completed (via fallback)")
+            else:
+                single_alias = step_aliases[single_step.__name__]
+                lines.append(f"    S->>{single_alias}: act()")
+                lines.append(f"    {single_alias}-->>S: error")
+                lines.append(
+                    "    Note over S: No compensation needed (step failed before completion)",
+                )
 
         lines.append("    Note over S: Saga Failed")
 
@@ -146,40 +232,108 @@ class SagaMermaid:
         step_info: list[tuple[str, type | None, type | None, list[type]]] = []
 
         # Extract type information from each step
-        for step_type in steps:
-            step_name = step_type.__name__
-            context_type: type | None = None
-            response_type: type | None = None
-            step_events: list[type] = []
+        for step_item in steps:
+            if isinstance(step_item, Fallback):
+                # Handle Fallback wrapper - extract info from both primary and fallback steps
+                primary_step = step_item.step
+                fallback_step = step_item.fallback
 
-            # Extract generic type parameters from __orig_bases__
-            orig_bases = getattr(step_type, "__orig_bases__", ())
-            for base in orig_bases:
-                origin = typing.get_origin(base)
-                # Check if this base is SagaStepHandler or a subclass
-                if origin is SagaStepHandler:
-                    args = typing.get_args(base)
-                    if len(args) >= 1 and args[0] is not typing.Any:
-                        context_type = args[0]
-                        if inspect.isclass(context_type):
-                            context_types.add(context_type)
-                    if len(args) >= 2 and args[1] is not typing.Any:
-                        response_type = args[1]
-                        if inspect.isclass(response_type):
-                            response_types.add(response_type)
-                    break  # Found the right base, no need to continue
+                # Process primary step
+                primary_name = primary_step.__name__
+                primary_context_type: type | None = None
+                primary_response_type: type | None = None
+                primary_events: list[type] = []
 
-            # If not found in __orig_bases__, try __bases__
-            if context_type is None and response_type is None:
-                for base in step_type.__bases__:
-                    if issubclass(base, SagaStepHandler):
-                        # Try to get type hints from the class itself
-                        if hasattr(step_type, "__annotations__"):
-                            # Check if we can infer from class definition
-                            pass
+                # Extract generic type parameters from primary step
+                orig_bases = getattr(primary_step, "__orig_bases__", ())
+                for base in orig_bases:
+                    origin = typing.get_origin(base)
+                    if origin is SagaStepHandler:
+                        args = typing.get_args(base)
+                        if len(args) >= 1 and args[0] is not typing.Any:
+                            primary_context_type = args[0]
+                            if inspect.isclass(primary_context_type):
+                                context_types.add(primary_context_type)
+                        if len(args) >= 2 and args[1] is not typing.Any:
+                            primary_response_type = args[1]
+                            if inspect.isclass(primary_response_type):
+                                response_types.add(primary_response_type)
                         break
 
-            step_info.append((step_name, context_type, response_type, step_events))
+                # Process fallback step
+                fallback_name = fallback_step.__name__
+                fallback_context_type: type | None = None
+                fallback_response_type: type | None = None
+                fallback_events: list[type] = []
+
+                # Extract generic type parameters from fallback step
+                orig_bases = getattr(fallback_step, "__orig_bases__", ())
+                for base in orig_bases:
+                    origin = typing.get_origin(base)
+                    if origin is SagaStepHandler:
+                        args = typing.get_args(base)
+                        if len(args) >= 1 and args[0] is not typing.Any:
+                            fallback_context_type = args[0]
+                            if inspect.isclass(fallback_context_type):
+                                context_types.add(fallback_context_type)
+                        if len(args) >= 2 and args[1] is not typing.Any:
+                            fallback_response_type = args[1]
+                            if inspect.isclass(fallback_response_type):
+                                response_types.add(fallback_response_type)
+                        break
+
+                # Add both primary and fallback steps to step_info
+                step_info.append(
+                    (
+                        primary_name,
+                        primary_context_type,
+                        primary_response_type,
+                        primary_events,
+                    ),
+                )
+                step_info.append(
+                    (
+                        fallback_name,
+                        fallback_context_type,
+                        fallback_response_type,
+                        fallback_events,
+                    ),
+                )
+            else:
+                # Regular step
+                step_name = step_item.__name__
+                context_type: type | None = None
+                response_type: type | None = None
+                step_events: list[type] = []
+
+                # Extract generic type parameters from __orig_bases__
+                orig_bases = getattr(step_item, "__orig_bases__", ())
+                for base in orig_bases:
+                    origin = typing.get_origin(base)
+                    # Check if this base is SagaStepHandler or a subclass
+                    if origin is SagaStepHandler:
+                        args = typing.get_args(base)
+                        if len(args) >= 1 and args[0] is not typing.Any:
+                            context_type = args[0]
+                            if inspect.isclass(context_type):
+                                context_types.add(context_type)
+                        if len(args) >= 2 and args[1] is not typing.Any:
+                            response_type = args[1]
+                            if inspect.isclass(response_type):
+                                response_types.add(response_type)
+                        break  # Found the right base, no need to continue
+
+                # If not found in __orig_bases__, try __bases__
+                if context_type is None and response_type is None:
+                    for base in step_item.__bases__:
+                        if issubclass(base, SagaStepHandler):
+                            # Try to get type hints from the class itself
+                            if hasattr(step_item, "__annotations__"):
+                                # Check if we can infer from class definition
+                                pass
+                            break
+
+                step_info.append((step_name, context_type, response_type, step_events))
 
         # Build class diagram
         lines = ["classDiagram"]
@@ -221,7 +375,7 @@ class SagaMermaid:
         for response_type in sorted(response_types, key=lambda x: x.__name__):
             class_name = response_type.__name__
             lines.append(f"    class {class_name} {{")
-            # Try to get fields if it's a Pydantic model or dataclass
+            # Try to get fields from dataclass or model
             if hasattr(response_type, "__dataclass_fields__"):
                 fields = response_type.__dataclass_fields__
                 for field_name, field_info in fields.items():

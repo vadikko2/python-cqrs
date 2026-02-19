@@ -61,6 +61,7 @@ import typing
 from cqrs import container as cqrs_container
 from cqrs.events.event import Event
 from cqrs.response import Response
+from cqrs.saga.fallback import Fallback
 from cqrs.saga.mermaid import SagaMermaid
 from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
@@ -219,6 +220,52 @@ class OrderSaga(Saga[OrderContext]):
 
 
 # ============================================================================
+# Fallback Example: Saga with Fallback Step
+# ============================================================================
+
+
+class ReserveInventoryFallbackStep(
+    SagaStepHandler[OrderContext, ReserveInventoryResponse],
+):
+    """Fallback step: Reserve inventory using alternative service."""
+
+    def __init__(self) -> None:
+        self._events: list[Event] = []
+
+    @property
+    def events(self) -> list[Event]:
+        return self._events.copy()
+
+    async def act(
+        self,
+        context: OrderContext,
+    ) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
+        """Reserve inventory using fallback service."""
+        response = ReserveInventoryResponse(
+            reservation_id=f"fallback_reservation_{context.order_id}",
+            items_reserved=context.items,
+        )
+        return self._generate_step_result(response)
+
+    async def compensate(self, context: OrderContext) -> None:
+        """Release reserved items from fallback service."""
+        pass
+
+
+class OrderSagaWithFallback(Saga[OrderContext]):
+    """Order processing saga with Fallback step for inventory reservation."""
+
+    steps = [
+        Fallback(
+            step=ReserveInventoryStep,
+            fallback=ReserveInventoryFallbackStep,
+        ),
+        ProcessPaymentStep,
+        ShipOrderStep,
+    ]
+
+
+# ============================================================================
 # Simple Container (for example purposes)
 # ============================================================================
 
@@ -283,10 +330,12 @@ def main() -> None:
     print("\nThis example demonstrates how to generate Mermaid diagrams")
     print("from Saga instances for documentation and visualization purposes.")
 
-    # Create saga instance (steps are defined as class attribute)
-    saga = OrderSaga()
+    # Example 1: Regular Saga
+    print("\n" + "=" * 80)
+    print("EXAMPLE 1: Regular Saga (without Fallback)")
+    print("=" * 80)
 
-    # Create Mermaid generator
+    saga = OrderSaga()
     generator = SagaMermaid(saga)
 
     # Generate Sequence Diagram
@@ -303,14 +352,44 @@ def main() -> None:
     class_diagram = generator.class_diagram()
     print_diagram("CLASS DIAGRAM - Saga Type Structure", class_diagram, "Class")
 
+    # Example 2: Saga with Fallback
+    print("\n" + "=" * 80)
+    print("EXAMPLE 2: Saga with Fallback Step")
+    print("=" * 80)
+    print("\nThis example shows how Fallback steps are visualized in Mermaid diagrams.")
+    print("The Fallback wrapper includes both primary and fallback step handlers.")
+
+    saga_with_fallback = OrderSagaWithFallback()
+    generator_fallback = SagaMermaid(saga_with_fallback)
+
+    # Generate Sequence Diagram with Fallback
+    print("\n📊 Generating Sequence Diagram with Fallback...")
+    sequence_diagram_fallback = generator_fallback.sequence()
+    print_diagram(
+        "SEQUENCE DIAGRAM - Saga with Fallback Execution Flow",
+        sequence_diagram_fallback,
+        "Sequence",
+    )
+
+    # Generate Class Diagram with Fallback
+    print("\n📊 Generating Class Diagram with Fallback...")
+    class_diagram_fallback = generator_fallback.class_diagram()
+    print_diagram(
+        "CLASS DIAGRAM - Saga with Fallback Type Structure",
+        class_diagram_fallback,
+        "Class",
+    )
+
     print("\n" + "=" * 80)
     print("✅ EXAMPLE COMPLETED SUCCESSFULLY")
     print("=" * 80)
-    print("\nBoth diagrams have been generated and are ready to use!")
+    print("\nAll diagrams have been generated and are ready to use!")
     print("\nQuick start:")
     print("  • Copy the code blocks above (they include ```mermaid markers)")
     print("  • Paste into https://mermaid.live/ to view rendered diagrams")
     print("  • Or use directly in markdown files with Mermaid support")
+    print("\n💡 Note: Fallback steps show both primary and fallback handlers")
+    print("   in the diagrams, demonstrating the fallback execution flow.")
     print("\n" + "=" * 80 + "\n")
 
 

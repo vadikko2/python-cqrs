@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import typing
 import uuid
 from cqrs.dispatcher.exceptions import SagaConcurrencyError
@@ -7,6 +8,7 @@ from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.models import SagaLogEntry
 from cqrs.saga.storage.protocol import ISagaStorage
 
+import dotenv
 try:
     import sqlalchemy
     from sqlalchemy import func
@@ -23,12 +25,23 @@ except ImportError:
 Base = registry().generate_base()
 logger = logging.getLogger(__name__)
 
+dotenv.load_dotenv()
+
 DEFAULT_SAGA_EXECUTION_TABLE_NAME = "saga_executions"
 DEFAULT_SAGA_LOG_TABLE_NAME = "saga_logs"
 
+SAGA_EXECUTION_TABLE_NAME = os.getenv(
+    "CQRS_SAGA_EXECUTION_TABLE_NAME",
+    DEFAULT_SAGA_EXECUTION_TABLE_NAME,
+)
+SAGA_LOG_TABLE_NAME = os.getenv(
+    "CQRS_SAGA_LOG_TABLE_NAME",
+    DEFAULT_SAGA_LOG_TABLE_NAME,
+)
+
 
 class SagaExecutionModel(Base):
-    __tablename__ = DEFAULT_SAGA_EXECUTION_TABLE_NAME
+    __tablename__ = SAGA_EXECUTION_TABLE_NAME
 
     id = sqlalchemy.Column(
         sqlalchemy.Uuid,
@@ -71,10 +84,17 @@ class SagaExecutionModel(Base):
         onupdate=func.now(),
         comment="Last update timestamp",
     )
+    recovery_attempts = sqlalchemy.Column(
+        sqlalchemy.Integer,
+        nullable=False,
+        default=0,
+        server_default=sqlalchemy.text("0"),
+        comment="Number of recovery attempts",
+    )
 
 
 class SagaLogModel(Base):
-    __tablename__ = DEFAULT_SAGA_LOG_TABLE_NAME
+    __tablename__ = SAGA_LOG_TABLE_NAME
 
     id = sqlalchemy.Column(
         sqlalchemy.BigInteger(),
@@ -86,7 +106,7 @@ class SagaLogModel(Base):
     )
     saga_id = sqlalchemy.Column(
         sqlalchemy.Uuid,
-        sqlalchemy.ForeignKey(f"{DEFAULT_SAGA_EXECUTION_TABLE_NAME}.id"),
+        sqlalchemy.ForeignKey(f"{SAGA_EXECUTION_TABLE_NAME}.id"),
         nullable=False,
         comment="Saga ID",
     )
@@ -136,6 +156,7 @@ class SqlAlchemySagaStorage(ISagaStorage):
                     status=SagaStatus.PENDING,
                     context=context,
                     version=1,
+                    recovery_attempts=0,
                 )
                 session.add(execution)
                 await session.commit()
@@ -170,7 +191,8 @@ class SqlAlchemySagaStorage(ISagaStorage):
 
                 result = await session.execute(stmt)
 
-                if result.rowcount == 0:
+                # Type ignore: SQLAlchemy Result from update() has rowcount attribute
+                if result.rowcount == 0:  # type: ignore[attr-defined]
                     # Check if saga exists to distinguish between "not found" and "concurrency error"
                     # But for now, we assume if rowcount is 0 and we checked version, it's concurrency
                     if current_version is not None:
@@ -295,3 +317,81 @@ class SqlAlchemySagaStorage(ISagaStorage):
                 )
                 for row in rows
             ]
+
+    async def get_sagas_for_recovery(
+        self,
+        limit: int,
+        max_recovery_attempts: int = 5,
+        stale_after_seconds: int | None = None,
+        saga_name: str | None = None,
+    ) -> list[uuid.UUID]:
+        recoverable = (
+            SagaStatus.RUNNING,
+            SagaStatus.COMPENSATING,
+        )
+        async with self.session_factory() as session:
+            stmt = (
+                sqlalchemy.select(SagaExecutionModel.id)
+                .where(SagaExecutionModel.status.in_(recoverable))
+                .where(SagaExecutionModel.recovery_attempts < max_recovery_attempts)
+            )
+            if saga_name is not None:
+                stmt = stmt.where(SagaExecutionModel.name == saga_name)
+            if stale_after_seconds is not None:
+                threshold = datetime.datetime.now(
+                    datetime.timezone.utc,
+                ) - datetime.timedelta(
+                    seconds=stale_after_seconds,
+                )
+                stmt = stmt.where(SagaExecutionModel.updated_at < threshold)
+            stmt = stmt.order_by(SagaExecutionModel.updated_at.asc()).limit(limit)
+            result = await session.execute(stmt)
+            rows = result.scalars().all()
+            return [typing.cast(uuid.UUID, row) for row in rows]
+
+    async def increment_recovery_attempts(
+        self,
+        saga_id: uuid.UUID,
+        new_status: SagaStatus | None = None,
+    ) -> None:
+        async with self.session_factory() as session:
+            try:
+                values: dict[str, typing.Any] = {
+                    "recovery_attempts": SagaExecutionModel.recovery_attempts + 1,
+                    "version": SagaExecutionModel.version + 1,
+                }
+                if new_status is not None:
+                    values["status"] = new_status
+                result = await session.execute(
+                    sqlalchemy.update(SagaExecutionModel)
+                    .where(SagaExecutionModel.id == saga_id)
+                    .values(**values),
+                )
+                if result.rowcount == 0:  # type: ignore[attr-defined]
+                    raise ValueError(f"Saga {saga_id} not found")
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise
+
+    async def set_recovery_attempts(
+        self,
+        saga_id: uuid.UUID,
+        attempts: int,
+    ) -> None:
+        async with self.session_factory() as session:
+            try:
+                result = await session.execute(
+                    sqlalchemy.update(SagaExecutionModel)
+                    .where(SagaExecutionModel.id == saga_id)
+                    .values(
+                        recovery_attempts=attempts,
+                        version=SagaExecutionModel.version + 1,
+                    ),
+                )
+                if result.rowcount == 0:  # type: ignore[attr-defined]
+                    raise ValueError(f"Saga {saga_id} not found")
+                await session.commit()
+            except SQLAlchemyError:
+                await session.rollback()
+                raise

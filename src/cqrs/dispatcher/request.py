@@ -16,7 +16,7 @@ from cqrs.requests.cor_request_handler import (
     CORRequestHandlerT as CORRequestHandlerType,
 )
 from cqrs.requests.map import RequestMap, HandlerType
-from cqrs.requests.request import Request
+from cqrs.requests.request import IRequest
 from cqrs.requests.request_handler import RequestHandler
 
 logger = logging.getLogger("cqrs")
@@ -57,18 +57,15 @@ class RequestDispatcher:
                     "COR handler must be type CORRequestHandler",
                 )
 
-            async with asyncio.TaskGroup() as tg:
-                tasks = [
-                    tg.create_task(self._container.resolve(h)) for h in handler_type
-                ]
-            handlers = [task.result() for task in tasks]
+            tasks = [self._container.resolve(h) for h in handler_type]
+            handlers = await asyncio.gather(*tasks)
             return build_chain(
                 typing.cast(typing.List[CORRequestHandlerType], handlers),
             )
 
         return typing.cast(_RequestHandler, await self._container.resolve(handler_type))
 
-    async def dispatch(self, request: Request) -> RequestDispatchResult:
+    async def dispatch(self, request: IRequest) -> RequestDispatchResult:
         handler_type = self._request_map.get(type(request), None)
         if not handler_type:
             raise RequestHandlerDoesNotExist(

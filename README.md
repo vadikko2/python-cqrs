@@ -1,15 +1,33 @@
 <div align="center">
+<div align="center">
+  <img
+    src="https://raw.githubusercontent.com/vadikko2/python-cqrs-mkdocs/master/docs/img.png"
+    alt="Python CQRS"
+    style="max-width: 80%; width: 800px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 102, 204, 0.2); display: block; margin: 2rem auto;"
+  >
+</div>
   <h1>Python CQRS</h1>
-  <p>Event-Driven Architecture Framework for Distributed Systems</p>
-
+  <h3>Event-Driven Architecture Framework for Distributed Systems</h3>
   <p>
+    <a href="https://pypi.org/project/python-cqrs/">
+      <img src="https://img.shields.io/pypi/pyversions/python-cqrs?logo=python&logoColor=white" alt="Python Versions">
+    </a>
     <a href="https://pypi.org/project/python-cqrs/">
       <img src="https://img.shields.io/pypi/v/python-cqrs?label=pypi&logo=pypi" alt="PyPI version">
     </a>
-    <a href="https://pypi.org/project/python-cqrs/">
-      <img src="https://img.shields.io/pypi/dm/python-cqrs?label=downloads&logo=pypi" alt="PyPI downloads">
+    <a href="https://pepy.tech/projects/python-cqrs">
+      <img src="https://pepy.tech/badge/python-cqrs" alt="Total downloads">
     </a>
-    <a href="https://vadikko2.github.io/python-cqrs-mkdocs/">
+    <a href="https://pepy.tech/projects/python-cqrs">
+      <img src="https://pepy.tech/badge/python-cqrs/month" alt="Downloads per month">
+    </a>
+    <a href="https://codecov.io/gh/vadikko2/python-cqrs">
+      <img src="https://img.shields.io/codecov/c/github/vadikko2/python-cqrs?logo=codecov&logoColor=white" alt="Coverage">
+    </a>
+    <a href="https://codspeed.io/vadikko2/python-cqrs?utm_source=badge">
+      <img src="https://img.shields.io/endpoint?url=https://codspeed.io/badge.json" alt="CodSpeed">
+    </a>
+    <a href="https://mkdocs.python-cqrs.dev/">
       <img src="https://img.shields.io/badge/docs-mkdocs-blue?logo=readthedocs" alt="Documentation">
     </a>
     <a href="https://deepwiki.com/vadikko2/python-cqrs">
@@ -18,13 +36,10 @@
   </p>
 </div>
 
-<div align="center">
-  <img
-    src="https://raw.githubusercontent.com/vadikko2/python-cqrs-mkdocs/master/docs/img.png"
-    alt="Python CQRS"
-    style="max-width: 80%; width: 800px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0, 102, 204, 0.2); display: block; margin: 2rem auto;"
-  >
-</div>
+> [!WARNING]
+> **Breaking Changes in v5.0.0**
+>
+> Starting with version 5.0.0, Pydantic support will become optional. The default implementations of `Request`, `Response`, `DomainEvent`, and `NotificationEvent` will be migrated to dataclasses-based implementations.
 
 ## Overview
 
@@ -49,7 +64,8 @@ project ([documentation](https://akhundmurad.github.io/diator/)) with several en
 11. Parallel event processing with configurable concurrency limits;
 12. Chain of Responsibility pattern support with `CORRequestHandler` for processing requests through multiple handlers in sequence;
 13. Orchestrated Saga pattern support for managing distributed transactions with automatic compensation and recovery mechanisms;
-14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization.
+14. Built-in Mermaid diagram generation, enabling automatic generation of Sequence and Class diagrams for documentation and visualization;
+15. Flexible Request and Response types support - use Pydantic-based or Dataclass-based implementations, with the ability to mix and match types based on your needs.
 
 ## Request Handlers
 
@@ -233,6 +249,61 @@ class_diagram = generator.class_diagram()
 
 Complete example: [CoR Mermaid Diagrams](https://github.com/vadikko2/cqrs/blob/master/examples/cor_mermaid.py)
 
+## Request and Response Types
+
+The library supports both Pydantic-based (`PydanticRequest`/`PydanticResponse`, aliased as `Request`/`Response`) and Dataclass-based (`DCRequest`/`DCResponse`) implementations. You can also implement custom classes by implementing the `IRequest`/`IResponse` interfaces directly.
+
+```python
+import dataclasses
+
+# Pydantic-based (default)
+class CreateUserCommand(cqrs.Request):
+    username: str
+    email: str
+
+class UserResponse(cqrs.Response):
+    user_id: str
+    username: str
+
+# Dataclass-based
+@dataclasses.dataclass
+class CreateProductCommand(cqrs.DCRequest):
+    name: str
+    price: float
+
+@dataclasses.dataclass
+class ProductResponse(cqrs.DCResponse):
+    product_id: str
+    name: str
+
+# Custom implementation
+class CustomRequest(cqrs.IRequest):
+    def __init__(self, user_id: str, action: str):
+        self.user_id = user_id
+        self.action = action
+
+    def to_dict(self) -> dict:
+        return {"user_id": self.user_id, "action": self.action}
+
+    @classmethod
+    def from_dict(cls, **kwargs) -> "CustomRequest":
+        return cls(user_id=kwargs["user_id"], action=kwargs["action"])
+
+class CustomResponse(cqrs.IResponse):
+    def __init__(self, result: str, status: int):
+        self.result = result
+        self.status = status
+
+    def to_dict(self) -> dict:
+        return {"result": self.result, "status": self.status}
+
+    @classmethod
+    def from_dict(cls, **kwargs) -> "CustomResponse":
+        return cls(result=kwargs["result"], status=kwargs["status"])
+```
+
+A complete example can be found in [request_response_types.py](https://github.com/vadikko2/cqrs/blob/master/examples/request_response_types.py)
+
 ## Saga Pattern
 
 The package implements the Orchestrated Saga pattern for managing distributed transactions across multiple services or operations.
@@ -244,6 +315,7 @@ Sagas enable eventual consistency by executing a series of steps where each step
 - **SagaLog**: Tracks all step executions (act/compensate) with status and timestamps
 - **Recovery Mechanism**: Automatically recovers interrupted sagas from storage, ensuring eventual consistency
 - **Automatic Compensation**: If any step fails, all previously completed steps are automatically compensated in reverse order
+- **Fallback Pattern**: Define alternative steps to execute when primary steps fail, with optional Circuit Breaker protection
 - **Mermaid Diagram Generation**: Generate Sequence and Class diagrams for documentation and visualization
 
 ### Example
@@ -279,6 +351,57 @@ async for step_result in mediator.stream(context, saga_id=saga_id):
     print(f"Step completed: {step_result.step_type.__name__}")
     # If any step fails, compensation happens automatically
 ```
+
+### Fallback Pattern with Circuit Breaker
+
+The saga pattern supports fallback steps that execute automatically when primary steps fail. You can also integrate Circuit Breaker protection to prevent cascading failures:
+
+```python
+from cqrs.saga.fallback import Fallback
+from cqrs.adapters.circuit_breaker import AioBreakerAdapter
+from cqrs.response import Response
+from cqrs.saga.step import SagaStepHandler, SagaStepResult
+
+class ReserveInventoryResponse(Response):
+    reservation_id: str
+
+class PrimaryStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
+    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
+        # Primary step that may fail
+        raise RuntimeError("Service unavailable")
+
+class FallbackStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
+    async def act(self, context: OrderContext) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
+        # Alternative step that executes when primary fails
+        reservation_id = f"fallback_reservation_{context.order_id}"
+        context.reservation_id = reservation_id
+        return self._generate_step_result(ReserveInventoryResponse(reservation_id=reservation_id))
+
+# Define saga with fallback and circuit breaker
+class OrderSagaWithFallback(Saga[OrderContext]):
+    steps = [
+        Fallback(
+            step=PrimaryStep,
+            fallback=FallbackStep,
+            circuit_breaker=AioBreakerAdapter(
+                fail_max=2,  # Circuit opens after 2 failures
+                timeout_duration=60,  # Wait 60 seconds before retry
+            ),
+        ),
+    ]
+
+# Optional: Using Redis for distributed circuit breaker state
+# import redis
+# from aiobreaker.storage.redis import CircuitRedisStorage
+#
+# def redis_storage_factory(name: str):
+#     client = redis.from_url("redis://localhost:6379", decode_responses=False)
+#     return CircuitRedisStorage(state="closed", redis_object=client, namespace=name)
+#
+# AioBreakerAdapter(..., storage_factory=redis_storage_factory)
+```
+
+When the primary step fails, the fallback step executes automatically. The Circuit Breaker opens after the configured failure threshold, preventing unnecessary load on failing services by failing fast.
 
 The saga state and step history are persisted to `SagaStorage`. The `SagaLog` maintains a complete audit trail
 of all step executions (both `act` and `compensate` operations) with timestamps and status information.
@@ -826,16 +949,16 @@ async def process_files_stream(
     mediator: cqrs.StreamingRequestMediator = fastapi.Depends(streaming_mediator_factory),
 ) -> fastapi.responses.StreamingResponse:
     async def generate_sse():
-        yield f"data: {json.dumps({'type': 'start', 'message': 'Processing...'})}\n\n"
+        yield f"data: {json.dumps({'type': 'start', 'message': 'Processing...'})}\\n\\n"
 
         async for result in mediator.stream(command):
             sse_data = {
                 "type": "progress",
-                "data": result.model_dump(),
+                "data": result.to_dict(),
             }
-            yield f"data: {json.dumps(sse_data)}\n\n"
+            yield f"data: {json.dumps(sse_data)}\\n\\n"
 
-        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+        yield f"data: {json.dumps({'type': 'complete'})}\\n\\n"
 
     return fastapi.responses.StreamingResponse(
         generate_sse(),
@@ -848,8 +971,8 @@ the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/fastap
 
 ## Protobuf messaging
 
-The `python-cqrs` package supports integration with [protobuf](https://developers.google.com/protocol-buffers/).\
-Protocol buffers are Google’s language-neutral, platform-neutral, extensible mechanism for serializing structured data –
+The `python-cqrs` package supports integration with [protobuf](https://developers.google.com/protocol-buffers/).\\
+Protocol buffers are Google's language-neutral, platform-neutral, extensible mechanism for serializing structured data –
 think XML, but smaller, faster, and simpler. You define how you want your data to be structured once, then you can use
 special generated source code to easily write and read your structured data to and from a variety of data streams and
 using a variety of languages.

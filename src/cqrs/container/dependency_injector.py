@@ -1,4 +1,4 @@
-from typing import TypeVar, Type, Optional, cast
+from typing import TypeVar, Optional, cast
 import inspect
 import functools
 from dependency_injector import providers
@@ -9,7 +9,7 @@ T = TypeVar("T")
 
 
 class DependencyInjectorCQRSContainer(
-    CQRSContainerProtocol[DependencyInjectorContainer]
+    CQRSContainerProtocol[DependencyInjectorContainer],
 ):
     """
     Adapter bridging dependency-injector containers with CQRS framework.
@@ -136,7 +136,7 @@ class DependencyInjectorCQRSContainer(
         self._get_provider.cache_clear()
         self._traverse_container(container)
 
-    async def resolve(self, type_: Type[T]) -> T:
+    async def resolve(self, type_: type[T]) -> T:
         """
         Resolve and instantiate a dependency by its type.
 
@@ -189,7 +189,13 @@ class DependencyInjectorCQRSContainer(
             ...         return await service.create_user(request.name)
         """
         provider = self._get_provider(type_)
-        return provider()
+        result = provider()
+        # If provider returns a coroutine or Future (async provider), await it
+        # Note: inspect.iscoroutine() only checks for coroutines, not Futures/Tasks
+        # We need to check for any awaitable object
+        if inspect.isawaitable(result):
+            return await result
+        return result
 
     def _traverse_container(
         self,
@@ -268,7 +274,7 @@ class DependencyInjectorCQRSContainer(
     def _get_provider_by_path_segments(
         self,
         path_segments: tuple[str, ...],
-    ) -> providers.Provider[T]:
+    ) -> providers.Provider[object]:
         """
         Navigate container hierarchy to retrieve a provider by its access path.
 
@@ -309,7 +315,7 @@ class DependencyInjectorCQRSContainer(
     @functools.cache
     def _get_provider(
         self,
-        requested_type: Type[T],
+        requested_type: type[T],
     ) -> providers.Provider[T]:
         """
         Find and return the provider for a requested type with caching.
@@ -370,8 +376,11 @@ class DependencyInjectorCQRSContainer(
         """
         # Strategy 1: Exact type match
         if requested_type in self._type_to_provider_path_map:
-            return self._get_provider_by_path_segments(
-                self._type_to_provider_path_map[requested_type]
+            return cast(
+                providers.Provider[T],
+                self._get_provider_by_path_segments(
+                    self._type_to_provider_path_map[requested_type],
+                ),
             )
 
         # Strategy 2: Inheritance-based match
@@ -379,12 +388,15 @@ class DependencyInjectorCQRSContainer(
         # This enables resolving abstract base classes to their concrete implementations
         for registered_type in self._type_to_provider_path_map:
             if issubclass(registered_type, requested_type):
-                return self._get_provider_by_path_segments(
-                    self._type_to_provider_path_map[registered_type]
+                return cast(
+                    providers.Provider[T],
+                    self._get_provider_by_path_segments(
+                        self._type_to_provider_path_map[registered_type],
+                    ),
                 )
 
         # No provider found for the requested type
         raise ValueError(
             f"Provider for type {requested_type.__name__} not found. "
-            f"Ensure the type is registered in the dependency-injector container."
+            f"Ensure the type is registered in the dependency-injector container.",
         )

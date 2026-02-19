@@ -1,5 +1,5 @@
+import asyncio
 import typing
-from unittest import mock
 
 import pydantic
 
@@ -12,7 +12,9 @@ from cqrs.events import (
     EventMap,
     NotificationEvent,
 )
+from cqrs.events.event import IEvent
 from cqrs.mediator import StreamingRequestMediator
+from cqrs.message_brokers import devnull
 from cqrs.requests.map import RequestMap
 from cqrs.requests.request import Request
 from cqrs.requests.request_handler import StreamingRequestHandler
@@ -34,13 +36,13 @@ class StreamingHandler(StreamingRequestHandler[ProcessItemsCommand, ProcessItemR
         self._events: list[Event] = []
 
     @property
-    def events(self) -> list[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # type: ignore
+    async def handle(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
@@ -63,14 +65,63 @@ class Container:
         return self._handler
 
 
+async def test_streaming_mediator_stream_returns_async_iterator_consumable_with_async_for() -> None:
+    """
+    Contract: mediator.stream(request) is called without await
+    and returns an AsyncIterator that is consumed with async for.
+    """
+    handler = StreamingHandler()
+    request_map = RequestMap()
+    request_map.bind(ProcessItemsCommand, StreamingHandler)
+    container = Container(handler)
+    event_map = EventMap()
+    message_broker = devnull.DevnullMessageBroker()
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=container,  # type: ignore
+        message_broker=message_broker,
+    )
+    mediator = StreamingRequestMediator(
+        request_map=request_map,
+        container=container,  # type: ignore
+        event_emitter=event_emitter,
+    )
+    request = ProcessItemsCommand(item_ids=["a", "b"])
+    # stream() is called (no await) and returns async iterator
+    async_gen = mediator.stream(request)
+    results = []
+    async for item in async_gen:
+        results.append(item)
+    assert len(results) == 2
+    assert results[0].item_id == "a"
+    assert results[1].item_id == "b"
+    assert handler.called
+
+
 async def test_streaming_mediator_logic() -> None:
     handler = StreamingHandler()
     request_map = RequestMap()
     request_map.bind(ProcessItemsCommand, StreamingHandler)
     container = Container(handler)
 
-    event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    event_map = EventMap()
+    message_broker = devnull.DevnullMessageBroker()
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=container,  # type: ignore
+        message_broker=message_broker,
+    )
+
+    # Track emit calls
+    original_emit = event_emitter.emit
+    emit_call_count = 0
+
+    async def tracked_emit(event):
+        nonlocal emit_call_count
+        emit_call_count += 1
+        return await original_emit(event)
+
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,
@@ -83,13 +134,16 @@ async def test_streaming_mediator_logic() -> None:
     async for result in mediator.stream(request):
         results.append(result)
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert handler.called
     assert len(results) == 3
     assert results[0].item_id == "item1"
     assert results[1].item_id == "item2"
     assert results[2].item_id == "item3"
 
-    assert event_emitter.emit.call_count == 3
+    assert emit_call_count == 3
 
 
 async def test_streaming_mediator_without_event_emitter() -> None:
@@ -124,8 +178,13 @@ async def test_streaming_mediator_events_order() -> None:
     async def mock_emit(event: Event):
         emitted_events.append(event)
 
-    event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock_emit
+    message_broker = devnull.DevnullMessageBroker()
+    event_emitter = EventEmitter(
+        event_map=EventMap(),
+        container=container,  # type: ignore
+        message_broker=message_broker,
+    )
+    event_emitter.emit = mock_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,
@@ -137,6 +196,8 @@ async def test_streaming_mediator_events_order() -> None:
     results = []
     async for result in mediator.stream(request):
         results.append(result)
+        # Wait a bit for background task to complete
+        await asyncio.sleep(0.05)
         assert len(emitted_events) == len(results)
 
     assert len(emitted_events) == 2
@@ -146,7 +207,7 @@ async def test_streaming_mediator_events_order() -> None:
     assert emitted_events[1].payload["item_id"] == "item2"  # type: ignore
 
 
-class ItemProcessedDomainEvent(DomainEvent):  # type: ignore[misc]
+class ItemProcessedDomainEvent(DomainEvent, frozen=True):
     item_id: str = pydantic.Field()
 
 
@@ -166,13 +227,13 @@ class EventHandlerStreamingHandler(
         self._events: list[Event] = []
 
     @property
-    def events(self) -> list[Event]:
+    def events(self) -> typing.Sequence[IEvent]:
         return self._events.copy()
 
     def clear_events(self) -> None:
         self._events.clear()
 
-    async def handle(  # type: ignore
+    async def handle(
         self,
         request: ProcessItemsCommand,
     ) -> typing.AsyncIterator[ProcessItemResult]:
@@ -194,23 +255,22 @@ async def test_streaming_mediator_processes_events_parallel() -> None:
     event_map = EventMap()
     event_map.bind(ItemProcessedDomainEvent, ItemProcessedEventHandler)
 
-    class EventContainer:
-        def __init__(self, handler):
-            self._handler = handler
-            self._external_container: typing.Any = None
+    event_container = Container(event_handler)
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=event_container,  # type: ignore
+    )
 
-        @property
-        def external_container(self) -> typing.Any:
-            return self._external_container
+    # Track emit calls
+    original_emit = event_emitter.emit
+    emit_call_count = 0
 
-        def attach_external_container(self, container: typing.Any) -> None:
-            self._external_container = container
+    async def tracked_emit(event):
+        nonlocal emit_call_count
+        emit_call_count += 1
+        return await original_emit(event)
 
-        async def resolve(self, type_: typing.Type[typing.Any]) -> typing.Any:
-            return self._handler
-
-    event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,
@@ -220,19 +280,18 @@ async def test_streaming_mediator_processes_events_parallel() -> None:
         max_concurrent_event_handlers=2,
     )
 
-    mediator._event_processor._event_dispatcher._container = EventContainer(
-        event_handler,
-    )  # type: ignore
-
     request = ProcessItemsCommand(item_ids=["item1", "item2", "item3"])
     results = []
     async for result in mediator.stream(request):
         results.append(result)
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert handler.called
     assert len(results) == 3
     assert len(event_handler.processed_events) == 3
-    assert event_emitter.emit.call_count == 3
+    assert emit_call_count == 3
 
 
 async def test_streaming_mediator_processes_events_sequentially() -> None:
@@ -245,23 +304,22 @@ async def test_streaming_mediator_processes_events_sequentially() -> None:
     event_map = EventMap()
     event_map.bind(ItemProcessedDomainEvent, ItemProcessedEventHandler)
 
-    class EventContainer:
-        def __init__(self, handler):
-            self._handler = handler
-            self._external_container: typing.Any = None
+    event_container = Container(event_handler)
+    event_emitter = EventEmitter(
+        event_map=event_map,
+        container=event_container,  # type: ignore
+    )
 
-        @property
-        def external_container(self) -> typing.Any:
-            return self._external_container
+    # Track emit calls
+    original_emit = event_emitter.emit
+    emit_call_count = 0
 
-        def attach_external_container(self, container: typing.Any) -> None:
-            self._external_container = container
+    async def tracked_emit(event):
+        nonlocal emit_call_count
+        emit_call_count += 1
+        return await original_emit(event)
 
-        async def resolve(self, type_: typing.Type[typing.Any]) -> typing.Any:
-            return self._handler
-
-    event_emitter = mock.AsyncMock(spec=EventEmitter)
-    event_emitter.emit = mock.AsyncMock()
+    event_emitter.emit = tracked_emit  # type: ignore[assignment]
 
     mediator = StreamingRequestMediator(
         request_map=request_map,
@@ -272,16 +330,15 @@ async def test_streaming_mediator_processes_events_sequentially() -> None:
         concurrent_event_handle_enable=False,
     )
 
-    mediator._event_processor._event_dispatcher._container = EventContainer(
-        event_handler,
-    )  # type: ignore
-
     request = ProcessItemsCommand(item_ids=["item1", "item2", "item3"])
     results = []
     async for result in mediator.stream(request):
         results.append(result)
 
+    # Wait for background tasks to complete
+    await asyncio.sleep(0.1)
+
     assert handler.called
     assert len(results) == 3
     assert len(event_handler.processed_events) == 3
-    assert event_emitter.emit.call_count == 3
+    assert emit_call_count == 3

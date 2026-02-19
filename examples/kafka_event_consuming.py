@@ -177,6 +177,6 @@ if __name__ == "__main__":
     )
     print(
         f"1. Run kafka infrastructure with: `docker compose -f ./docker-compose-dev.yml up -d`\n"
-        f"2. Send to kafka topic `hello_world` event: {orjson.dumps(ev.model_dump(mode='json')).decode()}",
+        f"2. Send to kafka topic `hello_world` event: {orjson.dumps(ev.to_dict()).decode()}",
     )
     asyncio.run(app.run())

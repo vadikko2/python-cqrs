@@ -37,6 +37,7 @@ class MemorySagaStorage(ISagaStorage):
             "created_at": now,
             "updated_at": now,
             "version": 1,
+            "recovery_attempts": 0,
         }
         self._logs[saga_id] = []
 
@@ -115,3 +116,54 @@ class MemorySagaStorage(ISagaStorage):
             return []
         # Sort by timestamp
         return sorted(self._logs[saga_id], key=lambda x: x.timestamp)
+
+    async def get_sagas_for_recovery(
+        self,
+        limit: int,
+        max_recovery_attempts: int = 5,
+        stale_after_seconds: int | None = None,
+        saga_name: str | None = None,
+    ) -> list[uuid.UUID]:
+        recoverable = (SagaStatus.RUNNING, SagaStatus.COMPENSATING)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        threshold = (
+            (now - datetime.timedelta(seconds=stale_after_seconds))
+            if stale_after_seconds is not None
+            else None
+        )
+        candidates = [
+            sid
+            for sid, data in self._sagas.items()
+            if data["status"] in recoverable
+            and data.get("recovery_attempts", 0) < max_recovery_attempts
+            and (threshold is None or data["updated_at"] < threshold)
+            and (saga_name is None or data["name"] == saga_name)
+        ]
+        candidates.sort(key=lambda sid: self._sagas[sid]["updated_at"])
+        return candidates[:limit]
+
+    async def increment_recovery_attempts(
+        self,
+        saga_id: uuid.UUID,
+        new_status: SagaStatus | None = None,
+    ) -> None:
+        if saga_id not in self._sagas:
+            raise ValueError(f"Saga {saga_id} not found")
+        data = self._sagas[saga_id]
+        data["recovery_attempts"] = data.get("recovery_attempts", 0) + 1
+        data["updated_at"] = datetime.datetime.now(datetime.timezone.utc)
+        data["version"] += 1
+        if new_status is not None:
+            data["status"] = new_status
+
+    async def set_recovery_attempts(
+        self,
+        saga_id: uuid.UUID,
+        attempts: int,
+    ) -> None:
+        if saga_id not in self._sagas:
+            raise ValueError(f"Saga {saga_id} not found")
+        data = self._sagas[saga_id]
+        data["recovery_attempts"] = attempts
+        data["updated_at"] = datetime.datetime.now(datetime.timezone.utc)
+        data["version"] += 1

@@ -1,13 +1,11 @@
 repos:
 - hooks:
-  - id: check-toml
   - id: check-docstring-first
   - id: check-ast
-  - exclude: (^tests/mock/|^tests/integration/|^tests/fixtures)
+  - exclude: (^tests/mock/|^tests/integration/|^tests/fixtures|benchmarks)
     id: trailing-whitespace
   - id: end-of-file-fixer
   - id: check-yaml
-  - id: check-toml
   - id: check-added-large-files
   - args:
     - --pytest-test-first
@@ -22,25 +20,6 @@ repos:
   repo: https://github.com/asottile/add-trailing-comma
   rev: v3.1.0
 - hooks:
-  - args:
-    - --autofix
-    - --indent
-    - '2'
-    files: ^.*\.yaml$
-    id: pretty-format-yaml
-  - args:
-    - --autofix
-    - --indent
-    - '2'
-    id: pretty-format-toml
-  repo: https://github.com/macisamuele/language-formatters-pre-commit-hooks
-  rev: v2.12.0
-- hooks:
-  - id: toml-sort
-  - id: toml-sort-fix
-  repo: https://github.com/pappasam/toml-sort
-  rev: v0.23.1
-- hooks:
   - id: pycln
     name: pycln
     entry: pycln ./
@@ -52,15 +31,24 @@ repos:
   rev: v1.0.1
 - hooks:
   - id: ruff
-    args: [--fix]
+    args: [--fix, --config, ruff.toml]
   - id: ruff-format
+    args: [--config, ruff.toml]
   repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.6.1
 - repo: https://github.com/RobertCraigie/pyright-python
   rev: v1.1.380
   hooks:
   - id: pyright
+    args: [--project, .]
     types: [python]
+- repo: https://github.com/netromdk/vermin
+  rev: v1.6.0
+  hooks:
+  - id: vermin
+    args: [--target=3.10-, --violations, --eval-annotations, --backport typing_extensions, --exclude=venv, --exclude=build, --exclude=.git, --exclude=.venv, src, examples, tests]
+    language: python
+    additional_dependencies: [vermin]
 - repo: local
   hooks:
   - id: pytest-unit

@@ -194,7 +194,7 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
 
     def add(
         self,
-        event: cqrs.NotificationEvent,
+        event: cqrs.INotificationEvent,
     ) -> None:
         registered_event = map.OutboxedEventMap.get(event.event_name)
         if registered_event is None:
@@ -205,7 +205,7 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
                 f"Event type {type(event)} does not match registered event type {registered_event}",
             )
 
-        bytes_payload = orjson.dumps(event.model_dump(mode="json"))
+        bytes_payload = orjson.dumps(event.to_dict())
         if self._compressor is not None:
             bytes_payload = self._compressor.compress(bytes_payload)
 
@@ -228,13 +228,15 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
 
         if self._compressor is not None:
             event_dict["payload"] = self._compressor.decompress(event_dict["payload"])
-        event_dict["payload"] = orjson.loads(event_dict["payload"])
+        event_payload_dict = orjson.loads(event_dict["payload"])
 
+        # Use from_dict interface method for validation and type conversion
+        # This works through the interface without exposing implementation details
         return repository.OutboxedEvent(
             id=event_dict["id"],
             topic=event_dict["topic"],
             status=event_dict["event_status"],
-            event=event_model.model_validate(event_dict["payload"]),
+            event=event_model.from_dict(**event_payload_dict),
         )
 
     async def get_many(

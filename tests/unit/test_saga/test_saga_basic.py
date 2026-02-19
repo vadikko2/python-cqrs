@@ -313,3 +313,4 @@ async def test_saga_step_result_contains_correct_metadata(
         assert step_result.error_message is None
         assert step_result.error_traceback is None
         assert step_result.error_type is None
+        assert step_result.saga_id is not None

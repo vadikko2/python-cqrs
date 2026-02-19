@@ -6,20 +6,20 @@ from cqrs.dispatcher.event import EventDispatcher
 from cqrs.dispatcher.request import RequestDispatcher
 from cqrs.dispatcher.saga import SagaDispatcher
 from cqrs.dispatcher.streaming import StreamingRequestDispatcher
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 from cqrs.events.event_emitter import EventEmitter
 from cqrs.events.event_processor import EventProcessor
 from cqrs.events.map import EventMap
 from cqrs.middlewares.base import MiddlewareChain
 from cqrs.requests.map import RequestMap, SagaMap
-from cqrs.requests.request import Request
-from cqrs.response import Response
+from cqrs.requests.request import IRequest
+from cqrs.response import IResponse
 from cqrs.saga.models import SagaContext
 from cqrs.saga.step import SagaStepResult
 from cqrs.saga.storage.memory import MemorySagaStorage
 from cqrs.saga.storage.protocol import ISagaStorage
 
-_ResponseT = typing.TypeVar("_ResponseT", Response, None, covariant=True)
+_ResponseT = typing.TypeVar("_ResponseT", IResponse, None, covariant=True)
 
 
 class RequestMediator:
@@ -71,9 +71,7 @@ class RequestMediator:
     ) -> None:
         self._event_processor = EventProcessor(
             event_map=event_map or EventMap(),
-            container=container,
             event_emitter=event_emitter,
-            middleware_chain=middleware_chain,
             max_concurrent_event_handlers=max_concurrent_event_handlers,
             concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
@@ -83,7 +81,7 @@ class RequestMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, request: Request) -> _ResponseT:
+    async def send(self, request: IRequest) -> _ResponseT:
         """
         Send a request and return the response.
 
@@ -94,12 +92,7 @@ class RequestMediator:
         Note: TypeVar usage here is intentional for type inference purposes.
         """
         dispatch_result = await self._dispatcher.dispatch(request)
-
-        if dispatch_result.events:
-            await self._event_processor.process_and_emit_events(
-                dispatch_result.events.copy(),
-            )
-
+        await self._event_processor.emit_events(dispatch_result.events)
         return dispatch_result.response
 
 
@@ -133,7 +126,7 @@ class EventMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def send(self, event: Event) -> None:
+    async def send(self, event: IEvent) -> None:
         await self._dispatcher.dispatch(event)
 
 
@@ -179,15 +172,11 @@ class StreamingRequestMediator:
         max_concurrent_event_handlers: int = 1,
         concurrent_event_handle_enable: bool = True,
         *,
-        dispatcher_type: typing.Type[
-            StreamingRequestDispatcher
-        ] = StreamingRequestDispatcher,
+        dispatcher_type: typing.Type[StreamingRequestDispatcher] = StreamingRequestDispatcher,
     ) -> None:
         self._event_processor = EventProcessor(
             event_map=event_map or EventMap(),
-            container=container,
             event_emitter=event_emitter,
-            middleware_chain=middleware_chain,
             max_concurrent_event_handlers=max_concurrent_event_handlers,
             concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
@@ -197,13 +186,14 @@ class StreamingRequestMediator:
             middleware_chain=middleware_chain,  # type: ignore
         )
 
-    async def stream(
+    def stream(
         self,
-        request: Request,
-    ) -> typing.AsyncIterator[Response | None]:
+        request: IRequest,
+    ) -> typing.AsyncIterator[IResponse | None]:
         """
         Stream results from a generator-based handler.
 
+        Called without await; returns an AsyncIterator consumed with async for.
         After each yield from the handler:
         1. Events are processed (in parallel with semaphore limit or sequentially
            depending on concurrent_event_handle_enable) via event dispatcher
@@ -212,11 +202,14 @@ class StreamingRequestMediator:
 
         The generator continues until StopIteration is raised.
         """
+        return self._stream_impl(request)
+
+    async def _stream_impl(
+        self,
+        request: IRequest,
+    ) -> typing.AsyncIterator[IResponse | None]:
         async for dispatch_result in self._dispatcher.dispatch(request):
-            if dispatch_result.events:
-                await self._event_processor.process_and_emit_events(
-                    dispatch_result.events.copy(),
-                )
+            await self._event_processor.emit_events(dispatch_result.events)
 
             yield dispatch_result.response
 
@@ -272,9 +265,7 @@ class SagaMediator:
     ) -> None:
         self._event_processor = EventProcessor(
             event_map=event_map or EventMap(),
-            container=container,
             event_emitter=event_emitter,
-            middleware_chain=middleware_chain,
             max_concurrent_event_handlers=max_concurrent_event_handlers,
             concurrent_event_handle_enable=concurrent_event_handle_enable,
         )
@@ -288,7 +279,7 @@ class SagaMediator:
             compensation_retry_backoff=compensation_retry_backoff,  # type: ignore
         )
 
-    async def stream(
+    def stream(
         self,
         context: SagaContext,
         saga_id: uuid.UUID | None = None,
@@ -296,6 +287,7 @@ class SagaMediator:
         """
         Stream results from saga execution.
 
+        Called without await; returns an AsyncIterator consumed with async for.
         After each step execution:
         1. Events are processed (in parallel with semaphore limit or sequentially
            depending on concurrent_event_handle_enable) via event dispatcher
@@ -312,13 +304,16 @@ class SagaMediator:
         Yields:
             SagaStepResult
         """
+        return self._stream_impl(context, saga_id=saga_id)
+
+    async def _stream_impl(
+        self,
+        context: SagaContext,
+        saga_id: uuid.UUID | None = None,
+    ) -> typing.AsyncIterator[SagaStepResult]:
         async for dispatch_result in self._dispatcher.dispatch(
             context,
             saga_id=saga_id,
         ):
-            if dispatch_result.events:
-                await self._event_processor.process_and_emit_events(
-                    dispatch_result.events.copy(),
-                )
-
+            await self._event_processor.emit_events(dispatch_result.events)
             yield dispatch_result.step_result

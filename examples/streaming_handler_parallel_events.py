@@ -136,9 +136,7 @@ class InventoryUpdateEvent(cqrs.DomainEvent, frozen=True):
     """Event for inventory updates."""
 
     order_id: str
-    items: list[
-        dict[str, typing.Union[str, int]]
-    ]  # [{"product_id": "prod1", "quantity": 2}]
+    items: list[dict[str, typing.Union[str, int]]]  # [{"product_id": "prod1", "quantity": 2}]
 
 
 class AuditLogEvent(cqrs.DomainEvent, frozen=True):
@@ -177,10 +175,10 @@ class ProcessOrdersCommandHandler(
         """Clear events after they have been processed and emitted."""
         self._events.clear()
 
-    async def handle(  # type: ignore[override]
+    async def handle(
         self,
         request: ProcessOrdersCommand,
-    ) -> typing.AsyncIterator[OrderProcessedResult]:  # type: ignore[override]
+    ) -> typing.AsyncIterator[OrderProcessedResult]:
         """
         Process orders one by one, yielding results after each order.
 
@@ -198,9 +196,7 @@ class ProcessOrdersCommandHandler(
                 "order_id": order_id,
                 "customer_id": f"customer_{order_id[-1]}",
                 "total_amount": 100.0 + float(order_id[-1]) * 10,
-                "items": [
-                    {"product_id": f"prod_{i}", "quantity": i + 1} for i in range(3)
-                ],
+                "items": [{"product_id": f"prod_{i}", "quantity": i + 1} for i in range(3)],
                 "category": "electronics" if int(order_id[-1]) % 2 == 0 else "clothing",
             }
 
@@ -238,8 +234,7 @@ class ProcessOrdersCommandHandler(
                 InventoryUpdateEvent(
                     order_id=order_id,
                     items=[
-                        {"product_id": item["product_id"], "quantity": item["quantity"]}
-                        for item in order_data["items"]
+                        {"product_id": item["product_id"], "quantity": item["quantity"]} for item in order_data["items"]
                     ],
                 ),
             )
@@ -285,8 +280,7 @@ class OrderProcessedEventHandler(cqrs.EventHandler[OrderProcessedEvent]):
 
         EMAIL_SENT_LOG.append(email_data)
         logger.info(
-            f"📧 Email sent for order {event.order_id} "
-            f"to customer {event.customer_id}",
+            f"📧 Email sent for order {event.order_id} " f"to customer {event.customer_id}",
         )
 
 
@@ -307,8 +301,7 @@ class OrderAnalyticsEventHandler(cqrs.EventHandler[OrderAnalyticsEvent]):
         ANALYTICS_STORAGE["total_orders"] += 1
 
         logger.info(
-            f"📊 Analytics updated for order {event.order_id} "
-            f"in category {event.category}",
+            f"📊 Analytics updated for order {event.order_id} " f"in category {event.category}",
         )
 
 
@@ -330,8 +323,7 @@ class InventoryUpdateEventHandler(cqrs.EventHandler[InventoryUpdateEvent]):
             INVENTORY_STORAGE[product_id] -= quantity
 
         logger.info(
-            f"📦 Inventory updated for order {event.order_id}, "
-            f"items: {len(event.items)}",
+            f"📦 Inventory updated for order {event.order_id}, " f"items: {len(event.items)}",
         )
 
 
@@ -428,6 +420,10 @@ async def main():
     end_time = datetime.now()
     processing_time = (end_time - start_time).total_seconds()
 
+    # Allow fire-and-forget parallel event handlers to finish (EventProcessor
+    # uses create_task when concurrent_event_handle_enable=True and does not await)
+    await asyncio.sleep(0.3)
+
     # Print summary
     logger.info("\n" + "=" * 80)
     logger.info("Processing Summary")
@@ -449,15 +445,11 @@ async def main():
     logger.info("Example completed successfully!")
     logger.info("=" * 80)
 
-    # Verify results
-    # Note: Events are processed twice (once by dispatcher, once by emitter),
-    # so we expect double the counts
+    # Verify results: one event-handler invocation per order per handler type
     assert len(results) == len(order_ids)
-    assert len(EMAIL_SENT_LOG) == len(order_ids) * 2  # Each event handler called twice
-    assert len(AUDIT_LOG) == len(order_ids) * 2  # Each event handler called twice
-    assert (
-        ANALYTICS_STORAGE["total_orders"] == len(order_ids) * 2
-    )  # Each event handler called twice
+    assert len(EMAIL_SENT_LOG) == len(order_ids)
+    assert len(AUDIT_LOG) == len(order_ids)
+    assert ANALYTICS_STORAGE["total_orders"] == len(order_ids)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import abc
 import typing
 
-from cqrs.events.event import Event
+from cqrs.events.event import IEvent
 from cqrs.types import ReqT, ResT
 
 
@@ -16,7 +16,7 @@ class RequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
       class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None])
           def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
               self._meetings_api = meetings_api
-              self.events: list[Event] = []
+              self.events: list[IEvent] = []
 
           async def handle(self, request: JoinMeetingCommand) -> None:
               await self._meetings_api.join_user(request.user_id, request.meeting_id)
@@ -26,7 +26,7 @@ class RequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
       class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryResult])
           def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
               self._meetings_api = meetings_api
-              self.events: list[Event] = []
+              self.events: list[IEvent] = []
 
           async def handle(self, request: ReadMeetingQuery) -> ReadMeetingQueryResult:
               link = await self._meetings_api.get_link(request.meeting_id)
@@ -35,9 +35,14 @@ class RequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
     """
 
     @property
-    @abc.abstractmethod
-    def events(self) -> typing.List[Event]:
-        raise NotImplementedError
+    def events(self) -> typing.Sequence[IEvent]:
+        """
+        Events produced by this handler after :meth:`handle` was called.
+
+        Override in subclasses to return follow-up events. By default returns
+        an empty sequence.
+        """
+        return ()
 
     @abc.abstractmethod
     async def handle(self, request: ReqT) -> ResT:
@@ -74,12 +79,23 @@ class StreamingRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):
     """
 
     @property
-    @abc.abstractmethod
-    def events(self) -> typing.List[Event]:
-        raise NotImplementedError
+    def events(self) -> typing.Sequence[IEvent]:
+        """
+        Events produced by this handler after each yield from :meth:`handle`.
+
+        Override in subclasses to return follow-up events. By default returns
+        an empty sequence.
+        """
+        return ()
 
     @abc.abstractmethod
-    async def handle(self, request: ReqT) -> typing.AsyncIterator[ResT]:
+    def handle(self, request: ReqT) -> typing.AsyncIterator[ResT]:
+        """
+        Handle the request by yielding results as an async generator.
+
+        Subclasses must implement this as an async generator (async def with
+        yield) so that callers receive an AsyncIterator when calling handle().
+        """
         raise NotImplementedError
 
     @abc.abstractmethod

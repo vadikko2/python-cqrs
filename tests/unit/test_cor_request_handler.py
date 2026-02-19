@@ -24,7 +24,7 @@ class TestHandlerA(CORRequestHandler[TRequest, TResult | None]):
     call_count: int = 0
 
     @property
-    def events(self) -> typing.List[cqrs.Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return []
 
     async def handle(self, request: TRequest) -> TResult | None:
@@ -46,7 +46,7 @@ class TestHandlerB(CORRequestHandler[TRequest, TResult | None]):
     call_count: int = 0
 
     @property
-    def events(self) -> typing.List[cqrs.Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return []
 
     async def handle(self, request: TRequest) -> TResult | None:
@@ -68,7 +68,7 @@ class TestHandlerC(CORRequestHandler[TRequest, TResult | None]):
     call_count: int = 0
 
     @property
-    def events(self) -> typing.List[cqrs.Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return []
 
     async def handle(self, request: TRequest) -> TResult | None:
@@ -90,7 +90,7 @@ class DefaultTestHandler(CORRequestHandler[TRequest, TResult | None]):
     call_count: int = 0
 
     @property
-    def events(self) -> typing.List[cqrs.Event]:
+    def events(self) -> typing.Sequence[cqrs.IEvent]:
         return []
 
     async def handle(self, request: TRequest) -> TResult | None:

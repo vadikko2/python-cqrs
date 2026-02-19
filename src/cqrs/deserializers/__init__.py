@@ -1,13 +1,8 @@
-from cqrs.deserializers.exceptions import (
-    DeserializeJsonError,
-    DeserializeProtobufError,
-)
-from cqrs.deserializers.json import JsonDeserializer
-from cqrs.deserializers.protobuf import ProtobufValueDeserializer
+from cqrs.deserializers.exceptions import DeserializeJsonError
+from cqrs.deserializers.json import Deserializable, JsonDeserializer
 
 __all__ = (
+    "Deserializable",
     "JsonDeserializer",
     "DeserializeJsonError",
-    "ProtobufValueDeserializer",
-    "DeserializeProtobufError",
 )

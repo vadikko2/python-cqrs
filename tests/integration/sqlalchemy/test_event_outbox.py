@@ -42,7 +42,7 @@ class OutboxRequestHandler(RequestHandler[OutboxRequest, None]):
         self.repository = repository
 
     @property
-    def events(self) -> list[events.Event]:
+    def events(self) -> typing.Sequence[events.IEvent]:
         return []
 
     async def handle(self, request: OutboxRequest) -> None:
@@ -135,7 +135,7 @@ class TestOutbox:
         events_list = await outbox_repo.get_many(3)
         await outbox_repo.update_status(
             events_list[-1].id,
-            repository_protocol.EventStatus.PRODUCED,
+            repository_protocol.EventStatus.PRODUCED,  # type: ignore[arg-type]
         )
         await outbox_repo.commit()
 
@@ -180,7 +180,7 @@ class TestOutbox:
         [event_over_get_all_events_method] = await outbox_repo.get_many(1)
         await outbox_repo.update_status(
             event_over_get_all_events_method.id,
-            repository_protocol.EventStatus.PRODUCED,
+            repository_protocol.EventStatus.PRODUCED,  # type: ignore[arg-type]
         )
         await outbox_repo.commit()
 
@@ -203,7 +203,7 @@ class TestOutbox:
         # mark FIRST event as failure
         await outbox_repo.update_status(
             failure_event.id,
-            repository_protocol.EventStatus.NOT_PRODUCED,
+            repository_protocol.EventStatus.NOT_PRODUCED,  # type: ignore[arg-type]
         )
         await outbox_repo.commit()
 
@@ -226,7 +226,7 @@ class TestOutbox:
         for _ in range(sqlalchemy.MAX_FLUSH_COUNTER_VALUE):
             await outbox_repo.update_status(
                 failure_event.id,
-                repository_protocol.EventStatus.NOT_PRODUCED,
+                repository_protocol.EventStatus.NOT_PRODUCED,  # type: ignore[arg-type]
             )
 
         await outbox_repo.commit()
