@@ -290,7 +290,7 @@ class DCNotificationEvent(
     event_name: str
     payload: PayloadT
 
-    event_id: uuid.UUID = dataclasses.field(default_factory=uuid.uuid4)
+    event_id: uuid.UUID = dataclasses.field(default_factory=uuid6.uuid7)
     event_timestamp: datetime.datetime = dataclasses.field(
         default_factory=datetime.datetime.now,
     )
