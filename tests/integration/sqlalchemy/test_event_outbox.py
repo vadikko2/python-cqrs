@@ -72,12 +72,12 @@ def outbox_repo(session):
 class TestOutbox:
 
     @pytest.fixture(autouse=True)
-    async def setup_db(self, engine):
+    async def _setup_db(self, engine):
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
     @pytest.fixture(autouse=True)
-    async def cleanup_table(self, session, setup_db):
+    async def cleanup_table(self, session, _setup_db):
         await session.execute(sqla.delete(TestOutboxModel))
         await session.commit()
         yield
