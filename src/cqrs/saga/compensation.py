@@ -105,9 +105,6 @@ class SagaCompensator(typing.Generic[ContextT]):
                     "compensate",
                     SagaStepStatus.COMPLETED,
                 )
-                if self._on_after_compensate_step is not None:
-                    await self._on_after_compensate_step()
-
             except Exception as compensation_error:
                 await self._storage.log_step(
                     self._saga_id,
@@ -118,6 +115,19 @@ class SagaCompensator(typing.Generic[ContextT]):
                 )
                 # Store both step and error for better error reporting
                 compensation_errors.append((step, compensation_error))
+                continue
+
+            # Callback only after successful step compensation; failures are not treated as step failure
+            if self._on_after_compensate_step is not None:
+                try:
+                    await self._on_after_compensate_step()
+                except Exception as callback_error:
+                    logger.error(
+                        "on_after_compensate_step failed (e.g. run.commit): %s",
+                        callback_error,
+                        exc_info=callback_error,
+                    )
+                    raise
 
         # If compensation failed after all retries
         if compensation_errors:

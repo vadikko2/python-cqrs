@@ -87,7 +87,7 @@ class JoinMeetingCommandHandler(RequestHandler[JoinMeetingCommand, None]):
 
       def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
           self._meetings_api = meetings_api
-          self.events: list[Event] = []
+          self._events: list[Event] = []
 
       @property
       def events(self) -> typing.List[events.Event]:
@@ -115,7 +115,7 @@ class ReadMeetingQueryHandler(RequestHandler[ReadMeetingQuery, ReadMeetingQueryR
 
       def __init__(self, meetings_api: MeetingAPIProtocol) -> None:
           self._meetings_api = meetings_api
-          self.events: list[Event] = []
+          self._events: list[Event] = []
 
       @property
       def events(self) -> typing.List[events.Event]:
@@ -323,7 +323,7 @@ def init_queries(mapper: requests.RequestMap) -> None:
     mapper.bind(queries.ReadMeetingQuery, query_handlers.ReadMeetingQueryHandler)
 
 def init_events(mapper: events.EventMap) -> None:
-    mapper.bind(events.NotificationEvent[events_models.NotificationMeetingRoomClosed], event_handlers.MeetingRoomClosedNotificationHandler)
+    mapper.bind(events.NotificationEvent[event_models.NotificationMeetingRoomClosed], event_handlers.MeetingRoomClosedNotificationHandler)
     mapper.bind(events.NotificationEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
 ```
 

@@ -4,15 +4,12 @@
 - Benchmarks named *_legacy_* use the legacy path (no create_run, commit per storage call).
 """
 
-import contextlib
-
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from cqrs.saga.saga import Saga
-from cqrs.saga.storage.protocol import SagaStorageRun
-from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
 
+from ..storage_legacy import SqlAlchemySagaStorageLegacy
 from .test_benchmark_saga_memory import (
     OrderContext,
     ProcessPaymentStep,
@@ -20,21 +17,6 @@ from .test_benchmark_saga_memory import (
     SagaContainer,
     ShipOrderStep,
 )
-
-
-class SqlAlchemySagaStorageLegacy(SqlAlchemySagaStorage):
-    """SQLAlchemy storage without create_run: forces legacy path (commit per call)."""
-
-    def create_run(
-        self,
-    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
-        """
-        Disable creation of a scoped SagaStorageRun for legacy storage used in benchmarks.
-        
-        Raises:
-            NotImplementedError: Always raised with message "Legacy storage: create_run disabled for benchmark".
-        """
-        raise NotImplementedError("Legacy storage: create_run disabled for benchmark")
 
 
 @pytest.fixture

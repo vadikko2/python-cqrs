@@ -79,6 +79,7 @@ import asyncio
 import dataclasses
 import datetime
 import logging
+import traceback
 import typing
 import uuid
 
@@ -263,12 +264,7 @@ class ShippingService:
         shipment_id = f"shipment_{order_id}"
         tracking_number = f"TRACK{self._tracking_counter:08d}"
         self._shipments[shipment_id] = tracking_number
-        logger.info(
-            "  ✓ Created shipment %s for order %s (tracking: %s)",
-            shipment_id,
-            order_id,
-            tracking_number,
-        )
+        logger.info(f"  ✓ Created shipment {shipment_id} for order {order_id} (tracking: {tracking_number})")
         return shipment_id, tracking_number
 
     async def cancel_shipment(self, shipment_id: str) -> None:
@@ -515,19 +511,19 @@ async def run_recovery_iteration(
     processed = 0
     for saga_id in ids:
         try:
-            logger.info("Recovering saga %s...", saga_id)
+            logger.info(f"Recovering saga {saga_id}...")
             await recover_saga(saga, saga_id, context_builder, container, storage)
-            logger.info("Saga %s recovered successfully.", saga_id)
+            logger.info(f"Saga {saga_id} recovered successfully.")
             processed += 1
         except RuntimeError as e:
             if "recovered in" in str(e) and "state" in str(e):
-                logger.info("Saga %s recovery completed compensation: %s", saga_id, e)
+                logger.info(f"Saga {saga_id} recovery completed compensation: {traceback.format_exc()}")
                 processed += 1
             else:
-                logger.exception("Saga %s recovery failed: %s", saga_id, e)
+                logger.exception(f"Saga {saga_id} recovery failed: {traceback.format_exc()}")
                 processed += 1
-        except Exception as e:
-            logger.exception("Saga %s recovery failed: %s", saga_id, e)
+        except Exception:
+            logger.exception(f"Saga {saga_id} recovery failed: {traceback.format_exc()}")
             processed += 1
     return processed
 
@@ -551,7 +547,7 @@ async def recovery_loop(
     iteration = 0
     while True:
         iteration += 1
-        logger.info("Recovery iteration %s", iteration)
+        logger.info(f"Recovery iteration {iteration}")
         try:
             processed = await run_recovery_iteration(
                 storage,
@@ -559,17 +555,17 @@ async def recovery_loop(
                 OrderContext,
             )
             if processed > 0:
-                logger.info("Processed %s saga(s) this iteration.", processed)
+                logger.info(f"Processed {processed} saga(s) this iteration.")
             else:
                 logger.debug("No sagas to recover.")
         except asyncio.CancelledError:
             logger.info("Recovery loop cancelled.")
             raise
         except Exception as e:
-            logger.exception("Recovery iteration failed: %s", e)
+            logger.exception(f"Recovery iteration failed: {traceback.format_exc()}")
 
         if max_iterations is not None and iteration >= max_iterations:
-            logger.info("Reached max_iterations=%s, stopping.", max_iterations)
+            logger.info(f"Reached max_iterations={max_iterations}, stopping.")
             break
         await asyncio.sleep(interval_seconds)
 

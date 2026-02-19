@@ -19,7 +19,8 @@ class SagaStorageRun(typing.Protocol):
         saga_id: uuid.UUID,
         name: str,
         context: dict[str, typing.Any],
-    ) -> None: """
+    ) -> None:
+        """
         Create a new saga execution record with initial PENDING status and version 1.
         
         Parameters:
@@ -27,13 +28,14 @@ class SagaStorageRun(typing.Protocol):
             name (str): Human-friendly name used for diagnostics and filtering.
             context (dict[str, Any]): JSON-serializable initial saga context to persist.
         """
-        ...
+
     async def update_context(
         self,
         saga_id: uuid.UUID,
         context: dict[str, typing.Any],
         current_version: int | None = None,
-    ) -> None: """
+    ) -> None:
+        """
         Persist a snapshot of the saga's execution context, optionally using optimistic locking.
         
         Parameters:
@@ -45,12 +47,13 @@ class SagaStorageRun(typing.Protocol):
         Raises:
             SagaConcurrencyError: If `current_version` is provided and does not match the stored version.
         """
-        ...
+
     async def update_status(
         self,
         saga_id: uuid.UUID,
         status: SagaStatus,
-    ) -> None: """
+    ) -> None:
+        """
         Set the global status for the saga identified by `saga_id`.
         
         Parameters:
@@ -60,7 +63,7 @@ class SagaStorageRun(typing.Protocol):
         Notes:
             This operation does not commit the storage session; the caller must call `commit()` on the active run or session to persist the change.
         """
-        ...
+
     async def log_step(
         self,
         saga_id: uuid.UUID,
@@ -68,7 +71,8 @@ class SagaStorageRun(typing.Protocol):
         action: typing.Literal["act", "compensate"],
         status: SagaStepStatus,
         details: str | None = None,
-    ) -> None: """
+    ) -> None:
+        """
         Append a step transition to the saga's execution log.
         
         Parameters:
@@ -78,13 +82,14 @@ class SagaStorageRun(typing.Protocol):
             status (SagaStepStatus): The step transition status to record (e.g., started, completed, failed, compensated).
             details (str | None): Optional human-readable details or diagnostics about the transition.
         """
-        ...
+
     async def load_saga_state(
         self,
         saga_id: uuid.UUID,
         *,
         read_for_update: bool = False,
-    ) -> tuple[SagaStatus, dict[str, typing.Any], int]: """
+    ) -> tuple[SagaStatus, dict[str, typing.Any], int]:
+        """
         Load the current saga execution state.
         
         Parameters:
@@ -94,11 +99,12 @@ class SagaStorageRun(typing.Protocol):
         Returns:
             tuple[SagaStatus, dict[str, Any], int]: A tuple containing the saga's global status, the latest persisted context (JSON-serializable), and the current optimistic-locking version number.
         """
-        ...
+
     async def get_step_history(
         self,
         saga_id: uuid.UUID,
-    ) -> list[SagaLogEntry]: """
+    ) -> list[SagaLogEntry]:
+        """
         Retrieve the chronological step log for a saga.
         
         Parameters:
@@ -107,19 +113,20 @@ class SagaStorageRun(typing.Protocol):
         Returns:
             list[SagaLogEntry]: Ordered list of step log entries for the saga, from oldest to newest.
         """
-        ...
-    async def commit(self) -> None: """
-Finalize the storage run by persisting and committing all pending changes made during this session.
 
-This method makes the run's checkpointed changes durable; the caller is responsible for invoking commit at logical checkpoints to persist session state.
-"""
-...
-    async def rollback(self) -> None: """
-Abort the current storage run and revert any uncommitted changes in the session.
+    async def commit(self) -> None:
+        """
+        Finalize the storage run by persisting and committing all pending changes made during this session.
 
-This releases the run's transactional state without persisting pending updates so that the storage remains as it was before the run began.
-"""
-...
+        This method makes the run's checkpointed changes durable; the caller is responsible for invoking commit at logical checkpoints to persist session state.
+        """
+
+    async def rollback(self) -> None:
+        """
+        Abort the current storage run and revert any uncommitted changes in the session.
+
+        This releases the run's transactional state without persisting pending updates so that the storage remains as it was before the run began.
+        """
 
 
 class ISagaStorage(abc.ABC):

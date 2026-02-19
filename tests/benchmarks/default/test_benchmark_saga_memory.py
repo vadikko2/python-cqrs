@@ -5,7 +5,6 @@
 """
 
 import asyncio
-import contextlib
 import dataclasses
 import typing
 
@@ -16,7 +15,8 @@ from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.memory import MemorySagaStorage
-from cqrs.saga.storage.protocol import SagaStorageRun
+
+from ..storage_legacy import MemorySagaStorageLegacy
 
 
 @dataclasses.dataclass
@@ -150,24 +150,6 @@ def memory_storage() -> MemorySagaStorage:
     return MemorySagaStorage()
 
 
-class MemorySagaStorageLegacy(MemorySagaStorage):
-    """Memory storage without create_run: forces legacy path (commit per call)."""
-
-    def create_run(
-        self,
-    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
-        """
-        Disable creation of scoped storage runs for the legacy storage variant used in benchmarks.
-        
-        Returns:
-            contextlib.AbstractAsyncContextManager[SagaStorageRun]: An async context manager yielding a `SagaStorageRun` (disabled in this legacy implementation).
-        
-        Raises:
-            NotImplementedError: Always raised with the message "Legacy storage: create_run disabled for benchmark".
-        """
-        raise NotImplementedError("Legacy storage: create_run disabled for benchmark")
-
-
 @pytest.fixture
 def memory_storage_legacy() -> MemorySagaStorageLegacy:
     """
@@ -255,7 +237,6 @@ def test_benchmark_saga_memory_run_ten_transactions(
     benchmark,
     saga_with_memory_storage: Saga[OrderContext],
     saga_container: SagaContainer,
-    memory_storage: MemorySagaStorage,
 ):
     """Benchmark 10 saga transactions in sequence, scoped run (memory storage)."""
 

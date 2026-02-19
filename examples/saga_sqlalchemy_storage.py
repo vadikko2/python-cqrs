@@ -140,13 +140,13 @@ async def setup_database(engine: AsyncEngine) -> None:
 
 
 async def main() -> None:
-    # 1. Create SQLAlchemy Engine with Connection Pool
-    # SQLAlchemy creates a pool by default (QueuePool for most dialects, SingletonThreadPool for SQLite)
     """
     Run a demonstration that executes an OrderSaga using an async SQLAlchemy engine and persistent SqlAlchemySagaStorage.
-    
+
     Initializes a pooled async SQLAlchemy engine and schema, creates a session factory and SqlAlchemySagaStorage, bootstraps a mediator with a DI container and saga mapper, runs an OrderSaga while streaming step results to stdout, and then reloads and prints the persisted saga state and step history before disposing the engine.
     """
+    # 1. Create SQLAlchemy Engine with Connection Pool
+    # SQLAlchemy creates a pool by default (QueuePool for most dialects, SingletonThreadPool for SQLite)
     engine = create_async_engine(
         DB_URL,
         echo=False,  # Set to True to see SQL queries

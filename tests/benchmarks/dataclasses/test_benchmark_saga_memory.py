@@ -5,7 +5,6 @@
 """
 
 import asyncio
-import contextlib
 import dataclasses
 import typing
 
@@ -16,7 +15,8 @@ from cqrs.saga.models import SagaContext
 from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.memory import MemorySagaStorage
-from cqrs.saga.storage.protocol import SagaStorageRun
+
+from ..storage_legacy import MemorySagaStorageLegacy
 
 
 @dataclasses.dataclass
@@ -153,21 +153,6 @@ def memory_storage() -> MemorySagaStorage:
     return MemorySagaStorage()
 
 
-class MemorySagaStorageLegacy(MemorySagaStorage):
-    """Memory storage without create_run: forces legacy path (commit per call)."""
-
-    def create_run(
-        self,
-    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
-        """
-        Indicate that creating a scoped run context is not supported for the legacy in-memory storage used in benchmarks.
-        
-        Raises:
-            NotImplementedError: Always raised with message "Legacy storage: create_run disabled for benchmark".
-        """
-        raise NotImplementedError("Legacy storage: create_run disabled for benchmark")
-
-
 @pytest.fixture
 def memory_storage_legacy() -> MemorySagaStorageLegacy:
     """
@@ -180,21 +165,11 @@ def memory_storage_legacy() -> MemorySagaStorageLegacy:
 
 
 @pytest.fixture
-def saga_with_memory_storage(
-    saga_container: SagaContainer,
-    memory_storage: MemorySagaStorage,
-) -> Saga[OrderContext]:
+def saga_with_memory_storage() -> Saga[OrderContext]:
     """
     Create an OrderSaga configured with reserve-inventory, process-payment, and ship-order steps.
-    
-    This factory accepts the saga container and memory storage as fixture dependencies (they are not used by this function) and returns a Saga subclass instance with the three ordered step handlers: ReserveInventoryStep, ProcessPaymentStep, and ShipOrderStep.
-    
-    Parameters:
-        saga_container (SagaContainer): Fixture-provided container (unused).
-        memory_storage (MemorySagaStorage): Fixture-provided memory storage (unused).
-    
-    Returns:
-        Saga[OrderContext]: An OrderSaga instance wired with the predefined steps.
+
+    Returns a Saga subclass instance with the three ordered step handlers: ReserveInventoryStep, ProcessPaymentStep, and ShipOrderStep. No fixture dependencies.
     """
     class OrderSaga(Saga[OrderContext]):
         steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
@@ -261,7 +236,6 @@ def test_benchmark_saga_memory_run_ten_transactions(
     benchmark,
     saga_with_memory_storage: Saga[OrderContext],
     saga_container: SagaContainer,
-    memory_storage: MemorySagaStorage,
 ):
     """Benchmark 10 saga transactions in sequence, scoped run (memory storage)."""
 

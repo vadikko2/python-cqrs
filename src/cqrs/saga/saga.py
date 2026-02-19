@@ -86,6 +86,9 @@ class SagaTransaction(typing.Generic[ContextT]):
         self._completed_steps: list[SagaStepHandler[ContextT, typing.Any]] = []
         self._error: BaseException | None = None
         self._compensated: bool = False
+        self._comp_retry_count = compensation_retry_count
+        self._comp_retry_delay = compensation_retry_delay
+        self._comp_retry_backoff = compensation_retry_backoff
 
         self._saga_id = saga_id or uuid.uuid4()
         self._is_new_saga = saga_id is None
@@ -112,9 +115,9 @@ class SagaTransaction(typing.Generic[ContextT]):
             self._saga_id,
             context,
             storage,
-            compensation_retry_count,
-            compensation_retry_delay,
-            compensation_retry_backoff,
+            self._comp_retry_count,
+            self._comp_retry_delay,
+            self._comp_retry_backoff,
         )
 
     @property
@@ -172,6 +175,51 @@ class SagaTransaction(typing.Generic[ContextT]):
             async for step_result in self._execute(None):
                 yield step_result
 
+    def _build_run_scoped_components(
+        self,
+        run: SagaStorageRun,
+    ) -> tuple[
+        SagaStateManager,
+        SagaRecoveryManager,
+        SagaStepExecutor[ContextT],
+        FallbackStepExecutor[ContextT],
+        SagaCompensator[ContextT],
+    ]:
+        """Build state manager, recovery manager, executors, and compensator for a storage run (checkpoint commits)."""
+        state_manager = SagaStateManager(self._saga_id, run)
+        recovery_manager = SagaRecoveryManager(
+            self._saga_id,
+            run,
+            self._container,
+            self._saga.steps,
+        )
+        step_executor = SagaStepExecutor(
+            self._context,
+            self._container,
+            state_manager,
+        )
+        fallback_executor = FallbackStepExecutor(
+            self._context,
+            self._container,
+            state_manager,
+        )
+        compensator = SagaCompensator(
+            self._saga_id,
+            self._context,
+            run,
+            self._comp_retry_count,
+            self._comp_retry_delay,
+            self._comp_retry_backoff,
+            on_after_compensate_step=run.commit,
+        )
+        return (
+            state_manager,
+            recovery_manager,
+            step_executor,
+            fallback_executor,
+            compensator,
+        )
+
     async def _execute(
         self,
         run: SagaStorageRun | None,
@@ -189,32 +237,13 @@ class SagaTransaction(typing.Generic[ContextT]):
             RuntimeError: If the saga was recovered in COMPENSATING or FAILED state and compensation was completed, forward execution is not allowed.
         """
         if run is not None:
-            state_manager = SagaStateManager(self._saga_id, run)
-            recovery_manager = SagaRecoveryManager(
-                self._saga_id,
-                run,
-                self._container,
-                self._saga.steps,
-            )
-            step_executor = SagaStepExecutor(
-                self._context,
-                self._container,
+            (
                 state_manager,
-            )
-            fallback_executor = FallbackStepExecutor(
-                self._context,
-                self._container,
-                state_manager,
-            )
-            compensator = SagaCompensator(
-                self._saga_id,
-                self._context,
-                run,
-                self._compensator._retry_count,
-                self._compensator._retry_delay,
-                self._compensator._retry_backoff,
-                on_after_compensate_step=run.commit,
-            )
+                recovery_manager,
+                step_executor,
+                fallback_executor,
+                compensator,
+            ) = self._build_run_scoped_components(run)
         else:
             state_manager = self._state_manager
             recovery_manager = self._recovery_manager

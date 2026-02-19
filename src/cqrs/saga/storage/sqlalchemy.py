@@ -193,15 +193,10 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
         )
         if current_version is not None:
             stmt = stmt.where(SagaExecutionModel.version == current_version)
-            stmt = stmt.values(
-                context=context,
-                version=SagaExecutionModel.version + 1,
-            )
-        else:
-            stmt = stmt.values(
-                context=context,
-                version=SagaExecutionModel.version + 1,
-            )
+        stmt = stmt.values(
+            context=context,
+            version=SagaExecutionModel.version + 1,
+        )
         result = await self._session.execute(stmt)
         if result.rowcount == 0:  # type: ignore[attr-defined]
             if current_version is not None:
@@ -435,19 +430,12 @@ class SqlAlchemySagaStorage(ISagaStorage):
                 stmt = sqlalchemy.update(SagaExecutionModel).where(
                     SagaExecutionModel.id == saga_id,
                 )
-
                 if current_version is not None:
                     stmt = stmt.where(SagaExecutionModel.version == current_version)
-                    stmt = stmt.values(
-                        context=context,
-                        version=SagaExecutionModel.version + 1,
-                    )
-                else:
-                    # If no version check, just increment version
-                    stmt = stmt.values(
-                        context=context,
-                        version=SagaExecutionModel.version + 1,
-                    )
+                stmt = stmt.values(
+                    context=context,
+                    version=SagaExecutionModel.version + 1,
+                )
 
                 result = await session.execute(stmt)
 
