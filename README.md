@@ -647,7 +647,22 @@ await broker.send_message(...)
 The package implements the [Transactional Outbox](https://microservices.io/patterns/data/transactional-outbox.html)
 pattern, which ensures that messages are produced to the broker according to the at-least-once semantics.
 
+To use the outbox pattern with SQLAlchemy, you first need to define your outbox model using the provided mixin:
+
 ```python
+from sqlalchemy.orm import DeclarativeBase
+from cqrs.outbox import OutboxModelMixin
+
+class Base(DeclarativeBase):
+    pass
+
+class OutboxModel(Base, OutboxModelMixin):
+    __tablename__ = "outbox"  # You can customize the table name
+```
+Then, you can use SqlAlchemyOutboxedEventRepository in your handlers:
+```python
+import cqrs
+
 def do_some_logic(meeting_room_id: int, session: sql_session.AsyncSession):
     """
     Make changes to the database

@@ -4,18 +4,24 @@ import logging
 import os
 import typing
 import uuid
-
-import dotenv
-import sqlalchemy
-from sqlalchemy import func
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-from sqlalchemy.orm import registry
-
 from cqrs.dispatcher.exceptions import SagaConcurrencyError
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.models import SagaLogEntry
 from cqrs.saga.storage.protocol import ISagaStorage, SagaStorageRun
+
+import dotenv
+try:
+    import sqlalchemy
+    from sqlalchemy import func
+    from sqlalchemy.exc import SQLAlchemyError
+    from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+    from sqlalchemy.orm import registry
+except ImportError:
+    raise ImportError(
+        "You are trying to use SQLAlchemy saga storage implementation, "
+        "but 'sqlalchemy' is not installed. "
+        "Please install it using: pip install python-cqrs[sqlalchemy]"
+    )
 
 Base = registry().generate_base()
 logger = logging.getLogger(__name__)

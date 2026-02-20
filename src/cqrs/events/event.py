@@ -4,6 +4,7 @@ import datetime
 import os
 import sys
 import typing
+import uuid6
 import uuid
 
 import dotenv
@@ -289,7 +290,7 @@ class DCNotificationEvent(
     event_name: str
     payload: PayloadT
 
-    event_id: uuid.UUID = dataclasses.field(default_factory=uuid.uuid4)
+    event_id: uuid.UUID = dataclasses.field(default_factory=uuid6.uuid7)
     event_timestamp: datetime.datetime = dataclasses.field(
         default_factory=datetime.datetime.now,
     )
@@ -350,7 +351,7 @@ class PydanticNotificationEvent(
 
     payload: PayloadT
 
-    event_id: uuid.UUID = pydantic.Field(default_factory=uuid.uuid4)
+    event_id: uuid.UUID = pydantic.Field(default_factory=uuid6.uuid7)
     event_timestamp: datetime.datetime = pydantic.Field(
         default_factory=datetime.datetime.now,
     )
