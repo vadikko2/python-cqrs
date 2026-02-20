@@ -238,7 +238,7 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
                 version=SagaExecutionModel.version + 1,
             ),
         )
-        if result.rowcount == 0:
+        if result.rowcount == 0:  # pyright: ignore[reportAttributeAccessIssue]
             raise SagaConcurrencyError(
                 f"Saga {saga_id} does not exist or was modified concurrently",
             )

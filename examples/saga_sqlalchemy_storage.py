@@ -40,8 +40,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database Configuration
-# Using SQLite for this example, but can be swapped for PostgreSQL/MySQL
-DB_URL = os.getenv("DATABASE_URL", "mysql+asyncmy://cqrs:cqrs@localhost:3307/test_cqrs")
+# Using SQLite for this example, but can be swapped for PostgreSQL/MySQL via DATABASE_URL
+DB_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 
 
 # ============================================================================
