@@ -10,10 +10,9 @@ import cqrs
 from cqrs import events, SagaMap
 from cqrs.saga.storage.enums import SagaStatus
 from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
-from integration.conftest import _TestContainer
 
 from tests.integration.test_saga_mediator_memory import (
-    FailingOrderSaga,
+    _TestContainer, FailingOrderSaga,
     InventoryReservedEventHandler,
     OrderContext,
     OrderSaga,
