@@ -16,7 +16,7 @@ else:
 try:
     import sqlalchemy
     from sqlalchemy import func
-    from sqlalchemy.orm import Mapped, mapped_column, declared_attr
+    from sqlalchemy.orm import Mapped, mapped_column, declared_attr, DeclarativeMeta
     from sqlalchemy.ext.asyncio import session as sql_session
     from sqlalchemy.dialects import postgresql
 except ImportError:
@@ -280,7 +280,7 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
         await self.session.rollback()
 
 
-@depricated("This function is deprecated; use `OutboxModelMixin` instead")
+@deprecated("This function is deprecated; use `OutboxModelMixin` instead")
 def rebind_outbox_model(
     model: typing.Any,
     new_base: DeclarativeMeta,
