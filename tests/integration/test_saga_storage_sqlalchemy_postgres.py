@@ -2,7 +2,6 @@
 Uses DATABASE_DSN_POSTGRESQL from fixtures (pytest-config.ini / env).
 """
 
-import asyncio
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timedelta, timezone
@@ -253,9 +252,7 @@ class TestRecoverySqlAlchemyPostgres:
         later = datetime.now(timezone.utc) + timedelta(seconds=10)
         async with storage.session_factory() as session:
             await session.execute(
-                update(SagaExecutionModel)
-                .where(SagaExecutionModel.id == id2)
-                .values(updated_at=later),
+                update(SagaExecutionModel).where(SagaExecutionModel.id == id2).values(updated_at=later),
             )
             await session.commit()
         ids = await storage.get_sagas_for_recovery(limit=10)

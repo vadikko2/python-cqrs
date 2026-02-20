@@ -23,11 +23,8 @@ from tests.integration.test_saga_mediator_memory import (
     OrderSaga,
     PaymentProcessedEvent,
     PaymentProcessedEventHandler,
-    ProcessPaymentResponse,
     ProcessPaymentStep,
-    ReserveInventoryResponse,
     ReserveInventoryStep,
-    ShipOrderResponse,
     ShipOrderStep,
 )
 
