@@ -72,16 +72,8 @@ class SagaMermaid:
                 fallback_aliases[fallback_name] = fallback_alias
 
                 # Truncate long names
-                primary_display = (
-                    primary_name
-                    if len(primary_name) <= 30
-                    else primary_name[:27] + "..."
-                )
-                fallback_display = (
-                    fallback_name
-                    if len(fallback_name) <= 30
-                    else fallback_name[:27] + "..."
-                )
+                primary_display = primary_name if len(primary_name) <= 30 else primary_name[:27] + "..."
+                fallback_display = fallback_name if len(fallback_name) <= 30 else fallback_name[:27] + "..."
 
                 participants.append(f"{primary_alias} as {primary_display}")
                 participants.append(
@@ -93,9 +85,7 @@ class SagaMermaid:
                 step_name = step_item.__name__
                 alias = f"S{step_idx}"
                 step_aliases[step_name] = alias
-                display_name = (
-                    step_name if len(step_name) <= 30 else step_name[:27] + "..."
-                )
+                display_name = step_name if len(step_name) <= 30 else step_name[:27] + "..."
                 participants.append(f"{alias} as {display_name}")
                 step_idx += 1
 
@@ -221,9 +211,7 @@ class SagaMermaid:
         steps = self._saga.steps
 
         if not steps:
-            return (
-                "classDiagram\n    class Saga\n    Note for Saga: No steps configured"
-            )
+            return "classDiagram\n    class Saga\n    Note for Saga: No steps configured"
 
         # Collect all types
         context_types: set[type] = set()
@@ -363,9 +351,7 @@ class SagaMermaid:
                 fields = context_type.__dataclass_fields__
                 for field_name, field_info in fields.items():
                     field_type = (
-                        field_info.type.__name__
-                        if hasattr(field_info.type, "__name__")
-                        else str(field_info.type)
+                        field_info.type.__name__ if hasattr(field_info.type, "__name__") else str(field_info.type)
                     )
                     lines.append(f"        +{field_name}: {field_type}")
             lines.append("    }")
@@ -380,9 +366,7 @@ class SagaMermaid:
                 fields = response_type.__dataclass_fields__
                 for field_name, field_info in fields.items():
                     field_type = (
-                        field_info.type.__name__
-                        if hasattr(field_info.type, "__name__")
-                        else str(field_info.type)
+                        field_info.type.__name__ if hasattr(field_info.type, "__name__") else str(field_info.type)
                     )
                     lines.append(f"        +{field_name}: {field_type}")
             elif hasattr(response_type, "model_fields"):  # Pydantic v2
@@ -398,9 +382,7 @@ class SagaMermaid:
                 fields = response_type.__fields__
                 for field_name, field_info in fields.items():
                     field_type = (
-                        field_info.type_.__name__
-                        if hasattr(field_info.type_, "__name__")
-                        else str(field_info.type_)
+                        field_info.type_.__name__ if hasattr(field_info.type_, "__name__") else str(field_info.type_)
                     )
                     lines.append(f"        +{field_name}: {field_type}")
             lines.append("    }")

@@ -256,9 +256,7 @@ class GetUserQueryHandler(
             raise ValueError(f"User {request.user_id} not found")
 
         user = USER_STORAGE[request.user_id]
-        total_orders = sum(
-            1 for order in ORDER_STORAGE.values() if order["user_id"] == request.user_id
-        )
+        total_orders = sum(1 for order in ORDER_STORAGE.values() if order["user_id"] == request.user_id)
 
         return UserDetailsResponse(
             user_id=user["user_id"],

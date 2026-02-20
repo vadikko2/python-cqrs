@@ -1,12 +1,37 @@
-"""Shared fixtures for benchmarks. Engine and loop are session-scoped for saga SQLAlchemy benchmarks."""
+"""Shared fixtures and legacy storage classes for benchmarks."""
+
+from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from cqrs.saga.storage.sqlalchemy import Base
+from cqrs.saga.storage.memory import MemorySagaStorage
+from cqrs.saga.storage.protocol import SagaStorageRun
+from cqrs.saga.storage.sqlalchemy import Base, SqlAlchemySagaStorage
+
+
+class MemorySagaStorageLegacy(MemorySagaStorage):
+    """Memory storage without create_run: forces legacy path (commit per call)."""
+
+    def create_run(
+        self,
+    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
+        """Raise NotImplementedError so benchmarks use the legacy commit-per-call path."""
+        raise NotImplementedError("Legacy storage: create_run disabled for benchmark")
+
+
+class SqlAlchemySagaStorageLegacy(SqlAlchemySagaStorage):
+    """SQLAlchemy storage without create_run: forces legacy path (commit per call)."""
+
+    def create_run(
+        self,
+    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
+        """Raise NotImplementedError so benchmarks use the legacy commit-per-call path."""
+        raise NotImplementedError("Legacy storage: create_run disabled for benchmark")
 
 
 @pytest.fixture(scope="session")

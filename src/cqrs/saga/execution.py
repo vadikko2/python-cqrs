@@ -10,7 +10,7 @@ from cqrs.saga.fallback import Fallback
 from cqrs.saga.models import ContextT, SagaContext
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.enums import SagaStepStatus
-from cqrs.saga.storage.protocol import ISagaStorage
+from cqrs.saga.storage.protocol import ISagaStorage, SagaStorageRun
 
 logger = logging.getLogger("cqrs.saga")
 
@@ -21,14 +21,14 @@ class SagaStateManager:
     def __init__(
         self,
         saga_id: typing.Any,
-        storage: ISagaStorage,
+        storage: ISagaStorage | SagaStorageRun,
     ) -> None:
         """
-        Initialize state manager.
+        Create a SagaStateManager bound to a specific saga identifier and storage backend.
 
-        Args:
-            saga_id: UUID of the saga
-            storage: Saga storage implementation
+        Parameters:
+            saga_id: Identifier for the saga instance.
+            storage: Storage backend implementing ISagaStorage or SagaStorageRun used to persist saga state and history.
         """
         self._saga_id = saga_id
         self._storage = storage
@@ -79,18 +79,18 @@ class SagaRecoveryManager:
     def __init__(
         self,
         saga_id: typing.Any,
-        storage: ISagaStorage,
+        storage: ISagaStorage | SagaStorageRun,
         container: Container,
         saga_steps: list[type[SagaStepHandler] | Fallback],
     ) -> None:
         """
-        Initialize recovery manager.
+        Construct a SagaRecoveryManager that holds the identifiers, storage, DI container, and configured saga steps required to reconstruct a saga's execution state.
 
-        Args:
-            saga_id: UUID of the saga
-            storage: Saga storage implementation
-            container: DI container for resolving step handlers
-            saga_steps: List of saga steps
+        Parameters:
+            saga_id: Identifier for the saga instance (e.g., UUID or other unique value).
+            storage: Persistence backend implementing saga history operations (ISagaStorage or SagaStorageRun).
+            container: Dependency injection container used to resolve step handler instances.
+            saga_steps: Ordered list of saga step types or Fallback wrappers that define the saga's execution sequence.
         """
         self._saga_id = saga_id
         self._storage = storage
@@ -99,30 +99,26 @@ class SagaRecoveryManager:
 
     async def load_completed_step_names(self) -> set[str]:
         """
-        Load set of completed step names from history.
+        Return the names of saga steps that completed their primary ("act") action.
 
         Returns:
-            Set of step names that have been completed
+            set[str]: Step names recorded with status `SagaStepStatus.COMPLETED` and action `"act"`.
         """
         history = await self._storage.get_step_history(self._saga_id)
-        return {
-            e.step_name
-            for e in history
-            if e.status == SagaStepStatus.COMPLETED and e.action == "act"
-        }
+        return {e.step_name for e in history if e.status == SagaStepStatus.COMPLETED and e.action == "act"}
 
     async def reconstruct_completed_steps(
         self,
         completed_step_names: set[str],
     ) -> list[SagaStepHandler[SagaContext, typing.Any]]:
         """
-        Reconstruct list of completed step handlers from history.
+        Reconstructs and returns the resolved step handler instances corresponding to the completed steps, preserving saga execution order.
 
-        Args:
-            completed_step_names: Set of completed step names
+        Parameters:
+            completed_step_names (set[str]): Names of steps that completed the "act" action.
 
         Returns:
-            List of step handlers in execution order
+            list[SagaStepHandler[SagaContext, typing.Any]]: Resolved step handler instances in execution order. For Fallback wrappers, the primary handler is chosen if its name appears in completed_step_names; otherwise the fallback handler is chosen when present.
         """
         completed_steps: list[SagaStepHandler[SagaContext, typing.Any]] = []
 

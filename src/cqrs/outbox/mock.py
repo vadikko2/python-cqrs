@@ -31,9 +31,7 @@ class MockOutboxedEventRepository(repository.OutboxedEventRepository):
         topic: typing.Text | None = None,
     ) -> typing.List[repository.OutboxedEvent]:
         return list(
-            filter(lambda e: topic == e.topic, self.session.values())
-            if topic
-            else list(self.session.values()),
+            filter(lambda e: topic == e.topic, self.session.values()) if topic else list(self.session.values()),
         )
 
     async def update_status(

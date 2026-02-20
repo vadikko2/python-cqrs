@@ -69,6 +69,7 @@ jobs:
         vermin --target=3.10- --violations --eval-annotations --backport typing_extensions --exclude=venv --exclude=build --exclude=.git --exclude=.venv src examples tests
 
   test:
+    name: test (py ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -105,6 +106,19 @@ jobs:
         echo "MySQL did not become ready in time"
         exit 1
 
+    - name: Wait for PostgreSQL
+      run: |
+        for i in $(seq 1 30); do
+          if docker compose -f docker-compose-test.yml exec -T postgres_tests pg_isready -h localhost -U cqrs -q 2>/dev/null; then
+            echo "PostgreSQL is ready"
+            exit 0
+          fi
+          echo "Waiting for PostgreSQL... ($i/30)"
+          sleep 2
+        done
+        echo "PostgreSQL did not become ready in time"
+        exit 1
+
     - name: Wait for Redis
       run: |
         for i in $(seq 1 15); do
@@ -119,6 +133,10 @@ jobs:
         exit 1
 
     - name: Run all tests with coverage
+      env:
+        DATABASE_DSN: mysql+asyncmy://cqrs:cqrs@localhost:3307/test_cqrs
+        DATABASE_DSN_MYSQL: mysql+asyncmy://cqrs:cqrs@localhost:3307/test_cqrs
+        DATABASE_DSN_POSTGRESQL: postgresql+asyncpg://cqrs:cqrs@localhost:5433/cqrs
       run: |
         pytest -c ./tests/pytest-config.ini --cov=src --cov-report=xml --cov-report=term -o cache_dir=/tmp/pytest_cache ./tests/unit ./tests/integration
 
