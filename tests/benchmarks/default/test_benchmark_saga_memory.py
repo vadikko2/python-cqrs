@@ -162,10 +162,7 @@ def memory_storage_legacy() -> MemorySagaStorageLegacy:
 
 
 @pytest.fixture
-def saga_with_memory_storage(
-    saga_container: SagaContainer,
-    memory_storage: MemorySagaStorage,
-) -> Saga[OrderContext]:
+def saga_with_memory_storage() -> Saga[OrderContext]:
     """
     Create an OrderSaga preconfigured with inventory reservation, payment processing, and shipping steps.
 
@@ -180,7 +177,7 @@ def saga_with_memory_storage(
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_memory_full_transaction(
+def test_benchmark_saga_memory_run_full_transaction(
     benchmark,
     saga_with_memory_storage: Saga[OrderContext],
     saga_container: SagaContainer,
@@ -207,7 +204,7 @@ def test_benchmark_saga_memory_full_transaction(
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_memory_single_step(
+def test_benchmark_saga_memory_run_single_step(
     benchmark,
     saga_with_memory_storage: Saga[OrderContext],
     saga_container: SagaContainer,

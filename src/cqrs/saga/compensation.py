@@ -141,7 +141,7 @@ class SagaCompensator(typing.Generic[ContextT]):
             # Mark as failed eventually
             await self._storage.update_status(self._saga_id, SagaStatus.FAILED)
         else:
-            # If all compensations succeeded (or were skipped), mark as failed
+            # All compensations completed or were skipped — mark saga as FAILED because the original forward transaction failed
             await self._storage.update_status(self._saga_id, SagaStatus.FAILED)
 
     async def _compensate_step_with_retry(

@@ -44,7 +44,7 @@ def saga_sqlalchemy(saga_container: SagaContainer) -> Saga[OrderContext]:
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_sqlalchemy_full_transaction(
+def test_benchmark_saga_sqlalchemy_run_full_transaction(
     benchmark,
     saga_sqlalchemy: Saga[OrderContext],
     saga_container: SagaContainer,
@@ -75,7 +75,7 @@ def test_benchmark_saga_sqlalchemy_full_transaction(
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_sqlalchemy_single_step(
+def test_benchmark_saga_sqlalchemy_run_single_step(
     benchmark,
     saga_container: SagaContainer,
     saga_benchmark_loop_and_engine,

@@ -16,7 +16,7 @@ services:
     volumes:
       - ./tests/init_database.sql:/data/application/init.sql
   postgres_dev:
-    image: postgres:latest
+    image: postgres:15.4
     hostname: postgres-dev
     restart: always
     environment:

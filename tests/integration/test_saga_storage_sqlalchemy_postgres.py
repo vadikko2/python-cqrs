@@ -5,9 +5,10 @@ Uses DATABASE_DSN_POSTGRESQL from fixtures (pytest-config.ini / env).
 import asyncio
 import uuid
 from collections.abc import AsyncGenerator
+from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import delete
+from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from cqrs.dispatcher.exceptions import SagaConcurrencyError
@@ -23,7 +24,7 @@ from cqrs.saga.storage.sqlalchemy import (
 def storage(
     saga_session_factory_postgres: async_sessionmaker[AsyncSession],
 ) -> SqlAlchemySagaStorage:
-    """SqlAlchemySagaStorage для PostgreSQL (фикстура init_saga_orm_postgres поднимает схему)."""
+    """SqlAlchemySagaStorage for PostgreSQL (the init_saga_orm_postgres fixture sets up the schema)."""
     return SqlAlchemySagaStorage(saga_session_factory_postgres)
 
 
@@ -248,8 +249,15 @@ class TestRecoverySqlAlchemyPostgres:
         for sid in (id1, id2, id3):
             await storage.create_saga(saga_id=sid, name="saga", context=test_context)
             await storage.update_status(sid, SagaStatus.RUNNING)
-        await asyncio.sleep(1.0)
-        await storage.update_context(id2, {**test_context, "touched": True})
+        # Set id2's updated_at to a later time so ordering is deterministic (no sleep).
+        later = datetime.now(timezone.utc) + timedelta(seconds=10)
+        async with storage.session_factory() as session:
+            await session.execute(
+                update(SagaExecutionModel)
+                .where(SagaExecutionModel.id == id2)
+                .values(updated_at=later),
+            )
+            await session.commit()
         ids = await storage.get_sagas_for_recovery(limit=10)
         assert len(ids) == 3
         assert ids[-1] == id2

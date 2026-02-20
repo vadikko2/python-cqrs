@@ -386,6 +386,8 @@ class SagaTransaction(typing.Generic[ContextT]):
                 SagaStepStatus.FAILED,
                 str(e),
             )
+            if run is not None:
+                await run.commit()
             self._error = e
             self._compensated = True
             await compensator.compensate_steps(self._completed_steps)

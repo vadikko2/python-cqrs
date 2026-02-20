@@ -226,8 +226,11 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
 
         Note:
             The update is executed in the active database session; a commit is required to persist the change.
+
+        Raises:
+            SagaConcurrencyError: If no row was updated (saga does not exist or was modified concurrently).
         """
-        await self._session.execute(
+        result = await self._session.execute(
             sqlalchemy.update(SagaExecutionModel)
             .where(SagaExecutionModel.id == saga_id)
             .values(
@@ -235,6 +238,10 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
                 version=SagaExecutionModel.version + 1,
             ),
         )
+        if result.rowcount == 0:
+            raise SagaConcurrencyError(
+                f"Saga {saga_id} does not exist or was modified concurrently",
+            )
 
     async def log_step(
         self,
@@ -378,7 +385,7 @@ class SqlAlchemySagaStorage(ISagaStorage):
                 run = _SqlAlchemySagaStorageRun(session)
                 try:
                     yield run
-                except Exception:
+                except BaseException:
                     await run.rollback()
                     raise
 

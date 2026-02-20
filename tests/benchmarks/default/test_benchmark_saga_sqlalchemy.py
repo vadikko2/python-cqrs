@@ -20,6 +20,17 @@ from .test_benchmark_saga_memory import (
 )
 
 
+def _make_storage(engine, storage_cls):
+    """Build saga storage from engine and storage class (shared by legacy benchmarks)."""
+    session_factory = async_sessionmaker(
+        engine,
+        expire_on_commit=False,
+        autocommit=False,
+        autoflush=False,
+    )
+    return storage_cls(session_factory)
+
+
 @pytest.fixture
 def saga_container() -> SagaContainer:
     """
@@ -44,7 +55,7 @@ def saga_sqlalchemy(saga_container: SagaContainer) -> Saga[OrderContext]:
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_sqlalchemy_full_transaction(
+def test_benchmark_saga_sqlalchemy_run_full_transaction(
     benchmark,
     saga_sqlalchemy: Saga[OrderContext],
     saga_container: SagaContainer,
@@ -75,7 +86,7 @@ def test_benchmark_saga_sqlalchemy_full_transaction(
 
 
 @pytest.mark.benchmark
-def test_benchmark_saga_sqlalchemy_single_step(
+def test_benchmark_saga_sqlalchemy_run_single_step(
     benchmark,
     saga_container: SagaContainer,
     saga_benchmark_loop_and_engine,
@@ -118,30 +129,24 @@ def test_benchmark_saga_sqlalchemy_single_step(
 
 
 @pytest.mark.benchmark
+@pytest.mark.parametrize(
+    "storage_cls",
+    [SqlAlchemySagaStorage, SqlAlchemySagaStorageLegacy],
+    ids=["storage", "legacy"],
+)
 def test_benchmark_saga_sqlalchemy_legacy_full_transaction(
     benchmark,
     saga_sqlalchemy: Saga[OrderContext],
     saga_container: SagaContainer,
     saga_benchmark_loop_and_engine,
+    storage_cls,
 ):
     """Benchmark full saga transaction with SQLAlchemy storage, legacy path (MySQL)."""
     loop, engine = saga_benchmark_loop_and_engine
-
-    session_factory = async_sessionmaker(
-        engine,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
-    storage = SqlAlchemySagaStorageLegacy(session_factory)
+    storage = _make_storage(engine, storage_cls)
     context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
 
     async def run_transaction() -> None:
-        """
-        Execute the saga transaction and iterate through all produced steps without performing any operations.
-
-        Opens the saga's transaction context with the configured container and storage, then consumes every yielded step (no-op per step). Intended for benchmarking the transaction iteration path.
-        """
         async with saga_sqlalchemy.transaction(
             context=context,
             container=saga_container,
@@ -154,10 +159,16 @@ def test_benchmark_saga_sqlalchemy_legacy_full_transaction(
 
 
 @pytest.mark.benchmark
+@pytest.mark.parametrize(
+    "storage_cls",
+    [SqlAlchemySagaStorage, SqlAlchemySagaStorageLegacy],
+    ids=["storage", "legacy"],
+)
 def test_benchmark_saga_sqlalchemy_legacy_single_step(
     benchmark,
     saga_container: SagaContainer,
     saga_benchmark_loop_and_engine,
+    storage_cls,
 ):
     """Benchmark saga with single step, legacy path (SQLAlchemy storage)."""
     loop, engine = saga_benchmark_loop_and_engine
@@ -166,22 +177,10 @@ def test_benchmark_saga_sqlalchemy_legacy_single_step(
         steps = [ReserveInventoryStep]
 
     saga = SingleStepSaga()
-
-    session_factory = async_sessionmaker(
-        engine,
-        expire_on_commit=False,
-        autocommit=False,
-        autoflush=False,
-    )
-    storage = SqlAlchemySagaStorageLegacy(session_factory)
+    storage = _make_storage(engine, storage_cls)
     context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
 
     async def run_transaction() -> None:
-        """
-        Run the saga transaction to completion by iterating over its yielded steps using the configured context, container, and storage.
-
-        This function is used by benchmarks to execute a full saga flow without performing additional work per step.
-        """
         async with saga.transaction(
             context=context,
             container=saga_container,

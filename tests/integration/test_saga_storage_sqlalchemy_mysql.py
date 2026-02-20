@@ -23,7 +23,7 @@ from cqrs.saga.storage.sqlalchemy import (
 def storage(
     saga_session_factory_mysql: async_sessionmaker[AsyncSession],
 ) -> SqlAlchemySagaStorage:
-    """SqlAlchemySagaStorage для MySQL (фикстура init_saga_orm_mysql поднимает схему)."""
+    """SqlAlchemySagaStorage for MySQL (the init_saga_orm_mysql fixture sets up the schema)."""
     return SqlAlchemySagaStorage(saga_session_factory_mysql)
 
 
