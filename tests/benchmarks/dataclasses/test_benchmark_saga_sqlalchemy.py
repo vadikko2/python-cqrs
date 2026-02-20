@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from cqrs.saga.saga import Saga
 from cqrs.saga.storage.sqlalchemy import SqlAlchemySagaStorage
 
-from ..storage_legacy import SqlAlchemySagaStorageLegacy
+from ..conftest import SqlAlchemySagaStorageLegacy
 from .test_benchmark_saga_memory import (
     OrderContext,
     ProcessPaymentStep,

@@ -16,7 +16,7 @@ from cqrs.saga.saga import Saga
 from cqrs.saga.step import SagaStepHandler, SagaStepResult
 from cqrs.saga.storage.memory import MemorySagaStorage
 
-from ..storage_legacy import MemorySagaStorageLegacy
+from ..conftest import MemorySagaStorageLegacy
 
 
 @dataclasses.dataclass

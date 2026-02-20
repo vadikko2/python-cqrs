@@ -1,1 +1,1 @@
-# Benchmark package; shared helpers in storage_legacy.py
+# Benchmark package; shared helpers in conftest.py
