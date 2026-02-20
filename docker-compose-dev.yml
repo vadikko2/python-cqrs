@@ -15,6 +15,16 @@ services:
     command: --init-file /data/application/init.sql
     volumes:
       - ./tests/init_database.sql:/data/application/init.sql
+  postgres_dev:
+    image: postgres:latest
+    hostname: postgres-dev
+    restart: always
+    environment:
+      POSTGRES_USER: cqrs
+      POSTGRES_PASSWORD: cqrs
+      POSTGRES_DB: cqrs
+    ports:
+      - "5433:5432"
   kafka0:
     image: confluentinc/cp-kafka:7.2.1
     hostname: kafka0

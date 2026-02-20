@@ -11,6 +11,10 @@ from cqrs.outbox import sqlalchemy
 dotenv.load_dotenv()
 DATABASE_DSN = os.environ.get("DATABASE_DSN", "")
 
+# DSN для тестов саги: отдельные переменные для MySQL и PostgreSQL (задаются в pytest-config.ini / env).
+DATABASE_DSN_MYSQL = os.environ.get("DATABASE_DSN_MYSQL", "")
+DATABASE_DSN_POSTGRESQL = os.environ.get("DATABASE_DSN_POSTGRESQL", "")
+
 
 @pytest.fixture(scope="function")
 async def init_orm():
@@ -40,55 +44,69 @@ async def session(init_orm):
         yield session
 
 
-# Saga storage fixtures
+# --- Saga storage: MySQL (отдельные фикстуры, поднимают схему и всё необходимое) ---
+
+
 @pytest.fixture(scope="session")
-async def init_saga_orm():
-    """Initialize saga storage tables - drops and creates tables BEFORE test only."""
+async def init_saga_orm_mysql():
+    """Поднять схему саги для MySQL (DATABASE_DSN_MYSQL)."""
     from cqrs.saga.storage.sqlalchemy import Base
 
+    if not DATABASE_DSN_MYSQL:
+        pytest.skip("DATABASE_DSN_MYSQL not set")
     engine = create_async_engine(
-        DATABASE_DSN,
+        DATABASE_DSN_MYSQL,
         pool_pre_ping=True,
         pool_size=10,
         max_overflow=30,
         echo=False,
     )
-    # Drop and create tables BEFORE test (not after)
-    # Use begin() to ensure tables are created, but don't keep transaction open
     async with engine.begin() as connect:
         await connect.run_sync(Base.metadata.drop_all)
         await connect.run_sync(Base.metadata.create_all)
-
-    # Yield engine so it can be used for sessions
-    # Data will persist after test because we don't drop tables in cleanup
     yield engine
-
-    # Cleanup: dispose engine but DON'T drop tables - keep data in DB
     await engine.dispose()
 
 
 @pytest.fixture(scope="session")
-def saga_session_factory(init_saga_orm):
-    """Create a session factory for saga storage tests."""
-    engine = init_saga_orm
-    return async_sessionmaker(engine, expire_on_commit=False, autocommit=False)
+def saga_session_factory_mysql(init_saga_orm_mysql):
+    """Session factory для тестов саги на MySQL."""
+    return async_sessionmaker(
+        init_saga_orm_mysql,
+        expire_on_commit=False,
+        autocommit=False,
+    )
+
+
+# --- Saga storage: PostgreSQL (отдельные фикстуры, поднимают схему и всё необходимое) ---
 
 
 @pytest.fixture(scope="session")
-async def saga_session(saga_session_factory):
-    """Create a session for saga storage tests - commits data to persist."""
-    # Use autocommit=False but ensure we commit explicitly
-    session = saga_session_factory()
+async def init_saga_orm_postgres():
+    """Поднять схему саги для PostgreSQL (DATABASE_DSN_POSTGRESQL)."""
+    from cqrs.saga.storage.sqlalchemy import Base
 
-    async with contextlib.aclosing(session):
-        try:
-            yield session
-            # Final commit before closing to ensure data persists
-            if session.in_transaction():
-                await session.commit()
-        except Exception:
-            # Only rollback on exception
-            if session.in_transaction():
-                await session.rollback()
-            raise
-        # No cleanup that would delete data - data persists in DB
+    if not DATABASE_DSN_POSTGRESQL:
+        pytest.skip("DATABASE_DSN_POSTGRESQL not set")
+    engine = create_async_engine(
+        DATABASE_DSN_POSTGRESQL,
+        pool_pre_ping=True,
+        pool_size=10,
+        max_overflow=30,
+        echo=False,
+    )
+    async with engine.begin() as connect:
+        await connect.run_sync(Base.metadata.drop_all)
+        await connect.run_sync(Base.metadata.create_all)
+    yield engine
+    await engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def saga_session_factory_postgres(init_saga_orm_postgres):
+    """Session factory для тестов саги на PostgreSQL."""
+    return async_sessionmaker(
+        init_saga_orm_postgres,
+        expire_on_commit=False,
+        autocommit=False,
+    )

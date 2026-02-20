@@ -143,7 +143,7 @@ def saga_container() -> SagaContainer:
 def memory_storage() -> MemorySagaStorage:
     """
     Create a fresh in-memory saga storage instance for tests.
-    
+
     Returns:
         MemorySagaStorage: A new MemorySagaStorage used to persist saga state in memory.
     """
@@ -154,7 +154,7 @@ def memory_storage() -> MemorySagaStorage:
 def memory_storage_legacy() -> MemorySagaStorageLegacy:
     """
     Create a MemorySagaStorageLegacy instance for legacy-path benchmarks.
-    
+
     Returns:
         MemorySagaStorageLegacy: A storage instance where `create_run()` is disabled and will raise NotImplementedError if called.
     """
@@ -168,10 +168,11 @@ def saga_with_memory_storage(
 ) -> Saga[OrderContext]:
     """
     Create an OrderSaga preconfigured with inventory reservation, payment processing, and shipping steps.
-    
+
     Returns:
         Saga[OrderContext]: An instance configured with ReserveInventoryStep, ProcessPaymentStep, and ShipOrderStep.
     """
+
     class OrderSaga(Saga[OrderContext]):
         steps = [ReserveInventoryStep, ProcessPaymentStep, ShipOrderStep]
 
@@ -190,7 +191,7 @@ def test_benchmark_saga_memory_full_transaction(
     async def run() -> None:
         """
         Execute a full three-step OrderSaga transaction using the memory storage scoped-run path.
-        
+
         Creates an OrderContext and runs the saga transaction to completion with the provided saga container and memory storage.
         """
         context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
@@ -243,7 +244,7 @@ def test_benchmark_saga_memory_run_ten_transactions(
     async def run() -> None:
         """
         Run ten sequential saga transactions, each using a new MemorySagaStorage and an OrderContext.
-        
+
         Each iteration (i from 0 to 9) creates:
         - a fresh MemorySagaStorage,
         - an OrderContext with order_id "ord_i", user_id "user_i", and amount 100.0 + i,
@@ -282,7 +283,7 @@ def test_benchmark_saga_memory_legacy_full_transaction(
     async def run() -> None:
         """
         Execute a full OrderSaga transaction using the legacy memory storage path.
-        
+
         Builds an OrderContext (order_id "ord_1", user_id "user_1", amount 100.0) and runs the saga_with_memory_storage transaction with saga_container and memory_storage_legacy, iterating the transaction to completion.
         """
         context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
@@ -314,7 +315,7 @@ def test_benchmark_saga_memory_legacy_single_step(
     async def run() -> None:
         """
         Runs a full OrderSaga transaction using the legacy memory storage path.
-        
+
         This coroutine executes the saga with an OrderContext and the MemorySagaStorageLegacy instance so the saga proceeds through all steps while exercising the legacy storage behavior (create_run disabled, commit-per-call path).
         """
         context = OrderContext(order_id="ord_1", user_id="user_1", amount=100.0)
@@ -340,7 +341,7 @@ def test_benchmark_saga_memory_legacy_ten_transactions(
     async def run() -> None:
         """
         Run ten sequential saga transactions using the legacy memory storage path.
-        
+
         For each iteration this function creates a new MemorySagaStorageLegacy, constructs an OrderContext with a unique order_id and user_id and increasing amount, opens a saga transaction using the shared saga_with_memory_storage and saga_container, and iterates the transaction to completion.
         """
         for i in range(10):

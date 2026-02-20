@@ -157,10 +157,10 @@ class SagaTransaction(typing.Generic[ContextT]):
     ) -> typing.AsyncIterator[SagaStepResult[ContextT, typing.Any]]:
         """
         Execute saga steps sequentially and yield each step result.
-        
+
         Implements the Strict Backward Recovery strategy: if the saga is in COMPENSATING or FAILED status, forward execution is never resumed. When the underlying storage provides create_run(), execution is performed within a per-saga run with checkpoint commits; otherwise the legacy run-less path is used.
         Returns:
-        	AsyncIterator[SagaStepResult[ContextT, typing.Any]]: An async iterator that yields the result for each executed saga step in order.
+                AsyncIterator[SagaStepResult[ContextT, typing.Any]]: An async iterator that yields the result for each executed saga step in order.
         """
         try:
             run_cm = self._storage.create_run()
@@ -226,13 +226,13 @@ class SagaTransaction(typing.Generic[ContextT]):
     ) -> typing.AsyncIterator[SagaStepResult[ContextT, typing.Any]]:
         """
         Execute the saga's configured steps, using the provided storage run for checkpointed operations when available, and perform recovery and compensation as required.
-        
+
         Parameters:
             run (SagaStorageRun | None): Optional per-saga storage run. When provided, the run is used for loading saga state, creating run-scoped managers/executors, and committing at checkpoint boundaries. When None, the transaction's internal managers and executors are used.
-        
+
         Returns:
             Async iterator that yields SagaStepResult values for each step that completes; each yielded result will include the transaction's saga_id.
-        
+
         Raises:
             RuntimeError: If the saga was recovered in COMPENSATING or FAILED state and compensation was completed, forward execution is not allowed.
         """
@@ -258,6 +258,8 @@ class SagaTransaction(typing.Generic[ContextT]):
                 self._saga.__class__.__name__,
                 self._context,
             )
+            if run is not None:
+                await run.commit()
             await state_manager.update_status(SagaStatus.RUNNING)
             if run is not None:
                 await run.commit()
@@ -308,10 +310,14 @@ class SagaTransaction(typing.Generic[ContextT]):
 
                 completed_step_names = await recovery_manager.load_completed_step_names()
             except ValueError:
+                if run is not None:
+                    await run.rollback()
                 await state_manager.create_saga(
                     self._saga.__class__.__name__,
                     self._context,
                 )
+                if run is not None:
+                    await run.commit()
                 await state_manager.update_status(SagaStatus.RUNNING)
                 if run is not None:
                     await run.commit()
@@ -390,7 +396,7 @@ class SagaTransaction(typing.Generic[ContextT]):
     async def _compensate(self) -> None:
         """
         Mark the transaction as compensated and run compensation for all completed steps in reverse order.
-        
+
         Sets an internal flag to prevent repeated compensation and delegates to the compensator which applies the configured retry behavior.
         """
         # Prevent double compensation

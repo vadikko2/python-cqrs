@@ -139,7 +139,7 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     def __init__(self, session: AsyncSession) -> None:
         """
         Initialize the run wrapper with an async SQLAlchemy session.
-        
+
         Parameters:
             session (AsyncSession): The AsyncSession instance scoped to this run, used for all database operations.
         """
@@ -153,9 +153,9 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Create and stage a new saga execution record in the current session with initial metadata.
-        
+
         Creates a SagaExecutionModel for the given saga identifier with status set to PENDING, version set to 1, and recovery_attempts set to 0, and adds it to the active session without committing the transaction.
-        
+
         Parameters:
             saga_id (uuid.UUID): Unique identifier for the saga execution.
             name (str): Human-readable name of the saga.
@@ -179,12 +179,12 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Update the stored context for a saga and increment its version, optionally enforcing an optimistic version check.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga to update.
             context (dict[str, typing.Any]): New serialized saga context to persist.
             current_version (int | None): If provided, require the saga's current version to match this value before updating.
-        
+
         Raises:
             SagaConcurrencyError: If an optimistic version check fails (indicating a concurrent modification) or if the saga does not exist when a version was supplied.
         """
@@ -219,11 +219,11 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Update the stored status of a saga execution and increment its optimistic-lock version.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga execution to update.
             status (SagaStatus): New status to set for the saga.
-        
+
         Note:
             The update is executed in the active database session; a commit is required to persist the change.
         """
@@ -246,7 +246,7 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Record a saga step event by creating and staging a log entry in the active session.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga execution.
             step_name (str): Name of the step being recorded.
@@ -271,14 +271,14 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     ) -> tuple[SagaStatus, dict[str, typing.Any], int]:
         """
         Load the current execution state for a saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga to load.
             read_for_update (bool): If true, acquire a row-level lock for update.
-        
+
         Returns:
             tuple[SagaStatus, dict[str, Any], int]: The saga's status, its context dictionary, and the current version.
-        
+
         Raises:
             ValueError: If no saga with the given id exists.
         """
@@ -305,10 +305,10 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     ) -> list[SagaLogEntry]:
         """
         Retrieve chronological step log entries for the given saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): UUID of the saga whose step history to fetch.
-        
+
         Returns:
             list[SagaLogEntry]: List of log entries ordered by creation time. Each entry's `timestamp`
             is normalized to UTC if not already timezone-aware.
@@ -343,7 +343,7 @@ class _SqlAlchemySagaStorageRun(SagaStorageRun):
     async def rollback(self) -> None:
         """
         Revert all staged changes in the current session's transaction.
-        
+
         This aborts the in-progress transaction associated with the run's AsyncSession,
         discarding any pending writes or flushes.
         """
@@ -354,7 +354,7 @@ class SqlAlchemySagaStorage(ISagaStorage):
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
         """
         Initialize the SQLAlchemy-based saga storage with a factory for creating async sessions.
-        
+
         Parameters:
             session_factory (async_sessionmaker[AsyncSession]): Factory that produces new AsyncSession instances used for each storage run and operation.
         """
@@ -365,12 +365,13 @@ class SqlAlchemySagaStorage(ISagaStorage):
     ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
         """
         Create a scoped run that yields a SagaStorageRun bound to a fresh session.
-        
+
         The returned context manager provides a run object whose lifecycle is tied to a single session. If an exception is raised inside the context, the run's transaction is rolled back; the session is always closed on exit.
-        
+
         Returns:
             A context manager that yields a `SagaStorageRun`. On exception within the context, the run's `rollback()` is invoked and the session is closed when the context exits.
         """
+
         @contextlib.asynccontextmanager
         async def _run() -> typing.AsyncGenerator[SagaStorageRun, None]:
             async with self.session_factory() as session:
@@ -391,15 +392,15 @@ class SqlAlchemySagaStorage(ISagaStorage):
     ) -> None:
         """
         Create and persist a new saga execution record with initial metadata.
-        
+
         Creates a SagaExecutionModel for the given saga_id and name, sets status to PENDING,
         version to 1, and recovery_attempts to 0, and commits it to the database.
-        
+
         Parameters:
             saga_id (uuid.UUID): Unique identifier for the saga execution.
             name (str): Human-readable saga name.
             context (dict[str, typing.Any]): Initial saga context to store.
-        
+
         Raises:
             SQLAlchemyError: If the database operation fails; the transaction is rolled back before the exception is propagated.
         """
@@ -604,11 +605,11 @@ class SqlAlchemySagaStorage(ISagaStorage):
     ) -> None:
         """
         Increment the recovery attempts counter for the given saga execution and optionally update its status.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga execution to update.
             new_status (SagaStatus | None): If provided, set the saga's status to this value.
-        
+
         Raises:
             ValueError: If no saga execution exists with the given `saga_id`.
             SQLAlchemyError: On database errors; the transaction is rolled back and the error is propagated.

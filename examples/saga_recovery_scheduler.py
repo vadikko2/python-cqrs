@@ -561,7 +561,7 @@ async def recovery_loop(
         except asyncio.CancelledError:
             logger.info("Recovery loop cancelled.")
             raise
-        except Exception as e:
+        except Exception:
             logger.exception(f"Recovery iteration failed: {traceback.format_exc()}")
 
         if max_iterations is not None and iteration >= max_iterations:
@@ -618,7 +618,7 @@ async def create_interrupted_saga(storage: MemorySagaStorage) -> uuid.UUID:
 async def main() -> None:
     """
     Run the saga recovery scheduler demo and display its outcome.
-    
+
     Sets up an in-memory saga storage, creates a simulated interrupted saga and marks it stale, runs the recovery loop for three iterations (using the module's recovery_loop and recovery configuration constants), then loads and prints the final saga state.
     """
     print("\n" + "=" * 70)

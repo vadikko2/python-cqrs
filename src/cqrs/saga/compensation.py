@@ -27,7 +27,7 @@ class SagaCompensator(typing.Generic[ContextT]):
     ) -> None:
         """
         Create a SagaCompensator configured to perform compensation of completed saga steps with retry and optional post-step callback.
-        
+
         Parameters:
             saga_id: Identifier of the saga.
             context: Saga execution context passed to step compensation handlers.
@@ -51,12 +51,12 @@ class SagaCompensator(typing.Generic[ContextT]):
     ) -> None:
         """
         Compensates completed saga steps in reverse order, applying retry logic and recording step statuses.
-        
+
         Compensates each handler from last to first, skipping steps already recorded as compensated in the saga history. Updates the saga status to COMPENSATING at the start and logs per-step statuses (STARTED, COMPLETED, FAILED) in storage. After a step completes, the optional on_after_compensate_step callback (if provided) is awaited. If any step fails after all retry attempts, the saga is marked as FAILED. If no completed steps are provided, no compensation is attempted and the saga is marked as FAILED.
-        
+
         Parameters:
             completed_steps (list[SagaStepHandler[ContextT, typing.Any]]): Handlers corresponding to steps that completed during the saga; these will be compensated in reverse order.
-        
+
         Returns:
             None
         """
