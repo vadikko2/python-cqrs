@@ -168,12 +168,8 @@ class SagaTransaction(typing.Generic[ContextT]):
             run_cm = None
 
         if run_cm is not None:
-            try:
-                async with run_cm as run:
-                    async for step_result in self._execute(run):
-                        yield step_result
-            except NotImplementedError:
-                async for step_result in self._execute(None):
+            async with run_cm as run:
+                async for step_result in self._execute(run):
                     yield step_result
         else:
             async for step_result in self._execute(None):
