@@ -89,6 +89,8 @@ WHAT THIS EXAMPLE DEMONSTRATES
    - Saga state and execution history are persisted to SagaStorage
 
 3. Saga Storage and Logging:
+   - MemorySagaStorage/SqlAlchemySagaStorage support create_run(): one session per saga,
+     checkpoint commits (fewer commits, better performance)
    - SagaStorage persists saga state and execution history
    - Each step execution is logged (act/compensate, status, timestamp)
    - Storage enables recovery of interrupted sagas
@@ -400,7 +402,7 @@ class OrderSaga(Saga[OrderContext]):
 # DI Container Setup
 # ============================================================================
 
-# Shared storage instance (in production, use persistent storage)
+# Shared storage (MemorySagaStorage uses create_run(): scoped run, checkpoint commits)
 saga_storage = MemorySagaStorage()
 
 # Setup DI container

@@ -60,9 +60,7 @@ class CoRMermaid:
             alias = f"H{idx}"
             handler_aliases[handler_name] = alias
             # Truncate long handler names for better diagram readability
-            display_name = (
-                handler_name if len(handler_name) <= 30 else handler_name[:27] + "..."
-            )
+            display_name = handler_name if len(handler_name) <= 30 else handler_name[:27] + "..."
             participants.append(f"{alias} as {display_name}")
 
         lines = ["sequenceDiagram"]
@@ -214,9 +212,7 @@ class CoRMermaid:
                 fields = request_type.__dataclass_fields__
                 for field_name, field_info in fields.items():
                     field_type = (
-                        field_info.type.__name__
-                        if hasattr(field_info.type, "__name__")
-                        else str(field_info.type)
+                        field_info.type.__name__ if hasattr(field_info.type, "__name__") else str(field_info.type)
                     )
                     lines.append(f"        +{field_name}: {field_type}")
             elif hasattr(request_type, "model_fields"):  # Pydantic v2
@@ -232,9 +228,7 @@ class CoRMermaid:
                 fields = request_type.__fields__
                 for field_name, field_info in fields.items():
                     field_type = (
-                        field_info.type_.__name__
-                        if hasattr(field_info.type_, "__name__")
-                        else str(field_info.type_)
+                        field_info.type_.__name__ if hasattr(field_info.type_, "__name__") else str(field_info.type_)
                     )
                     lines.append(f"        +{field_name}: {field_type}")
             lines.append("    }")
@@ -249,9 +243,7 @@ class CoRMermaid:
                 fields = response_type.__dataclass_fields__
                 for field_name, field_info in fields.items():
                     field_type = (
-                        field_info.type.__name__
-                        if hasattr(field_info.type, "__name__")
-                        else str(field_info.type)
+                        field_info.type.__name__ if hasattr(field_info.type, "__name__") else str(field_info.type)
                     )
                     lines.append(f"        +{field_name}: {field_type}")
             elif hasattr(response_type, "model_fields"):  # Pydantic v2
@@ -267,9 +259,7 @@ class CoRMermaid:
                 fields = response_type.__fields__
                 for field_name, field_info in fields.items():
                     field_type = (
-                        field_info.type_.__name__
-                        if hasattr(field_info.type_, "__name__")
-                        else str(field_info.type_)
+                        field_info.type_.__name__ if hasattr(field_info.type_, "__name__") else str(field_info.type_)
                     )
                     lines.append(f"        +{field_name}: {field_type}")
             lines.append("    }")

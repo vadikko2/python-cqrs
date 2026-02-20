@@ -351,9 +351,7 @@ def setup_logging() -> None:
     )
 
     # Add a StreamHandler if none exists
-    has_stream_handler = any(
-        isinstance(h, logging.StreamHandler) for h in root_logger.handlers
-    )
+    has_stream_handler = any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers)
     if not has_stream_handler:
         stream_handler = logging.StreamHandler()
         stream_handler.setLevel(logging.DEBUG)

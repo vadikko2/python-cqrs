@@ -31,7 +31,7 @@ maintainers = [{name = "Vadim Kozyrevskiy", email = "vadikko2@mail.ru"}]
 name = "python-cqrs"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "4.8.1"
+version = "4.9.0"
 
 [project.optional-dependencies]
 aiobreaker = ["aiobreaker>=0.3.0"]
@@ -53,6 +53,7 @@ dev = [
   "pytest-env==0.6.2",
   "cryptography==42.0.2",
   "asyncmy==0.2.9",
+  "asyncpg>=0.29.0",
   "redis>=5.0.0",
   # Circuit breaker for tests
   "aiobreaker>=0.3.0"  # from aiobreaker

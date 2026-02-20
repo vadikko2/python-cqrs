@@ -50,6 +50,8 @@ WHAT THIS EXAMPLE DEMONSTRATES
    - while True with asyncio.sleep(interval_seconds)
    - get_sagas_for_recovery(limit, max_recovery_attempts, stale_after_seconds)
    - Per-saga recover_saga() only; increment_recovery_attempts is done inside recover_saga on failure
+   - When storage supports create_run() (e.g. MemorySagaStorage, SqlAlchemySagaStorage),
+     saga execution uses one session per saga and checkpoint commits
 
 2. Staleness filter (stale_after_seconds):
    - Only sagas not updated recently are considered (avoids recovering
@@ -513,19 +515,19 @@ async def run_recovery_iteration(
     processed = 0
     for saga_id in ids:
         try:
-            logger.info("Recovering saga %s...", saga_id)
+            logger.info(f"Recovering saga {saga_id}...")
             await recover_saga(saga, saga_id, context_builder, container, storage)
-            logger.info("Saga %s recovered successfully.", saga_id)
+            logger.info(f"Saga {saga_id} recovered successfully.")
             processed += 1
         except RuntimeError as e:
             if "recovered in" in str(e) and "state" in str(e):
-                logger.info("Saga %s recovery completed compensation: %s", saga_id, e)
+                logger.info("Saga %s recovery completed compensation", saga_id)
                 processed += 1
             else:
-                logger.exception("Saga %s recovery failed: %s", saga_id, e)
+                logger.exception("Saga %s recovery failed", saga_id)
                 processed += 1
-        except Exception as e:
-            logger.exception("Saga %s recovery failed: %s", saga_id, e)
+        except Exception:
+            logger.exception("Saga %s recovery failed", saga_id)
             processed += 1
     return processed
 
@@ -549,7 +551,7 @@ async def recovery_loop(
     iteration = 0
     while True:
         iteration += 1
-        logger.info("Recovery iteration %s", iteration)
+        logger.info(f"Recovery iteration {iteration}")
         try:
             processed = await run_recovery_iteration(
                 storage,
@@ -557,17 +559,17 @@ async def recovery_loop(
                 OrderContext,
             )
             if processed > 0:
-                logger.info("Processed %s saga(s) this iteration.", processed)
+                logger.info(f"Processed {processed} saga(s) this iteration.")
             else:
                 logger.debug("No sagas to recover.")
         except asyncio.CancelledError:
             logger.info("Recovery loop cancelled.")
             raise
-        except Exception as e:
-            logger.exception("Recovery iteration failed: %s", e)
+        except Exception:
+            logger.exception("Recovery iteration failed")
 
         if max_iterations is not None and iteration >= max_iterations:
-            logger.info("Reached max_iterations=%s, stopping.", max_iterations)
+            logger.info(f"Reached max_iterations={max_iterations}, stopping.")
             break
         await asyncio.sleep(interval_seconds)
 
@@ -618,7 +620,11 @@ async def create_interrupted_saga(storage: MemorySagaStorage) -> uuid.UUID:
 
 
 async def main() -> None:
-    """Run the recovery scheduler example."""
+    """
+    Run the saga recovery scheduler demo and display its outcome.
+
+    Sets up an in-memory saga storage, creates a simulated interrupted saga and marks it stale, runs the recovery loop for three iterations (using the module's recovery_loop and recovery configuration constants), then loads and prints the final saga state.
+    """
     print("\n" + "=" * 70)
     print("SAGA RECOVERY SCHEDULER EXAMPLE")
     print("=" * 70)
@@ -631,7 +637,7 @@ async def main() -> None:
         "  3. recover_saga() per saga (increment_recovery_attempts on failure is internal)",
     )
 
-    storage = MemorySagaStorage()
+    storage = MemorySagaStorage()  # supports create_run(): scoped run when executing sagas
 
     saga_id = await create_interrupted_saga(storage)
     storage._sagas[saga_id]["updated_at"] = datetime.datetime.now(

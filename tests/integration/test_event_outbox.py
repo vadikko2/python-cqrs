@@ -61,9 +61,7 @@ class TestOutbox:
         request = OutboxRequest(message="test_outbox_add_3_event_positive", count=3)
         await OutboxRequestHandler(repository).handle(request)
 
-        not_produced_events: typing.List[
-            outbox_repository.OutboxedEvent
-        ] = await repository.get_many(3)
+        not_produced_events: typing.List[outbox_repository.OutboxedEvent] = await repository.get_many(3)
         await session.commit()
 
         assert len(not_produced_events) == 3

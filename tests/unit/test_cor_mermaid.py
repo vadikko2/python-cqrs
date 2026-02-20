@@ -224,8 +224,7 @@ def test_class_diagram_relationships() -> None:
 
     # Check chain relationships (set_next)
     assert (
-        "CreditCardHandler --> PayPalHandler" in diagram
-        or "CreditCardHandler --> PayPalHandler : set_next" in diagram
+        "CreditCardHandler --> PayPalHandler" in diagram or "CreditCardHandler --> PayPalHandler : set_next" in diagram
     )
     assert (
         "PayPalHandler --> BankTransferHandler" in diagram
@@ -240,6 +239,5 @@ def test_class_diagram_relationships() -> None:
 
     # Check Handler to Response relationships
     assert (
-        "CreditCardHandler ..> PaymentResult" in diagram
-        or "CreditCardHandler ..> PaymentResult : returns" in diagram
+        "CreditCardHandler ..> PaymentResult" in diagram or "CreditCardHandler ..> PaymentResult : returns" in diagram
     )

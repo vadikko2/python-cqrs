@@ -55,6 +55,8 @@ WHAT THIS EXAMPLE DEMONSTRATES
 
 4. Saga Storage and Logging:
    - SagaStorage persists saga state and execution history
+   - MemorySagaStorage and SqlAlchemySagaStorage support create_run(): execution
+     uses one session per saga and checkpoint commits (fewer commits, better performance)
    - Each step execution is logged (act/compensate, status, timestamp)
    - Storage enables recovery of interrupted sagas
    - Use storage.get_step_history() to view execution log
@@ -273,7 +275,20 @@ class ShippingService:
         items: list[str],
         address: str,
     ) -> tuple[str, str]:
-        """Create a shipment for the order."""
+        """
+        Create a shipment for an order and record its tracking number.
+
+        Parameters:
+            order_id (str): Identifier of the order to ship.
+            items (list[str]): List of item identifiers included in the shipment.
+            address (str): Shipping address; must not be empty.
+
+        Returns:
+            tuple[str, str]: A tuple containing the created `shipment_id` and its `tracking_number`.
+
+        Raises:
+            ValueError: If `address` is empty.
+        """
         if not address:
             raise ValueError("Shipping address is required")
 
@@ -283,8 +298,7 @@ class ShippingService:
 
         self._shipments[shipment_id] = tracking_number
         print(
-            f"  ✓ Created shipment {shipment_id} for order {order_id} "
-            f"(tracking: {tracking_number})",
+            f"  ✓ Created shipment {shipment_id} for order {order_id} " f"(tracking: {tracking_number})",
         )
         return shipment_id, tracking_number
 
@@ -468,7 +482,11 @@ class OrderSaga(Saga[OrderContext]):
 
 
 async def run_successful_saga() -> None:
-    """Demonstrate a successful saga execution."""
+    """
+    Run an example order-processing saga and print the per-step progress and final results.
+
+    Sets up mock services, dependency injection, and in-memory saga storage; executes the OrderSaga with a generated saga ID, prints each completed step, then prints the final saga status, context fields (inventory reservation, payment ID, shipment ID) and the persisted execution log. If saga execution fails, the failure is printed and the exception is re-raised.
+    """
     print("\n" + "=" * 70)
     print("SCENARIO 1: Successful Order Processing Saga")
     print("=" * 70)
@@ -478,8 +496,10 @@ async def run_successful_saga() -> None:
     payment_service = PaymentService()
     shipping_service = ShippingService()
 
-    # Create saga storage for persistence
-    # In production, use SQLAlchemySagaStorage or another persistent storage
+    # Create saga storage for persistence.
+    # MemorySagaStorage (and SqlAlchemySagaStorage) support create_run():
+    # execution uses one session per saga and checkpoint commits for better performance.
+    # In production, use SqlAlchemySagaStorage or another persistent storage.
     storage = MemorySagaStorage()
 
     # Setup DI container

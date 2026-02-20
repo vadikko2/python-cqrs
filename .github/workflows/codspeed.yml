@@ -46,6 +46,19 @@ jobs:
           echo "MySQL did not become ready in time"
           exit 1
 
+      - name: Wait for PostgreSQL
+        run: |
+          for i in $(seq 1 30); do
+            if docker compose -f docker-compose-test.yml exec -T postgres_tests pg_isready -h localhost -U cqrs -q 2>/dev/null; then
+              echo "PostgreSQL is ready"
+              exit 0
+            fi
+            echo "Waiting for PostgreSQL... ($i/30)"
+            sleep 2
+          done
+          echo "PostgreSQL did not become ready in time"
+          exit 1
+
       - name: Wait for Redis
         run: |
           for i in $(seq 1 15); do

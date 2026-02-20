@@ -8,8 +8,9 @@ resource management.
 Key features demonstrated:
 1. Configuring SQLAlchemy async engine with connection pooling
 2. Initializing SqlAlchemySagaStorage with a session factory
-3. Executing sagas with persistent state in a database (SQLite in this example)
-4. Handling transaction management automatically via the storage
+3. Executing sagas with persistent state in a database (SQLite/MySQL in this example)
+4. Scoped run: storage.create_run() is used automatically—one session per saga,
+   checkpoint commits after each step (fewer commits and sessions than the legacy path)
 
 Requirements:
     pip install sqlalchemy[asyncio] aiosqlite
@@ -39,8 +40,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database Configuration
-# Using SQLite for this example, but can be swapped for PostgreSQL/MySQL
-DB_URL = os.getenv("DATABASE_URL", "mysql+asyncmy://cqrs:cqrs@localhost:3307/test_cqrs")
+# Using SQLite for this example, but can be swapped for PostgreSQL/MySQL via DATABASE_URL
+DB_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 
 
 # ============================================================================
@@ -139,6 +140,11 @@ async def setup_database(engine: AsyncEngine) -> None:
 
 
 async def main() -> None:
+    """
+    Run a demonstration that executes an OrderSaga using an async SQLAlchemy engine and persistent SqlAlchemySagaStorage.
+
+    Initializes a pooled async SQLAlchemy engine and schema, creates a session factory and SqlAlchemySagaStorage, bootstraps a mediator with a DI container and saga mapper, runs an OrderSaga while streaming step results to stdout, and then reloads and prints the persisted saga state and step history before disposing the engine.
+    """
     # 1. Create SQLAlchemy Engine with Connection Pool
     # SQLAlchemy creates a pool by default (QueuePool for most dialects, SingletonThreadPool for SQLite)
     engine = create_async_engine(
@@ -153,11 +159,12 @@ async def main() -> None:
         await setup_database(engine)
 
         # 3. Create Session Factory
-        # This factory will be used by the storage to create short-lived sessions for each operation
+        # Used by the storage; when the saga runs, create_run() yields one session per saga
+        # with checkpoint commits (after each step), reducing round-trips vs legacy path.
         session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
         # 4. Initialize SqlAlchemySagaStorage
-        # We pass the session factory, allowing the storage to manage its own transactions
+        # Supports create_run(): execution uses one session per saga and checkpoint commits.
         saga_storage = SqlAlchemySagaStorage(session_factory)
 
         # 5. Setup Dependency Injection

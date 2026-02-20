@@ -9,7 +9,7 @@ repos:
   - id: check-added-large-files
   - args:
     - --pytest-test-first
-    exclude: (^tests/mock/|^tests/integration/|^tests/fixtures)
+    exclude: (^tests/mock/|^tests/integration/|^tests/fixtures|conftest\.py$)
     id: name-tests-test
   - id: check-merge-conflict
   - id: check-json

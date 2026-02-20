@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import logging
 import os
@@ -14,7 +15,7 @@ from sqlalchemy.orm import registry
 from cqrs.dispatcher.exceptions import SagaConcurrencyError
 from cqrs.saga.storage.enums import SagaStatus, SagaStepStatus
 from cqrs.saga.storage.models import SagaLogEntry
-from cqrs.saga.storage.protocol import ISagaStorage
+from cqrs.saga.storage.protocol import ISagaStorage, SagaStorageRun
 
 Base = registry().generate_base()
 logger = logging.getLogger(__name__)
@@ -132,9 +133,17 @@ class SagaLogModel(Base):
     )
 
 
-class SqlAlchemySagaStorage(ISagaStorage):
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
-        self.session_factory = session_factory
+class _SqlAlchemySagaStorageRun(SagaStorageRun):
+    """Scoped run: one session, no commit inside methods; caller calls commit()."""
+
+    def __init__(self, session: AsyncSession) -> None:
+        """
+        Initialize the run wrapper with an async SQLAlchemy session.
+
+        Parameters:
+            session (AsyncSession): The AsyncSession instance scoped to this run, used for all database operations.
+        """
+        self._session = session
 
     async def create_saga(
         self,
@@ -142,6 +151,266 @@ class SqlAlchemySagaStorage(ISagaStorage):
         name: str,
         context: dict[str, typing.Any],
     ) -> None:
+        """
+        Create and stage a new saga execution record in the current session with initial metadata.
+
+        Creates a SagaExecutionModel for the given saga identifier with status set to PENDING, version set to 1, and recovery_attempts set to 0, and adds it to the active session without committing the transaction.
+
+        Parameters:
+            saga_id (uuid.UUID): Unique identifier for the saga execution.
+            name (str): Human-readable name of the saga.
+            context (dict[str, Any]): Initial saga context to be stored (will be serialized to the model's JSON column).
+        """
+        execution = SagaExecutionModel(
+            id=saga_id,
+            name=name,
+            status=SagaStatus.PENDING,
+            context=context,
+            version=1,
+            recovery_attempts=0,
+        )
+        self._session.add(execution)
+
+    async def update_context(
+        self,
+        saga_id: uuid.UUID,
+        context: dict[str, typing.Any],
+        current_version: int | None = None,
+    ) -> None:
+        """
+        Update the stored context for a saga and increment its version, optionally enforcing an optimistic version check.
+
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga to update.
+            context (dict[str, typing.Any]): New serialized saga context to persist.
+            current_version (int | None): If provided, require the saga's current version to match this value before updating.
+
+        Raises:
+            SagaConcurrencyError: If an optimistic version check fails (indicating a concurrent modification) or if the saga does not exist when a version was supplied.
+        """
+        stmt = sqlalchemy.update(SagaExecutionModel).where(
+            SagaExecutionModel.id == saga_id,
+        )
+        if current_version is not None:
+            stmt = stmt.where(SagaExecutionModel.version == current_version)
+        stmt = stmt.values(
+            context=context,
+            version=SagaExecutionModel.version + 1,
+        )
+        result = await self._session.execute(stmt)
+        if result.rowcount == 0:  # type: ignore[attr-defined]
+            if current_version is not None:
+                check_stmt = sqlalchemy.select(SagaExecutionModel.id).where(
+                    SagaExecutionModel.id == saga_id,
+                )
+                check_result = await self._session.execute(check_stmt)
+                if check_result.scalar_one_or_none():
+                    raise SagaConcurrencyError(
+                        f"Saga {saga_id} was modified concurrently",
+                    )
+                raise SagaConcurrencyError(
+                    f"Saga {saga_id} was modified concurrently or does not exist",
+                )
+
+    async def update_status(
+        self,
+        saga_id: uuid.UUID,
+        status: SagaStatus,
+    ) -> None:
+        """
+        Update the stored status of a saga execution and increment its optimistic-lock version.
+
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga execution to update.
+            status (SagaStatus): New status to set for the saga.
+
+        Note:
+            The update is executed in the active database session; a commit is required to persist the change.
+
+        Raises:
+            SagaConcurrencyError: If no row was updated (saga does not exist or was modified concurrently).
+        """
+        result = await self._session.execute(
+            sqlalchemy.update(SagaExecutionModel)
+            .where(SagaExecutionModel.id == saga_id)
+            .values(
+                status=status,
+                version=SagaExecutionModel.version + 1,
+            ),
+        )
+        if result.rowcount == 0:  # pyright: ignore[reportAttributeAccessIssue]
+            raise SagaConcurrencyError(
+                f"Saga {saga_id} does not exist or was modified concurrently",
+            )
+
+    async def log_step(
+        self,
+        saga_id: uuid.UUID,
+        step_name: str,
+        action: typing.Literal["act", "compensate"],
+        status: SagaStepStatus,
+        details: str | None = None,
+    ) -> None:
+        """
+        Record a saga step event by creating and staging a log entry in the active session.
+
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga execution.
+            step_name (str): Name of the step being recorded.
+            action (Literal["act", "compensate"]): The performed action: "act" for normal action or "compensate" for compensation.
+            status (SagaStepStatus): The step's outcome status.
+            details (str | None): Optional free-form details or error message associated with the step.
+        """
+        log_entry = SagaLogModel(
+            saga_id=saga_id,
+            step_name=step_name,
+            action=action,
+            status=status,
+            details=details,
+        )
+        self._session.add(log_entry)
+
+    async def load_saga_state(
+        self,
+        saga_id: uuid.UUID,
+        *,
+        read_for_update: bool = False,
+    ) -> tuple[SagaStatus, dict[str, typing.Any], int]:
+        """
+        Load the current execution state for a saga.
+
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga to load.
+            read_for_update (bool): If true, acquire a row-level lock for update.
+
+        Returns:
+            tuple[SagaStatus, dict[str, Any], int]: The saga's status, its context dictionary, and the current version.
+
+        Raises:
+            ValueError: If no saga with the given id exists.
+        """
+        stmt = sqlalchemy.select(SagaExecutionModel).where(
+            SagaExecutionModel.id == saga_id,
+        )
+        if read_for_update:
+            stmt = stmt.with_for_update()
+        result = await self._session.execute(stmt)
+        execution = result.scalars().first()
+        if not execution:
+            raise ValueError(f"Saga {saga_id} not found")
+        status_value: SagaStatus = typing.cast(SagaStatus, execution.status)
+        context_value: dict[str, typing.Any] = typing.cast(
+            dict[str, typing.Any],
+            execution.context,
+        )
+        version_value: int = typing.cast(int, execution.version)
+        return status_value, context_value, version_value
+
+    async def get_step_history(
+        self,
+        saga_id: uuid.UUID,
+    ) -> list[SagaLogEntry]:
+        """
+        Retrieve chronological step log entries for the given saga.
+
+        Parameters:
+            saga_id (uuid.UUID): UUID of the saga whose step history to fetch.
+
+        Returns:
+            list[SagaLogEntry]: List of log entries ordered by creation time. Each entry's `timestamp`
+            is normalized to UTC if not already timezone-aware.
+        """
+        result = await self._session.execute(
+            sqlalchemy.select(SagaLogModel).where(SagaLogModel.saga_id == saga_id).order_by(SagaLogModel.created_at),
+        )
+        rows = result.scalars().all()
+        return [
+            SagaLogEntry(
+                saga_id=typing.cast(uuid.UUID, row.saga_id),
+                step_name=typing.cast(str, row.step_name),
+                action=typing.cast(typing.Literal["act", "compensate"], row.action),
+                status=typing.cast(SagaStepStatus, row.status),
+                timestamp=typing.cast(
+                    datetime.datetime,
+                    row.created_at.replace(tzinfo=datetime.timezone.utc)
+                    if row.created_at.tzinfo is None
+                    else row.created_at,
+                ),
+                details=typing.cast(str | None, row.details),
+            )
+            for row in rows
+        ]
+
+    async def commit(self) -> None:
+        """
+        Commit the current transaction in the associated AsyncSession.
+        """
+        await self._session.commit()
+
+    async def rollback(self) -> None:
+        """
+        Revert all staged changes in the current session's transaction.
+
+        This aborts the in-progress transaction associated with the run's AsyncSession,
+        discarding any pending writes or flushes.
+        """
+        await self._session.rollback()
+
+
+class SqlAlchemySagaStorage(ISagaStorage):
+    def __init__(self, session_factory: async_sessionmaker[AsyncSession]):
+        """
+        Initialize the SQLAlchemy-based saga storage with a factory for creating async sessions.
+
+        Parameters:
+            session_factory (async_sessionmaker[AsyncSession]): Factory that produces new AsyncSession instances used for each storage run and operation.
+        """
+        self.session_factory = session_factory
+
+    def create_run(
+        self,
+    ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
+        """
+        Create a scoped run that yields a SagaStorageRun bound to a fresh session.
+
+        The returned context manager provides a run object whose lifecycle is tied to a single session. If an exception is raised inside the context, the run's transaction is rolled back; the session is always closed on exit.
+
+        Returns:
+            A context manager that yields a `SagaStorageRun`. On exception within the context, the run's `rollback()` is invoked and the session is closed when the context exits.
+        """
+
+        @contextlib.asynccontextmanager
+        async def _run() -> typing.AsyncGenerator[SagaStorageRun, None]:
+            async with self.session_factory() as session:
+                run = _SqlAlchemySagaStorageRun(session)
+                try:
+                    yield run
+                except BaseException:
+                    await run.rollback()
+                    raise
+
+        return _run()
+
+    async def create_saga(
+        self,
+        saga_id: uuid.UUID,
+        name: str,
+        context: dict[str, typing.Any],
+    ) -> None:
+        """
+        Create and persist a new saga execution record with initial metadata.
+
+        Creates a SagaExecutionModel for the given saga_id and name, sets status to PENDING,
+        version to 1, and recovery_attempts to 0, and commits it to the database.
+
+        Parameters:
+            saga_id (uuid.UUID): Unique identifier for the saga execution.
+            name (str): Human-readable saga name.
+            context (dict[str, typing.Any]): Initial saga context to store.
+
+        Raises:
+            SQLAlchemyError: If the database operation fails; the transaction is rolled back before the exception is propagated.
+        """
         async with self.session_factory() as session:
             try:
                 execution = SagaExecutionModel(
@@ -169,19 +438,12 @@ class SqlAlchemySagaStorage(ISagaStorage):
                 stmt = sqlalchemy.update(SagaExecutionModel).where(
                     SagaExecutionModel.id == saga_id,
                 )
-
                 if current_version is not None:
                     stmt = stmt.where(SagaExecutionModel.version == current_version)
-                    stmt = stmt.values(
-                        context=context,
-                        version=SagaExecutionModel.version + 1,
-                    )
-                else:
-                    # If no version check, just increment version
-                    stmt = stmt.values(
-                        context=context,
-                        version=SagaExecutionModel.version + 1,
-                    )
+                stmt = stmt.values(
+                    context=context,
+                    version=SagaExecutionModel.version + 1,
+                )
 
                 result = await session.execute(stmt)
 
@@ -348,6 +610,17 @@ class SqlAlchemySagaStorage(ISagaStorage):
         saga_id: uuid.UUID,
         new_status: SagaStatus | None = None,
     ) -> None:
+        """
+        Increment the recovery attempts counter for the given saga execution and optionally update its status.
+
+        Parameters:
+            saga_id (uuid.UUID): Identifier of the saga execution to update.
+            new_status (SagaStatus | None): If provided, set the saga's status to this value.
+
+        Raises:
+            ValueError: If no saga execution exists with the given `saga_id`.
+            SQLAlchemyError: On database errors; the transaction is rolled back and the error is propagated.
+        """
         async with self.session_factory() as session:
             try:
                 values: dict[str, typing.Any] = {
@@ -357,9 +630,7 @@ class SqlAlchemySagaStorage(ISagaStorage):
                 if new_status is not None:
                     values["status"] = new_status
                 result = await session.execute(
-                    sqlalchemy.update(SagaExecutionModel)
-                    .where(SagaExecutionModel.id == saga_id)
-                    .values(**values),
+                    sqlalchemy.update(SagaExecutionModel).where(SagaExecutionModel.id == saga_id).values(**values),
                 )
                 if result.rowcount == 0:  # type: ignore[attr-defined]
                     raise ValueError(f"Saga {saga_id} not found")

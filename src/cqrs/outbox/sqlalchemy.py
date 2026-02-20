@@ -89,9 +89,7 @@ class OutboxModel(Base):
     )
 
     def row_to_dict(self) -> typing.Dict[typing.Text, typing.Any]:
-        return {
-            column.name: getattr(self, column.name) for column in self.__table__.columns
-        }
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
     @classmethod
     def get_batch_query(
@@ -132,9 +130,7 @@ class OutboxModel(Base):
         if status == repository.EventStatus.NOT_PRODUCED:
             values["flush_counter"] += 1
 
-        return (
-            sqlalchemy.update(cls).where(cls.id == outboxed_event_id).values(**values)
-        )
+        return sqlalchemy.update(cls).where(cls.id == outboxed_event_id).values(**values)
 
     @classmethod
     def status_sorting_case(cls) -> sqlalchemy.Case:
@@ -212,9 +208,7 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
         topic: typing.Text | None = None,
     ) -> typing.List[repository.OutboxedEvent]:
         events: typing.Sequence[OutboxModel] = (
-            (await self.session.execute(OutboxModel.get_batch_query(batch_size, topic)))
-            .scalars()
-            .all()
+            (await self.session.execute(OutboxModel.get_batch_query(batch_size, topic))).scalars().all()
         )
 
         result = []

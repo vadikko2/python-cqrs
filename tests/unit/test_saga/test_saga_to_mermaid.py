@@ -230,9 +230,7 @@ def test_to_mermaid_long_step_names(saga_container: SagaContainer) -> None:
     # Check that the name is truncated (should be max 30 chars + "...")
     assert "participant S1 as" in diagram
     # The full name should not appear, but truncated version should
-    participant_line = [
-        line for line in diagram.split("\n") if "participant S1" in line
-    ][0]
+    participant_line = [line for line in diagram.split("\n") if "participant S1" in line][0]
     # Name should be truncated to 30 chars max
     assert len(participant_line.split("as")[1].strip()) <= 33  # 30 + "..."
 
@@ -329,23 +327,13 @@ def test_class_diagram_relationships(saga_container: SagaContainer) -> None:
     diagram = generator.class_diagram()
 
     # Check Saga to Step relationships
-    assert (
-        "Saga --> ReserveInventoryStep" in diagram
-        or "Saga --> ReserveInventoryStep : contains" in diagram
-    )
-    assert (
-        "Saga --> ProcessPaymentStep" in diagram
-        or "Saga --> ProcessPaymentStep : contains" in diagram
-    )
-    assert (
-        "Saga --> ShipOrderStep" in diagram
-        or "Saga --> ShipOrderStep : contains" in diagram
-    )
+    assert "Saga --> ReserveInventoryStep" in diagram or "Saga --> ReserveInventoryStep : contains" in diagram
+    assert "Saga --> ProcessPaymentStep" in diagram or "Saga --> ProcessPaymentStep : contains" in diagram
+    assert "Saga --> ShipOrderStep" in diagram or "Saga --> ShipOrderStep : contains" in diagram
 
     # Check Step to Context relationships
     assert (
-        "ReserveInventoryStep ..> OrderContext" in diagram
-        or "ReserveInventoryStep ..> OrderContext : uses" in diagram
+        "ReserveInventoryStep ..> OrderContext" in diagram or "ReserveInventoryStep ..> OrderContext : uses" in diagram
     )
 
     # Check Step to Response relationships
@@ -358,8 +346,7 @@ def test_class_diagram_relationships(saga_container: SagaContainer) -> None:
         or "ProcessPaymentStep ..> ProcessPaymentResponse : returns" in diagram
     )
     assert (
-        "ShipOrderStep ..> ShipOrderResponse" in diagram
-        or "ShipOrderStep ..> ShipOrderResponse : returns" in diagram
+        "ShipOrderStep ..> ShipOrderResponse" in diagram or "ShipOrderStep ..> ShipOrderResponse : returns" in diagram
     )
 
 
@@ -479,14 +466,8 @@ def test_class_diagram_with_fallback(saga_container: SagaContainer) -> None:
     assert "class ReserveInventoryResponse" in diagram
 
     # Check relationships
-    assert (
-        "Saga --> ReserveInventoryStep" in diagram
-        or "Saga --> ReserveInventoryStep : contains" in diagram
-    )
-    assert (
-        "Saga --> FallbackStep" in diagram
-        or "Saga --> FallbackStep : contains" in diagram
-    )
+    assert "Saga --> ReserveInventoryStep" in diagram or "Saga --> ReserveInventoryStep : contains" in diagram
+    assert "Saga --> FallbackStep" in diagram or "Saga --> FallbackStep : contains" in diagram
 
 
 def test_sequence_diagram_fallback_single_step(saga_container: SagaContainer) -> None:
@@ -540,7 +521,4 @@ def test_sequence_diagram_fallback_single_step(saga_container: SagaContainer) ->
     if failure_section_start != -1:
         failure_section = diagram[failure_section_start:]
         # Should show primary failing, then fallback succeeding
-        assert (
-            "Fallback triggered" in failure_section
-            or "fallback" in failure_section.lower()
-        )
+        assert "Fallback triggered" in failure_section or "fallback" in failure_section.lower()
