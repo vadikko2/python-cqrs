@@ -30,10 +30,7 @@ class SagaContextTypeExtractor:
         if hasattr(klass, "__orig_bases__"):
             for base in klass.__orig_bases__:  # type: ignore[attr-defined]
                 # Check if this is a GenericAlias for Saga
-                if (
-                    isinstance(base, types.GenericAlias)
-                    and base.__origin__ is saga_base_class
-                ):  # type: ignore[attr-defined]
+                if isinstance(base, types.GenericAlias) and base.__origin__ is saga_base_class:  # type: ignore[attr-defined]
                     args = typing.get_args(base)
                     if args:
                         return args[0]  # type: ignore[return-value]
@@ -65,10 +62,7 @@ class SagaContextTypeExtractor:
         if hasattr(step_type, "__orig_bases__"):
             for base in step_type.__orig_bases__:  # type: ignore[attr-defined]
                 # Check if this is a GenericAlias for SagaStepHandler
-                if (
-                    isinstance(base, types.GenericAlias)
-                    and base.__origin__ is SagaStepHandler
-                ):  # type: ignore[attr-defined]
+                if isinstance(base, types.GenericAlias) and base.__origin__ is SagaStepHandler:  # type: ignore[attr-defined]
                     args = typing.get_args(base)
                     if args:
                         return args[0]
@@ -202,8 +196,7 @@ class SagaStepValidator:
         """
         if not isinstance(steps, list):
             raise TypeError(
-                f"{self._saga_name} steps must be a list of step handler types, "
-                f"got {type(steps).__name__}",
+                f"{self._saga_name} steps must be a list of step handler types, " f"got {type(steps).__name__}",
             )
 
         if not steps:
@@ -284,8 +277,7 @@ class SagaStepValidator:
         # Check if step is a subclass of SagaStepHandler
         if not issubclass(step_item, SagaStepHandler):
             raise TypeError(
-                f"{self._saga_name} steps[{index}] ({step_item.__name__}) "
-                "must be a subclass of SagaStepHandler",
+                f"{self._saga_name} steps[{index}] ({step_item.__name__}) " "must be a subclass of SagaStepHandler",
             )
 
         # Validate context type compatibility

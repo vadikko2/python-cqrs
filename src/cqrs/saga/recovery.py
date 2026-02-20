@@ -109,8 +109,7 @@ async def recover_saga(
         error_msg = str(e)
         if "recovered in" in error_msg and "state" in error_msg:
             logger.warning(
-                f"Saga {saga_id} recovery completed compensation. "
-                "Forward execution was not allowed.",
+                f"Saga {saga_id} recovery completed compensation. " "Forward execution was not allowed.",
             )
             # Re-raise to allow callers to handle this case
             raise

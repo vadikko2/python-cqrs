@@ -25,7 +25,7 @@ class SagaStateManager:
     ) -> None:
         """
         Create a SagaStateManager bound to a specific saga identifier and storage backend.
-        
+
         Parameters:
             saga_id: Identifier for the saga instance.
             storage: Storage backend implementing ISagaStorage or SagaStorageRun used to persist saga state and history.
@@ -85,7 +85,7 @@ class SagaRecoveryManager:
     ) -> None:
         """
         Construct a SagaRecoveryManager that holds the identifiers, storage, DI container, and configured saga steps required to reconstruct a saga's execution state.
-        
+
         Parameters:
             saga_id: Identifier for the saga instance (e.g., UUID or other unique value).
             storage: Persistence backend implementing saga history operations (ISagaStorage or SagaStorageRun).
@@ -100,7 +100,7 @@ class SagaRecoveryManager:
     async def load_completed_step_names(self) -> set[str]:
         """
         Return the names of saga steps that completed their primary ("act") action.
-        
+
         Returns:
             set[str]: Step names recorded with status `SagaStepStatus.COMPLETED` and action `"act"`.
         """
@@ -113,10 +113,10 @@ class SagaRecoveryManager:
     ) -> list[SagaStepHandler[SagaContext, typing.Any]]:
         """
         Reconstructs and returns the resolved step handler instances corresponding to the completed steps, preserving saga execution order.
-        
+
         Parameters:
             completed_step_names (set[str]): Names of steps that completed the "act" action.
-        
+
         Returns:
             list[SagaStepHandler[SagaContext, typing.Any]]: Resolved step handler instances in execution order. For Fallback wrappers, the primary handler is chosen if its name appears in completed_step_names; otherwise the fallback handler is chosen when present.
         """

@@ -18,7 +18,7 @@ class _MemorySagaStorageRun(SagaStorageRun):
     def __init__(self, storage: "MemorySagaStorage") -> None:
         """
         Initialize the run and bind it to the provided MemorySagaStorage.
-        
+
         Parameters:
             storage (MemorySagaStorage): Underlying in-memory storage instance used to delegate saga operations.
         """
@@ -32,12 +32,12 @@ class _MemorySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Create a new saga entry in the underlying memory storage.
-        
+
         Parameters:
             saga_id (uuid.UUID): Unique identifier for the saga.
             name (str): Human-readable saga name.
             context (dict[str, typing.Any]): Initial saga context payload.
-        
+
         Raises:
             ValueError: If a saga with the same `saga_id` already exists.
         """
@@ -51,12 +51,12 @@ class _MemorySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Update the stored context for the given saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga whose context will be updated.
             context (dict[str, typing.Any]): New context to store for the saga.
             current_version (int | None): If provided, require the stored saga version to match this value (optimistic locking).
-        
+
         Raises:
             ValueError: If the saga_id does not exist.
             SagaConcurrencyError: If current_version is provided and does not match the stored version.
@@ -70,11 +70,11 @@ class _MemorySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Update the stored status of the saga identified by `saga_id`.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga to update.
             status (SagaStatus): New status to set for the saga.
-        
+
         Raises:
             ValueError: If no saga exists with the given `saga_id`.
         """
@@ -90,7 +90,7 @@ class _MemorySagaStorageRun(SagaStorageRun):
     ) -> None:
         """
         Log a step entry for the given saga into the underlying storage.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga.
             step_name (str): Name of the saga step.
@@ -114,11 +114,11 @@ class _MemorySagaStorageRun(SagaStorageRun):
     ) -> tuple[SagaStatus, dict[str, typing.Any], int]:
         """
         Load the current state for a saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga to load.
             read_for_update (bool): If True, acquire the state for update (may be used for optimistic locking or exclusive access).
-        
+
         Returns:
             tuple[SagaStatus, dict[str, typing.Any], int]: A tuple containing the saga's status, its context dictionary, and the current version number.
         """
@@ -133,10 +133,10 @@ class _MemorySagaStorageRun(SagaStorageRun):
     ) -> list[SagaLogEntry]:
         """
         Retrieve the step log/history for a saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga whose step history is requested.
-        
+
         Returns:
             list[SagaLogEntry]: Saga step log entries sorted by timestamp in ascending order (oldest first). Returns an empty list if no logs exist.
         """
@@ -145,7 +145,7 @@ class _MemorySagaStorageRun(SagaStorageRun):
     async def commit(self) -> None:
         """
         No-op commit for an in-memory saga run; provided to satisfy the SagaStorageRun interface.
-        
+
         This method intentionally performs no action because the memory storage does not require an explicit commit.
         """
         pass
@@ -164,7 +164,7 @@ class MemorySagaStorage(ISagaStorage):
         # Structure: {saga_id: {name, status, context, created_at, updated_at, version}}
         """
         Initialize in-memory storage for sagas and their step logs.
-        
+
         Creates two internal mappings:
         - _sagas: maps saga_id (UUID) to a dictionary containing keys `name`, `status`, `context`, `created_at`, `updated_at`, and `version`.
         - _logs: maps saga_id (UUID) to a list of SagaLogEntry objects representing the saga's step history.
@@ -178,10 +178,11 @@ class MemorySagaStorage(ISagaStorage):
     ) -> contextlib.AbstractAsyncContextManager[SagaStorageRun]:
         """
         Provide an asynchronous context manager that yields a SagaStorageRun bound to this storage.
-        
+
         Returns:
             An asynchronous context manager that yields a `SagaStorageRun` instance backed by this `MemorySagaStorage`.
         """
+
         @contextlib.asynccontextmanager
         async def _run() -> typing.AsyncGenerator[SagaStorageRun, None]:
             yield _MemorySagaStorageRun(self)
@@ -196,12 +197,12 @@ class MemorySagaStorage(ISagaStorage):
     ) -> None:
         """
         Create a new saga record in the in-memory store.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier for the saga; must not already exist.
             name (str): Human-readable name for the saga.
             context (dict[str, typing.Any]): Initial context payload for the saga.
-        
+
         Raises:
             ValueError: If a saga with `saga_id` already exists.
         """
@@ -305,13 +306,13 @@ class MemorySagaStorage(ISagaStorage):
     ) -> list[uuid.UUID]:
         """
         Selects saga IDs eligible for recovery based on status, recovery attempts, staleness, and an optional name filter.
-        
+
         Parameters:
             limit (int): Maximum number of saga IDs to return.
             max_recovery_attempts (int): Upper bound (exclusive) on recovery attempts; only sagas with fewer attempts are considered.
             stale_after_seconds (int | None): If provided, only sagas last updated earlier than this many seconds before now are considered; if None, staleness is ignored.
             saga_name (str | None): If provided, only sagas with this name are considered; if None, name is not filtered.
-        
+
         Returns:
             list[uuid.UUID]: Up to `limit` saga IDs sorted by oldest `updated_at` first that match the recovery criteria.
         """

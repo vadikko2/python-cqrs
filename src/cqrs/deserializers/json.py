@@ -75,8 +75,7 @@ class JsonDeserializer(typing.Generic[_T]):
             getattr(model, "from_dict", None),
         ):
             raise TypeError(
-                f"Model {model} does not implement Deserializable protocol: "
-                "missing 'from_dict' classmethod",
+                f"Model {model} does not implement Deserializable protocol: " "missing 'from_dict' classmethod",
             )
         # Store model - type is preserved through generic parameter _T for return type
         self._model: typing.Type[typing.Any] = model

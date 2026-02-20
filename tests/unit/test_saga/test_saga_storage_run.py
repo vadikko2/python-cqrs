@@ -30,7 +30,7 @@ class StorageWithoutCreateRun(ISagaStorage):
     async def create_saga(self, saga_id: uuid.UUID, name: str, context: dict) -> None:
         """
         Create a new saga record with the given identifier, name, and initial context.
-        
+
         Parameters:
             saga_id (uuid.UUID): Unique identifier for the saga.
             name (str): Human-readable name of the saga.
@@ -46,7 +46,7 @@ class StorageWithoutCreateRun(ISagaStorage):
     ) -> None:
         """
         Update the stored context for a saga, optionally validating the expected current version.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga whose context will be updated.
             context (dict): New context data to persist for the saga.
@@ -57,7 +57,7 @@ class StorageWithoutCreateRun(ISagaStorage):
     async def update_status(self, saga_id: uuid.UUID, status: SagaStatus) -> None:
         """
         Update the stored status of a saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga to update.
             status (SagaStatus): New status to set for the saga.
@@ -74,7 +74,7 @@ class StorageWithoutCreateRun(ISagaStorage):
     ) -> None:
         """
         Record the execution or compensation outcome of a saga step.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga.
             step_name (str): Name of the step being logged.
@@ -92,11 +92,11 @@ class StorageWithoutCreateRun(ISagaStorage):
     ) -> tuple[SagaStatus, dict, int]:
         """
         Load the current state for a saga from the underlying storage.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga to load.
             read_for_update (bool): If True, load the state with intent to update (may acquire locks or use a read-for-update strategy).
-        
+
         Returns:
             tuple[SagaStatus, dict, int]: A tuple containing the saga's status, its context dictionary, and the current version number.
         """
@@ -108,10 +108,10 @@ class StorageWithoutCreateRun(ISagaStorage):
     async def get_step_history(self, saga_id: uuid.UUID) -> list:
         """
         Return the step execution history for the given saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga whose history to retrieve.
-        
+
         Returns:
             list: Step history records in chronological order. Each record describes the step name, action ("act" or "compensate"), step status, timestamp, and any optional details.
         """
@@ -126,13 +126,13 @@ class StorageWithoutCreateRun(ISagaStorage):
     ) -> list[uuid.UUID]:
         """
         Selects saga IDs that are eligible for recovery.
-        
+
         Parameters:
             limit (int): Maximum number of saga IDs to return.
             max_recovery_attempts (int): Only include sagas with fewer than this many recovery attempts.
             stale_after_seconds (int | None): If provided, only include sagas last updated more than this many seconds ago; if None, do not filter by staleness.
             saga_name (str | None): If provided, restrict results to sagas with this name.
-        
+
         Returns:
             list[uuid.UUID]: Saga UUIDs that match the recovery criteria, up to `limit`.
         """
@@ -150,7 +150,7 @@ class StorageWithoutCreateRun(ISagaStorage):
     ) -> None:
         """
         Increment the recovery-attempts counter for a saga and optionally update its status.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga whose recovery attempts should be incremented.
             new_status (SagaStatus | None): If provided, update the saga's status to this value after incrementing attempts; otherwise leave status unchanged.
@@ -160,7 +160,7 @@ class StorageWithoutCreateRun(ISagaStorage):
     async def set_recovery_attempts(self, saga_id: uuid.UUID, attempts: int) -> None:
         """
         Set the number of recovery attempts recorded for a saga.
-        
+
         Parameters:
             saga_id (uuid.UUID): Identifier of the saga whose recovery attempts will be set.
             attempts (int): Number of recovery attempts to record; should be zero or a positive integer.

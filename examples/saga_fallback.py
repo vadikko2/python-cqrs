@@ -146,12 +146,12 @@ class PrimaryStep(SagaStepHandler[OrderContext, ReserveInventoryResponse]):
     ) -> SagaStepResult[OrderContext, ReserveInventoryResponse]:
         """
         Simulate a failing primary reservation step for the saga.
-        
+
         This action always raises a RuntimeError to emulate an unavailable downstream service and trigger fallback or compensation behavior.
-        
+
         Parameters:
             context (OrderContext): Shared saga context containing order details (e.g., order_id, user_id, amount, reservation_id).
-        
+
         Raises:
             RuntimeError: Indicates the primary step failed (service unavailable).
         """
@@ -283,7 +283,7 @@ async def run_saga(
 async def main() -> None:
     """
     Run an interactive demonstration of the saga fallback pattern with a circuit breaker.
-    
+
     Executes three scenarios that show a failing primary step with an automatic fallback, the circuit breaker opening after a configurable number of failures, and fail-fast behavior when the circuit is open. Also conditionally demonstrates configuring a Redis-backed circuit breaker storage, prints per-scenario results and a summary, and informs about missing optional dependencies.
     """
     print("\n" + "=" * 80)

@@ -86,9 +86,7 @@ def test_json_deserializer_missing_required_fields_negative():
 
     # JSON with payload that has wrong type for required field 'bar' (string instead of int)
     # This should cause a validation error when Pydantic tries to validate the payload
-    incomplete_json = (
-        '{"event_name": "test", "payload": {"foo": "bar", "bar": "not_an_int"}}'
-    )
+    incomplete_json = '{"event_name": "test", "payload": {"foo": "bar", "bar": "not_an_int"}}'
     result = deserializer(incomplete_json)
 
     assert isinstance(result, json.DeserializeJsonError)

@@ -277,15 +277,15 @@ class ShippingService:
     ) -> tuple[str, str]:
         """
         Create a shipment for an order and record its tracking number.
-        
+
         Parameters:
             order_id (str): Identifier of the order to ship.
             items (list[str]): List of item identifiers included in the shipment.
             address (str): Shipping address; must not be empty.
-        
+
         Returns:
             tuple[str, str]: A tuple containing the created `shipment_id` and its `tracking_number`.
-        
+
         Raises:
             ValueError: If `address` is empty.
         """
@@ -484,7 +484,7 @@ class OrderSaga(Saga[OrderContext]):
 async def run_successful_saga() -> None:
     """
     Run an example order-processing saga and print the per-step progress and final results.
-    
+
     Sets up mock services, dependency injection, and in-memory saga storage; executes the OrderSaga with a generated saga ID, prints each completed step, then prints the final saga status, context fields (inventory reservation, payment ID, shipment ID) and the persisted execution log. If saga execution fails, the failure is printed and the exception is re-raised.
     """
     print("\n" + "=" * 70)

@@ -283,15 +283,15 @@ class ShippingService:
     ) -> tuple[str, str]:
         """
         Create a shipment record for the given order and generate a tracking number.
-        
+
         Parameters:
             order_id (str): Identifier of the order.
             items (list[str]): Items included in the shipment.
             address (str): Destination shipping address.
-        
+
         Returns:
             tuple[str, str]: A tuple containing the shipment ID and the tracking number.
-        
+
         Raises:
             ValueError: If `address` is empty.
         """
@@ -533,7 +533,7 @@ class SimpleContainer(cqrs_container.Container[typing.Any]):
 async def simulate_interrupted_saga() -> tuple[uuid.UUID, MemorySagaStorage]:
     """
     Simulate a saga that is interrupted after the inventory reservation step to produce a recoverable persisted state.
-    
+
     Returns:
         tuple:
             saga_id (uuid.UUID): Identifier of the created saga.
@@ -632,9 +632,9 @@ async def recover_interrupted_saga(
 ) -> None:
     """
     Recover and complete an interrupted saga using persisted state.
-    
+
     Loads the saga state from storage, reconstructs the saga context, resumes execution from the last completed step, and completes any remaining steps to restore eventual consistency.
-    
+
     Parameters:
         saga_id (uuid.UUID): Identifier of the saga instance to recover.
         storage (MemorySagaStorage): Durable storage containing the saga's persisted state and step history.
@@ -698,9 +698,9 @@ async def recover_interrupted_saga(
 async def simulate_interrupted_compensation() -> tuple[uuid.UUID, MemorySagaStorage]:
     """
     Simulate a saga that fails and is interrupted during compensation.
-    
+
     Sets up services, a saga, and a failing shipment step to trigger compensation that is then artificially interrupted; returns identifiers and storage state for performing recovery in a separate run.
-    
+
     Returns:
         tuple[uuid.UUID, MemorySagaStorage]: The saga ID and the in-memory storage containing the persisted saga state and step history after the simulated interruption.
     """
@@ -813,9 +813,9 @@ async def recover_interrupted_compensation(
 ) -> None:
     """
     Recover and complete an interrupted compensation for a saga.
-    
+
     Loads the saga state from the provided storage using the given saga identifier and drives any incomplete compensation steps to completion, ensuring resources (inventory, payments, shipments) are released and the system reaches a consistent state. Progress and final status are printed to stdout.
-    
+
     Parameters:
         saga_id (uuid.UUID): Identifier of the saga to recover.
         storage (MemorySagaStorage): Persistent storage containing the saga state and step history.
