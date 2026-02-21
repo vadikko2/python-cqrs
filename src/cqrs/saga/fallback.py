@@ -2,11 +2,11 @@
 
 import dataclasses
 
-from cqrs.saga.circuit_breaker import ISagaStepCircuitBreaker
+from cqrs.circuit_breaker import ICircuitBreaker
 from cqrs.saga.step import SagaStepHandler
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Fallback:
     """
     Fallback wrapper for Saga steps.
@@ -32,4 +32,4 @@ class Fallback:
     step: type[SagaStepHandler]
     fallback: type[SagaStepHandler]
     failure_exceptions: tuple[type[Exception], ...] = ()
-    circuit_breaker: ISagaStepCircuitBreaker | None = None
+    circuit_breaker: ICircuitBreaker | None = None

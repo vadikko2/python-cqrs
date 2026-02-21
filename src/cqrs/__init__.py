@@ -1,7 +1,9 @@
 from cqrs.compressors import Compressor, ZlibCompressor
 from cqrs.container.di import DIContainer
 from cqrs.container.protocol import Container
+from cqrs.circuit_breaker import ICircuitBreaker
 from cqrs.events import EventMap
+from cqrs.events.fallback import EventHandlerFallback
 from cqrs.events.event import (
     DCEvent,
     DCDomainEvent,
@@ -35,6 +37,7 @@ from cqrs.outbox.sqlalchemy import (
     SqlAlchemyOutboxedEventRepository,
 )
 from cqrs.producer import EventProducer
+from cqrs.requests.fallback import RequestHandlerFallback
 from cqrs.requests.map import RequestMap, SagaMap
 from cqrs.requests.mermaid import CoRMermaid
 from cqrs.requests.request import DCRequest, IRequest, PydanticRequest, Request
@@ -53,6 +56,9 @@ from cqrs.saga.step import (
 )
 
 __all__ = (
+    "ICircuitBreaker",
+    "EventHandlerFallback",
+    "RequestHandlerFallback",
     "RequestMediator",
     "SagaMediator",
     "StreamingRequestMediator",

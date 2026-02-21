@@ -3,8 +3,10 @@ import logging
 import typing
 
 from cqrs import container as di_container, message_brokers
+from cqrs.circuit_breaker import should_use_fallback
 from cqrs.events.event import IDomainEvent, IEvent, INotificationEvent
 from cqrs.events import event_handler, map
+from cqrs.events.fallback import EventHandlerFallback
 
 logger = logging.getLogger("cqrs")
 
@@ -110,6 +112,53 @@ class EventEmitter:
 
         await self._message_broker.send_message(message)
 
+    async def _handle_with_fallback(
+        self,
+        event: IDomainEvent,
+        fallback_config: EventHandlerFallback,
+    ) -> typing.Sequence[IEvent]:
+        """Run primary handler with fallback on failure; return events from the handler that ran."""
+        primary: _H = await self._container.resolve(fallback_config.primary)
+        try:
+            if fallback_config.circuit_breaker is not None:
+                await fallback_config.circuit_breaker.call(
+                    fallback_config.primary,
+                    primary.handle,
+                    event,
+                )
+            else:
+                await primary.handle(event)
+            return list(primary.events)
+        except Exception as primary_error:
+            should_fallback = should_use_fallback(
+                primary_error,
+                fallback_config.circuit_breaker,
+                fallback_config.failure_exceptions,
+            )
+            if should_fallback:
+                if (
+                    fallback_config.circuit_breaker is not None
+                    and fallback_config.circuit_breaker.is_circuit_breaker_error(
+                        primary_error,
+                    )
+                ):
+                    logger.warning(
+                        "Circuit breaker open for event handler %s, switching to fallback %s",
+                        fallback_config.primary.__name__,
+                        fallback_config.fallback.__name__,
+                    )
+                else:
+                    logger.warning(
+                        "Primary event handler %s failed: %s. Switching to fallback %s.",
+                        fallback_config.primary.__name__,
+                        primary_error,
+                        fallback_config.fallback.__name__,
+                    )
+                fallback_handler: _H = await self._container.resolve(fallback_config.fallback)
+                await fallback_handler.handle(event)
+                return list(fallback_handler.events)
+            raise primary_error
+
     @emit.register(IDomainEvent)
     async def _(self, event: IDomainEvent) -> typing.Sequence[IEvent]:
         """Emit domain event: run all registered handlers and return their follow-up events."""
@@ -121,17 +170,20 @@ class EventEmitter:
             )
             return ()
         follow_ups: list[IEvent] = []
-        for handler_type in handlers_types:
-            handler: _H = await self._container.resolve(
-                handler_type,
-            )
+        for handler_item in handlers_types:
+            if isinstance(handler_item, EventHandlerFallback):
+                follow_ups.extend(
+                    await self._handle_with_fallback(event, handler_item),
+                )
+                continue
+            handler_type = handler_item
+            handler: _H = await self._container.resolve(handler_type)
             logger.debug(
                 "Handling Event(%s) via event handler(%s)",
                 type(event).__name__,
                 handler_type.__name__,
             )
             await handler.handle(event)
-            # Snapshot follow-ups so shared handlers don't expose stale state
             follow_ups.extend(list(handler.events))
         return follow_ups
 

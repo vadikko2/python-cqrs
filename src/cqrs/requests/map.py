@@ -1,6 +1,7 @@
 import typing
 
 from cqrs.requests.cor_request_handler import CORRequestHandler
+from cqrs.requests.fallback import RequestHandlerFallback
 from cqrs.requests.request import IRequest
 from cqrs.requests.request_handler import (
     RequestHandler,
@@ -12,7 +13,11 @@ from cqrs.saga.saga import Saga
 _KT = typing.TypeVar("_KT", bound=typing.Type[IRequest])
 
 # Type alias for handler types that can be bound to requests
-HandlerType = typing.Type[RequestHandler | StreamingRequestHandler] | typing.List[typing.Type[CORRequestHandler]]
+HandlerType = (
+    typing.Type[RequestHandler | StreamingRequestHandler]
+    | typing.List[typing.Type[CORRequestHandler]]
+    | RequestHandlerFallback
+)
 
 
 class RequestMap(typing.Dict[_KT, HandlerType]):

@@ -5,7 +5,7 @@ import functools
 import typing
 
 from cqrs.events.event import IEvent
-from cqrs.types import ReqT, ResT
+from cqrs.requests.request import ReqT, ResT
 
 
 class CORRequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):

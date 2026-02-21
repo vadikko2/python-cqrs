@@ -2,17 +2,20 @@ import typing
 
 from cqrs.events.event import IEvent
 from cqrs.events import event_handler
+from cqrs.events.fallback import EventHandlerFallback
 
 _KT = typing.TypeVar("_KT", bound=typing.Type[IEvent])
-_VT: typing.TypeAlias = typing.List[typing.Type[event_handler.EventHandler]]
+_HandlerItem = typing.Type[event_handler.EventHandler] | EventHandlerFallback
+_VT: typing.TypeAlias = typing.List[_HandlerItem]
 
 
 class EventMap(typing.Dict[_KT, _VT]):
     """
-    Registry mapping event types to one or more handler types.
+    Registry mapping event types to one or more handler types or fallbacks.
 
     Use :meth:`bind` to register handlers for an event type. Multiple handlers
     can be bound to the same event; all will be invoked when the event is emitted.
+    Handlers can be plain types or :class:`~cqrs.events.fallback.EventHandlerFallback`.
     Keys cannot be overwritten or deleted.
 
     Example::
@@ -20,30 +23,26 @@ class EventMap(typing.Dict[_KT, _VT]):
         event_map = EventMap()
         event_map.bind(OrderCreatedEvent, OrderCreatedEventHandler)
         event_map.bind(OrderCreatedEvent, SendEmailHandler)  # second handler for same event
-        # event_map[OrderCreatedEvent] -> [OrderCreatedEventHandler, SendEmailHandler]
+        event_map.bind(OrderCreatedEvent, EventHandlerFallback(PrimaryHandler, FallbackHandler, circuit_breaker=cb))
     """
 
     def bind(
         self,
         event_type: _KT,
-        handler_type: typing.Type[event_handler.EventHandler],
+        handler_type: _HandlerItem,
     ) -> None:
         """
-        Register a handler type for an event type.
+        Register a handler type or EventHandlerFallback for an event type.
 
         If the event type is new, creates a list with this handler. If the event
         type already exists, appends the handler (duplicates are rejected).
 
         Args:
             event_type: Event class (e.g. :class:`OrderCreatedEvent`).
-            handler_type: Handler class implementing :class:`~cqrs.events.event_handler.EventHandler`.
+            handler_type: Handler class or :class:`~cqrs.events.fallback.EventHandlerFallback`.
 
         Raises:
-            KeyError: If the same handler type is already bound to this event type.
-
-        Example::
-
-            event_map.bind(OrderCreatedEvent, OrderCreatedEventHandler)
+            KeyError: If the same handler type or fallback is already bound to this event type.
         """
         if event_type not in self:
             self[event_type] = [handler_type]

@@ -8,6 +8,7 @@ Public API:
 - :class:`EventEmitter` — sends domain events to handlers and notification events
   to a message broker.
 - :class:`EventMap` — registry of event type -> handler types; use :meth:`EventMap.bind`.
+- :class:`EventHandlerFallback` — fallback wrapper for event handlers with optional circuit breaker.
 """
 
 from cqrs.events.event import (
@@ -26,6 +27,7 @@ from cqrs.events.event import (
 )
 from cqrs.events.event_emitter import EventEmitter
 from cqrs.events.event_handler import EventHandler
+from cqrs.events.fallback import EventHandlerFallback
 from cqrs.events.map import EventMap
 
 __all__ = (
@@ -43,5 +45,6 @@ __all__ = (
     "PydanticNotificationEvent",
     "EventEmitter",
     "EventHandler",
+    "EventHandlerFallback",
     "EventMap",
 )

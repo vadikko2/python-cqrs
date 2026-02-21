@@ -1,8 +1,11 @@
 import abc
 import dataclasses
 import sys
+import typing
 
 import pydantic
+
+from cqrs.response import IResponse
 
 if sys.version_info >= (3, 11):
     from typing import Self  # novm
@@ -46,6 +49,12 @@ class IRequest(abc.ABC):
             A new instance of the request class.
         """
         raise NotImplementedError
+
+
+# Type variables for request/response (defined here to avoid circular import with
+# cqrs.types <-> cqrs.requests.request_handler). Re-exported from cqrs.types for compatibility.
+ReqT = typing.TypeVar("ReqT", bound=IRequest, contravariant=True)
+ResT = typing.TypeVar("ResT", bound=IResponse | None, covariant=True)
 
 
 @dataclasses.dataclass
@@ -140,4 +149,4 @@ class PydanticRequest(pydantic.BaseModel, IRequest):
 
 Request = PydanticRequest
 
-__all__ = ("Request", "IRequest", "DCRequest", "PydanticRequest")
+__all__ = ("Request", "IRequest", "DCRequest", "PydanticRequest", "ReqT", "ResT")
