@@ -839,9 +839,19 @@ async with session_factory() as session:
 ```
 
 A complete example can be found in
-the [documentation](https://github.com/vadikko2/python-cqrs/blob/master/examples/kafka_outboxed_event_producing.py)
+the [documentation](https://github.com/vadikko2/cqrs/blob/master/examples/kafka_outboxed_event_producing.py)
 
-**Transaction log tailing.** If Outbox polling does not suit you, consider [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html). The package does not implement it; you can use [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html) to tail the Outbox and produce events to Kafka.
+## Transaction log tailing
+
+If the Outbox polling strategy does not suit your needs, I recommend exploring
+the [Transaction Log Tailing](https://microservices.io/patterns/data/transaction-log-tailing.html) pattern.
+The current version of the python-cqrs package does not support the implementation of this pattern.
+
+> [!TIP]
+> However, it can be implemented
+> using [Debezium + Kafka Connect](https://debezium.io/documentation/reference/stable/architecture.html),
+> which allows you to produce all newly created events within the Outbox storage directly to the corresponding topic in
+> Kafka (or any other broker).
 
 ## DI container
 
@@ -904,8 +914,65 @@ mediator = bootstrap.bootstrap(
 ```
 
 Complete examples can be found in:
-- [Simple example](https://github.com/vadikko2/python-cqrs/blob/master/examples/dependency_injector_integration_simple_example.py)
-- [Practical example with FastAPI](https://github.com/vadikko2/python-cqrs/blob/master/examples/dependency_injector_integration_practical_example.py)
+- [Simple example](https://github.com/vadikko2/cqrs/blob/master/examples/dependency_injector_integration_simple_example.py)
+- [Practical example with FastAPI](https://github.com/vadikko2/cqrs/blob/master/examples/dependency_injector_integration_practical_example.py)
+
+## Mapping
+
+To bind commands, queries and events with specific handlers, you can use the registries `EventMap` and `RequestMap`.
+
+```python
+from cqrs import requests, events
+
+from app import commands, command_handlers
+from app import queries, query_handlers
+from app import events as event_models, event_handlers
+
+
+def init_commands(mapper: requests.RequestMap) -> None:
+    mapper.bind(commands.JoinMeetingCommand, command_handlers.JoinMeetingCommandHandler)
+
+def init_queries(mapper: requests.RequestMap) -> None:
+    mapper.bind(queries.ReadMeetingQuery, query_handlers.ReadMeetingQueryHandler)
+
+def init_events(mapper: events.EventMap) -> None:
+    mapper.bind(events.NotificationEvent[events_models.NotificationMeetingRoomClosed], event_handlers.MeetingRoomClosedNotificationHandler)
+    mapper.bind(events.NotificationEvent[event_models.ECSTMeetingRoomClosed], event_handlers.UpdateMeetingRoomReadModelHandler)
+```
+
+## Bootstrap
+
+The `python-cqrs` package implements a set of bootstrap utilities designed to simplify the initial configuration of an
+application.
+
+```python
+import functools
+
+from cqrs.events import bootstrap as event_bootstrap
+from cqrs.requests import bootstrap as request_bootstrap
+
+from app import dependencies, mapping, orm
+
+
+@functools.lru_cache
+def mediator_factory():
+    return request_bootstrap.bootstrap(
+        di_container=dependencies.setup_di(),
+        commands_mapper=mapping.init_commands,
+        queries_mapper=mapping.init_queries,
+        domain_events_mapper=mapping.init_events,
+        on_startup=[orm.init_store_event_mapper],
+    )
+
+
+@functools.lru_cache
+def event_mediator_factory():
+    return event_bootstrap.bootstrap(
+        di_container=dependencies.setup_di(),
+        events_mapper=mapping.init_events,
+        on_startup=[orm.init_store_event_mapper],
+    )
+```
 
 ## Integration with presentation layers
 
