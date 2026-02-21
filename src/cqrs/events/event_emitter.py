@@ -3,6 +3,7 @@ import logging
 import typing
 
 from cqrs import container as di_container, message_brokers
+from cqrs.circuit_breaker import should_use_fallback
 from cqrs.events.event import IDomainEvent, IEvent, INotificationEvent
 from cqrs.events import event_handler, map
 from cqrs.events.fallback import EventHandlerFallback
@@ -129,29 +130,30 @@ class EventEmitter:
                 await primary.handle(event)
             return list(primary.events)
         except Exception as primary_error:
-            should_fallback = False
-            if fallback_config.circuit_breaker is not None and fallback_config.circuit_breaker.is_circuit_breaker_error(
+            should_fallback = should_use_fallback(
                 primary_error,
-            ):
-                logger.warning(
-                    "Circuit breaker open for event handler %s, switching to fallback %s",
-                    fallback_config.primary.__name__,
-                    fallback_config.fallback.__name__,
-                )
-                should_fallback = True
-            elif fallback_config.failure_exceptions:
-                if isinstance(primary_error, fallback_config.failure_exceptions):
-                    should_fallback = True
-            else:
-                should_fallback = True
-
+                fallback_config.circuit_breaker,
+                fallback_config.failure_exceptions,
+            )
             if should_fallback:
-                logger.warning(
-                    "Primary event handler %s failed: %s. Switching to fallback %s.",
-                    fallback_config.primary.__name__,
-                    primary_error,
-                    fallback_config.fallback.__name__,
-                )
+                if (
+                    fallback_config.circuit_breaker is not None
+                    and fallback_config.circuit_breaker.is_circuit_breaker_error(
+                        primary_error,
+                    )
+                ):
+                    logger.warning(
+                        "Circuit breaker open for event handler %s, switching to fallback %s",
+                        fallback_config.primary.__name__,
+                        fallback_config.fallback.__name__,
+                    )
+                else:
+                    logger.warning(
+                        "Primary event handler %s failed: %s. Switching to fallback %s.",
+                        fallback_config.primary.__name__,
+                        primary_error,
+                        fallback_config.fallback.__name__,
+                    )
                 fallback_handler: _H = await self._container.resolve(fallback_config.fallback)
                 await fallback_handler.handle(event)
                 return list(fallback_handler.events)

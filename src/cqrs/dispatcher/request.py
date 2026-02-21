@@ -3,6 +3,7 @@ import logging
 import typing
 from collections import abc
 
+from cqrs.circuit_breaker import should_use_fallback
 from cqrs.container.protocol import Container
 from cqrs.dispatcher.exceptions import (
     RequestHandlerDoesNotExist,
@@ -90,29 +91,30 @@ class RequestDispatcher:
                 response = await wrapped_primary(request)
             return RequestDispatchResult(response=response, events=primary.events)
         except Exception as primary_error:
-            should_fallback = False
-            if fallback_config.circuit_breaker is not None and fallback_config.circuit_breaker.is_circuit_breaker_error(
+            should_fallback = should_use_fallback(
                 primary_error,
-            ):
-                logger.warning(
-                    "Circuit breaker open for request handler %s, switching to fallback %s",
-                    fallback_config.primary.__name__,
-                    fallback_config.fallback.__name__,
-                )
-                should_fallback = True
-            elif fallback_config.failure_exceptions:
-                if isinstance(primary_error, fallback_config.failure_exceptions):
-                    should_fallback = True
-            else:
-                should_fallback = True
-
+                fallback_config.circuit_breaker,
+                fallback_config.failure_exceptions,
+            )
             if should_fallback:
-                logger.warning(
-                    "Primary handler %s failed: %s. Switching to fallback %s.",
-                    fallback_config.primary.__name__,
-                    primary_error,
-                    fallback_config.fallback.__name__,
-                )
+                if (
+                    fallback_config.circuit_breaker is not None
+                    and fallback_config.circuit_breaker.is_circuit_breaker_error(
+                        primary_error,
+                    )
+                ):
+                    logger.warning(
+                        "Circuit breaker open for request handler %s, switching to fallback %s",
+                        fallback_config.primary.__name__,
+                        fallback_config.fallback.__name__,
+                    )
+                else:
+                    logger.warning(
+                        "Primary handler %s failed: %s. Switching to fallback %s.",
+                        fallback_config.primary.__name__,
+                        primary_error,
+                        fallback_config.fallback.__name__,
+                    )
                 fallback_handler = await self._container.resolve(fallback_config.fallback)
                 wrapped_fallback = self._middleware_chain.wrap(fallback_handler.handle)
                 response = await wrapped_fallback(request)

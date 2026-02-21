@@ -65,6 +65,7 @@ import logging
 import di
 
 import cqrs
+from cqrs.adapters.circuit_breaker import AioBreakerAdapter
 from cqrs.requests import bootstrap
 
 logging.basicConfig(level=logging.INFO)
@@ -156,12 +157,10 @@ def commands_mapper(mapper: cqrs.RequestMap) -> None:
 
 def commands_mapper_with_circuit_breaker(mapper: cqrs.RequestMap) -> None:
     try:
-        from cqrs.adapters.circuit_breaker import AioBreakerAdapter
+        request_cb = AioBreakerAdapter(fail_max=2, timeout_duration=60)
     except ImportError:
         commands_mapper(mapper)
         return
-
-    request_cb = AioBreakerAdapter(fail_max=2, timeout_duration=60)
     mapper.bind(
         GetUserProfileCommand,
         cqrs.RequestHandlerFallback(

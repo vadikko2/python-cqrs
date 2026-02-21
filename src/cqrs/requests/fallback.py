@@ -40,3 +40,16 @@ class RequestHandlerFallback:
     fallback: RequestHandlerT
     failure_exceptions: tuple[type[Exception], ...] = ()
     circuit_breaker: ICircuitBreaker | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.primary, type) or not isinstance(self.fallback, type):
+            raise TypeError(
+                "RequestHandlerFallback primary and fallback must be handler classes",
+            )
+        primary_streaming = issubclass(self.primary, StreamingRequestHandler)
+        fallback_streaming = issubclass(self.fallback, StreamingRequestHandler)
+        if primary_streaming != fallback_streaming:
+            raise TypeError(
+                "RequestHandlerFallback primary and fallback must be the same handler base type: "
+                "both RequestHandler or both StreamingRequestHandler",
+            )

@@ -2,6 +2,7 @@ import inspect
 import logging
 import typing
 
+from cqrs.circuit_breaker import should_use_fallback
 from cqrs.container.protocol import Container
 from cqrs.dispatcher.exceptions import RequestHandlerDoesNotExist
 from cqrs.dispatcher.models import RequestDispatchResult
@@ -20,6 +21,13 @@ class StreamingRequestDispatcher:
 
     This dispatcher handles requests using handlers that yield responses
     as generators. After each yield, events are collected and can be emitted.
+
+    When a primary streaming handler (used via RequestHandlerFallback) fails
+    mid-stream, already-yielded RequestDispatchResult items are not rolled
+    back and the fallback handler streams from its start. Results may
+    therefore be duplicated; callers can de-duplicate if needed. The
+    fallback path is driven by _stream_from_handler and handler_type
+    (primary vs fallback).
     """
 
     def __init__(
@@ -59,6 +67,10 @@ class StreamingRequestDispatcher:
         self,
         request: IRequest,
     ) -> typing.AsyncIterator[RequestDispatchResult]:
+        """
+        Dispatch to the mapped handler. For RequestHandlerFallback, on primary
+        failure the fallback streams from scratch (see class docstring).
+        """
         handler_type = self._request_map.get(type(request), None)
         if handler_type is None:
             raise RequestHandlerDoesNotExist(
@@ -88,25 +100,30 @@ class StreamingRequestDispatcher:
                 ):
                     yield result
             except Exception as primary_error:
-                should_fallback = False
-                if handler_type.circuit_breaker is not None and handler_type.circuit_breaker.is_circuit_breaker_error(
+                should_fallback = should_use_fallback(
                     primary_error,
-                ):
-                    should_fallback = True
-                elif handler_type.failure_exceptions and isinstance(
-                    primary_error,
+                    handler_type.circuit_breaker,
                     handler_type.failure_exceptions,
-                ):
-                    should_fallback = True
-                elif not handler_type.failure_exceptions:
-                    should_fallback = True
+                )
                 if should_fallback:
-                    logger.warning(
-                        "Primary streaming handler %s failed: %s. Switching to fallback %s.",
-                        handler_type.primary.__name__,
-                        primary_error,
-                        handler_type.fallback.__name__,
-                    )
+                    if (
+                        handler_type.circuit_breaker is not None
+                        and handler_type.circuit_breaker.is_circuit_breaker_error(
+                            primary_error,
+                        )
+                    ):
+                        logger.warning(
+                            "Circuit breaker open for streaming handler %s, switching to fallback %s",
+                            handler_type.primary.__name__,
+                            handler_type.fallback.__name__,
+                        )
+                    else:
+                        logger.warning(
+                            "Primary streaming handler %s failed: %s. Switching to fallback %s.",
+                            handler_type.primary.__name__,
+                            primary_error,
+                            handler_type.fallback.__name__,
+                        )
                     async for result in self._stream_from_handler(
                         request,
                         typing.cast(StreamingRequestHandler, fallback_handler),

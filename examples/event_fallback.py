@@ -68,6 +68,7 @@ import logging
 import di
 
 import cqrs
+from cqrs.adapters.circuit_breaker import AioBreakerAdapter
 from cqrs.requests import bootstrap
 
 logging.basicConfig(level=logging.INFO)
@@ -165,13 +166,11 @@ def events_mapper(mapper: cqrs.EventMap) -> None:
 
 def events_mapper_with_circuit_breaker(mapper: cqrs.EventMap) -> None:
     try:
-        from cqrs.adapters.circuit_breaker import AioBreakerAdapter
+        event_cb = AioBreakerAdapter(fail_max=2, timeout_duration=60)
     except ImportError:
         # No aiobreaker: use same as without circuit breaker
         events_mapper(mapper)
         return
-
-    event_cb = AioBreakerAdapter(fail_max=2, timeout_duration=60)
     mapper.bind(
         NotificationSent,
         cqrs.EventHandlerFallback(

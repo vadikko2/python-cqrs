@@ -107,3 +107,25 @@ async def test_event_fallback_failure_exceptions_only_matching_triggers_fallback
 
     assert container._primary.called
     assert not container._fallback.called
+
+
+@pytest.mark.asyncio
+async def test_event_fallback_matching_filter_triggers_fallback() -> None:
+    """When failure_exceptions matches the primary error, fallback is invoked."""
+    event_map: EventMap = EventMap()
+    event_map.bind(
+        SampleEvent,
+        EventHandlerFallback(
+            PrimaryEventHandler,
+            FallbackEventHandler,
+            failure_exceptions=(RuntimeError,),
+        ),
+    )
+    container: Container[Any] = _TestEventContainer()
+    emitter = EventEmitter(event_map=event_map, container=container)
+
+    follow_ups = await emitter.emit(SampleEvent(id="e1"))
+
+    assert container._primary.called
+    assert container._fallback.called
+    assert follow_ups == []
