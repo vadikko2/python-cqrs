@@ -176,3 +176,86 @@ async def test_request_fallback_primary_succeeds_fallback_not_invoked() -> None:
     assert result.response.value == "primary:ok"
     assert container._primary.called
     assert not container._fallback.called
+
+
+# --- Validation tests ---
+
+
+def test_request_fallback_validation_same_request_and_response_types_accepts() -> None:
+    """Same request and response types (including None) are accepted."""
+    RequestHandlerFallback(PrimaryHandler, FallbackHandler)
+
+
+def test_request_fallback_validation_different_request_type_raises() -> None:
+    """Different request types raise TypeError."""
+    from cqrs.requests.request import Request
+    from cqrs.response import Response
+
+    class OtherCommand(Request):
+        value: int
+
+    class OtherResult(Response):
+        value: int
+
+    class FallbackOther(RequestHandler[OtherCommand, OtherResult]):
+        async def handle(self, request: OtherCommand) -> OtherResult:
+            return OtherResult(value=0)
+
+    with pytest.raises(TypeError, match="same request type"):
+        RequestHandlerFallback(PrimaryHandler, FallbackOther)
+
+
+def test_request_fallback_validation_different_response_type_raises() -> None:
+    """Different response types raise TypeError."""
+    from cqrs.response import Response
+
+    class OtherResult(Response):
+        value: int
+
+    class FallbackOtherResult(RequestHandler[SimpleCommand, OtherResult]):
+        async def handle(self, request: SimpleCommand) -> OtherResult:
+            return OtherResult(value=0)
+
+    with pytest.raises(TypeError, match="same response type"):
+        RequestHandlerFallback(PrimaryHandler, FallbackOtherResult)
+
+
+def test_request_fallback_validation_same_types_with_none_response_accepts() -> None:
+    """Both request and response (None) matching is accepted."""
+    from cqrs.requests.request import Request
+
+    class NoResultCommand(Request):
+        x: str
+
+    class PrimaryNoRes(RequestHandler[NoResultCommand, None]):
+        async def handle(self, request: NoResultCommand) -> None:
+            return None
+
+    class FallbackNoRes(RequestHandler[NoResultCommand, None]):
+        async def handle(self, request: NoResultCommand) -> None:
+            return None
+
+    RequestHandlerFallback(PrimaryNoRes, FallbackNoRes)
+
+
+def test_request_fallback_validation_not_classes_raises() -> None:
+    """Passing non-classes raises TypeError."""
+    with pytest.raises(TypeError, match="must be handler classes"):
+        RequestHandlerFallback(PrimaryHandler, FallbackHandler())  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="must be handler classes"):
+        RequestHandlerFallback(PrimaryHandler(), FallbackHandler)  # type: ignore[arg-type]
+
+
+def test_request_fallback_validation_mixed_handler_base_raises() -> None:
+    """Mixing RequestHandler and StreamingRequestHandler raises TypeError."""
+    from cqrs.requests.request_handler import StreamingRequestHandler
+
+    class StreamingPrimary(StreamingRequestHandler[SimpleCommand, SimpleResult]):
+        async def handle(self, request: SimpleCommand):
+            yield SimpleResult(value=request.value)
+
+        def clear_events(self) -> None:
+            pass
+
+    with pytest.raises(TypeError, match="same handler base type"):
+        RequestHandlerFallback(PrimaryHandler, StreamingPrimary)

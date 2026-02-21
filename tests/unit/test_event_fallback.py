@@ -129,3 +129,53 @@ async def test_event_fallback_matching_filter_triggers_fallback() -> None:
     assert container._primary.called
     assert container._fallback.called
     assert follow_ups == []
+
+
+# --- Validation tests ---
+
+
+def test_event_fallback_validation_same_event_type_accepts() -> None:
+    """Same event type is accepted."""
+    EventHandlerFallback(PrimaryEventHandler, FallbackEventHandler)
+
+
+def test_event_fallback_validation_different_event_type_raises() -> None:
+    """Different event types raise TypeError."""
+    from cqrs.events.event import DomainEvent
+
+    class OtherEvent(DomainEvent, frozen=True):
+        num: int
+
+    class HandlerOther(EventHandler[OtherEvent]):
+        async def handle(self, event: OtherEvent) -> None:
+            pass
+
+    with pytest.raises(TypeError, match="same event type"):
+        EventHandlerFallback(PrimaryEventHandler, HandlerOther)
+
+
+def test_event_fallback_validation_not_classes_raises() -> None:
+    """Passing non-classes raises TypeError."""
+    with pytest.raises(TypeError, match="must be handler classes"):
+        EventHandlerFallback(PrimaryEventHandler, FallbackEventHandler())  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="must be handler classes"):
+        EventHandlerFallback(PrimaryEventHandler(), FallbackEventHandler)  # type: ignore[arg-type]
+
+
+def test_event_fallback_validation_primary_not_event_handler_raises() -> None:
+    """Primary that is not EventHandler subclass raises TypeError."""
+    from cqrs.requests.request import Request
+    from cqrs.requests.request_handler import RequestHandler
+    from cqrs.response import Response
+
+    class NotAnEventHandler:
+        pass
+
+    class SomeHandler(RequestHandler[Request, Response]):
+        async def handle(self, request: Request) -> Response:
+            raise NotImplementedError
+
+    with pytest.raises(TypeError, match="primary.*must be a subclass of EventHandler"):
+        EventHandlerFallback(NotAnEventHandler, FallbackEventHandler)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="primary.*must be a subclass of EventHandler"):
+        EventHandlerFallback(SomeHandler, FallbackEventHandler)  # pyright: ignore[reportArgumentType]

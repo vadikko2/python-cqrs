@@ -73,9 +73,7 @@ class StreamingRequestDispatcher:
         """
         handler_type = self._request_map.get(type(request), None)
         if handler_type is None:
-            raise RequestHandlerDoesNotExist(
-                f"StreamingRequestHandler not found matching Request type {type(request)}",
-            )
+            raise RequestHandlerDoesNotExist(f"StreamingRequestHandler not found matching Request type {type(request)}")
 
         if isinstance(handler_type, list):
             raise TypeError(
@@ -134,9 +132,7 @@ class StreamingRequestDispatcher:
             return
 
         handler_type_typed = typing.cast(typing.Type[StreamingRequestHandler], handler_type)
-        handler: StreamingRequestHandler = await self._container.resolve(
-            handler_type_typed,
-        )
+        handler: StreamingRequestHandler = await self._container.resolve(handler_type_typed)
 
         if not inspect.isasyncgenfunction(handler.handle):
             handler_name = (
