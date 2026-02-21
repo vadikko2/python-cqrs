@@ -84,7 +84,7 @@ class TestAioBreakerAdapter:
 
         # Act
         result = await adapter.call(
-            step_type=step_type,
+            identifier=step_type,
             func=successful_function,
             value=5,
         )
@@ -103,14 +103,14 @@ class TestAioBreakerAdapter:
         for _ in range(2):
             with pytest.raises(RuntimeError):
                 await adapter.call(
-                    step_type=step_type_1,
+                    identifier=step_type_1,
                     func=failing_function,
                     error_type=RuntimeError,
                 )
 
         # Act - Step2 should still work (different namespace)
         result = await adapter.call(
-            step_type=step_type_2,
+            identifier=step_type_2,
             func=successful_function,
             value=3,
         )
@@ -121,7 +121,7 @@ class TestAioBreakerAdapter:
         # Act - Step1 circuit should still be closed (only 2 failures, need 3 to open)
         with pytest.raises(CircuitBreakerError):
             await adapter.call(
-                step_type=step_type_1,
+                identifier=step_type_1,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -129,7 +129,7 @@ class TestAioBreakerAdapter:
         # Now circuit should be open (3 failures reached)
         with pytest.raises(CircuitBreakerError):
             await adapter.call(
-                step_type=step_type_1,
+                identifier=step_type_1,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -162,7 +162,7 @@ class TestAioBreakerAdapter:
         for _ in range(3):
             try:
                 await adapter.call(
-                    step_type=step_type,
+                    identifier=step_type,
                     func=failing_function,
                     error_type=RuntimeError,
                 )
@@ -172,7 +172,7 @@ class TestAioBreakerAdapter:
         # Assert - Circuit should be open now
         with pytest.raises(CircuitBreakerError):
             await adapter.call(
-                step_type=step_type,
+                identifier=step_type,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -183,7 +183,7 @@ class TestAioBreakerAdapter:
         # Assert - Circuit should be half-open, trial call fails and circuit opens again
         with pytest.raises(CircuitBreakerError):
             await adapter.call(
-                step_type=step_type,
+                identifier=step_type,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -198,7 +198,7 @@ class TestAioBreakerAdapter:
         for _ in range(3):
             try:
                 await adapter.call(
-                    step_type=step_type,
+                    identifier=step_type,
                     func=failing_function,
                     error_type=RuntimeError,
                 )
@@ -208,7 +208,7 @@ class TestAioBreakerAdapter:
         # Act - Try to call when circuit is open
         try:
             await adapter.call(
-                step_type=step_type,
+                identifier=step_type,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -227,7 +227,7 @@ class TestAioBreakerAdapter:
         for _ in range(2):
             with pytest.raises(RuntimeError):
                 await adapter.call(
-                    step_type=step_type,
+                    identifier=step_type,
                     func=failing_function,
                     error_type=RuntimeError,
                 )
@@ -246,7 +246,7 @@ class TestAioBreakerAdapter:
         # Call 3 raises CircuitBreakerError (not RuntimeError)
         with pytest.raises(CircuitBreakerError):  # The 3rd failure
             await adapter.call(
-                step_type=step_type,
+                identifier=step_type,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -254,7 +254,7 @@ class TestAioBreakerAdapter:
         # Call 4 raises CircuitBreakerError
         with pytest.raises(CircuitBreakerError):
             await adapter.call(
-                step_type=step_type,
+                identifier=step_type,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -289,7 +289,7 @@ class TestAioBreakerAdapter:
             for _ in range(3):
                 with pytest.raises(BusinessException):
                     await adapter.call(
-                        step_type=step_type,
+                        identifier=step_type,
                         func=failing_function,
                         error_type=BusinessException,
                     )
@@ -298,7 +298,7 @@ class TestAioBreakerAdapter:
             # 1st failure
             with pytest.raises(NetworkException):
                 await adapter.call(
-                    step_type=step_type,
+                    identifier=step_type,
                     func=failing_function,
                     error_type=NetworkException,
                 )
@@ -306,7 +306,7 @@ class TestAioBreakerAdapter:
             # 2nd failure -> Open. Should raise CircuitBreakerError immediately
             with pytest.raises(CircuitBreakerError):
                 await adapter.call(
-                    step_type=step_type,
+                    identifier=step_type,
                     func=failing_function,
                     error_type=NetworkException,
                 )
@@ -314,7 +314,7 @@ class TestAioBreakerAdapter:
             # 3rd call -> CircuitBreakerError
             with pytest.raises(CircuitBreakerError):
                 await adapter.call(
-                    step_type=step_type,
+                    identifier=step_type,
                     func=failing_function,
                     error_type=NetworkException,
                 )
@@ -329,7 +329,7 @@ class TestAioBreakerAdapter:
         for _ in range(3):
             try:
                 await adapter.call(
-                    step_type=step_type,
+                    identifier=step_type,
                     func=failing_function,
                     error_type=RuntimeError,
                 )
@@ -339,7 +339,7 @@ class TestAioBreakerAdapter:
         # Verify open
         with pytest.raises(CircuitBreakerError):
             await adapter.call(
-                step_type=step_type,
+                identifier=step_type,
                 func=failing_function,
                 error_type=RuntimeError,
             )
@@ -347,7 +347,7 @@ class TestAioBreakerAdapter:
         # Concurrent calls should all fail fast
         tasks = [
             adapter.call(
-                step_type=step_type,
+                identifier=step_type,
                 func=failing_function,
                 error_type=RuntimeError,
             )

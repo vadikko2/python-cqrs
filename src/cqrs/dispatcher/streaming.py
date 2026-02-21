@@ -1,13 +1,17 @@
 import inspect
+import logging
 import typing
 
 from cqrs.container.protocol import Container
 from cqrs.dispatcher.exceptions import RequestHandlerDoesNotExist
 from cqrs.dispatcher.models import RequestDispatchResult
 from cqrs.middlewares.base import MiddlewareChain
+from cqrs.requests.fallback import RequestHandlerFallback
 from cqrs.requests.map import RequestMap
 from cqrs.requests.request import IRequest
 from cqrs.requests.request_handler import StreamingRequestHandler
+
+logger = logging.getLogger("cqrs")
 
 
 class StreamingRequestDispatcher:
@@ -41,6 +45,16 @@ class StreamingRequestDispatcher:
         """
         return self._dispatch_impl(request)
 
+    @staticmethod
+    async def _stream_from_handler(
+        request: IRequest,
+        handler: StreamingRequestHandler,
+    ) -> typing.AsyncIterator[RequestDispatchResult]:
+        async for response in handler.handle(request):
+            events = list(handler.events)
+            handler.clear_events()
+            yield RequestDispatchResult(response=response, events=events)
+
     async def _dispatch_impl(
         self,
         request: IRequest,
@@ -51,18 +65,58 @@ class StreamingRequestDispatcher:
                 f"StreamingRequestHandler not found matching Request type {type(request)}",
             )
 
-        # Streaming dispatcher only works with streaming handlers, not lists
         if isinstance(handler_type, list):
             raise TypeError(
                 "StreamingRequestDispatcher does not support COR handler chains. "
                 "Use RequestDispatcher for chain of responsibility pattern.",
             )
 
-        # Type narrowing: handler_type is now a single handler type
-        handler_type_typed = typing.cast(
-            typing.Type[StreamingRequestHandler],
-            handler_type,
-        )
+        if isinstance(handler_type, RequestHandlerFallback):
+            primary = await self._container.resolve(handler_type.primary)
+            fallback_handler = await self._container.resolve(handler_type.fallback)
+            if not inspect.isasyncgenfunction(primary.handle) or not inspect.isasyncgenfunction(
+                fallback_handler.handle,
+            ):
+                raise TypeError(
+                    "RequestHandlerFallback with StreamingRequestDispatcher requires "
+                    "both primary and fallback to be async generator handlers",
+                )
+            try:
+                async for result in self._stream_from_handler(
+                    request,
+                    typing.cast(StreamingRequestHandler, primary),
+                ):
+                    yield result
+            except Exception as primary_error:
+                should_fallback = False
+                if handler_type.circuit_breaker is not None and handler_type.circuit_breaker.is_circuit_breaker_error(
+                    primary_error,
+                ):
+                    should_fallback = True
+                elif handler_type.failure_exceptions and isinstance(
+                    primary_error,
+                    handler_type.failure_exceptions,
+                ):
+                    should_fallback = True
+                elif not handler_type.failure_exceptions:
+                    should_fallback = True
+                if should_fallback:
+                    logger.warning(
+                        "Primary streaming handler %s failed: %s. Switching to fallback %s.",
+                        handler_type.primary.__name__,
+                        primary_error,
+                        handler_type.fallback.__name__,
+                    )
+                    async for result in self._stream_from_handler(
+                        request,
+                        typing.cast(StreamingRequestHandler, fallback_handler),
+                    ):
+                        yield result
+                else:
+                    raise primary_error
+            return
+
+        handler_type_typed = typing.cast(typing.Type[StreamingRequestHandler], handler_type)
         handler: StreamingRequestHandler = await self._container.resolve(
             handler_type_typed,
         )
@@ -75,11 +129,5 @@ class StreamingRequestDispatcher:
                 f"Handler {handler_name}.handle must be an async generator function",
             )
 
-        async_gen = handler.handle(request)
-        async for response in async_gen:
-            events = list(handler.events)
-            handler.clear_events()
-            yield RequestDispatchResult(
-                response=response,
-                events=events,
-            )
+        async for result in self._stream_from_handler(request, handler):
+            yield result

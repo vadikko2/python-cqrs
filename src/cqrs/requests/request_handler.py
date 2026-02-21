@@ -2,7 +2,7 @@ import abc
 import typing
 
 from cqrs.events.event import IEvent
-from cqrs.types import ReqT, ResT
+from cqrs.requests.request import ReqT, ResT
 
 
 class RequestHandler(abc.ABC, typing.Generic[ReqT, ResT]):

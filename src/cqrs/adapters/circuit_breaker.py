@@ -5,8 +5,8 @@ import typing
 from datetime import timedelta
 from typing import TYPE_CHECKING, Callable
 
+from cqrs.circuit_breaker import ICircuitBreaker
 from cqrs.saga.circuit_breaker import ISagaStepCircuitBreaker
-from cqrs.saga.step import SagaStepHandler
 
 logger = logging.getLogger("cqrs.adapters.circuit_breaker")
 
@@ -105,12 +105,23 @@ def default_memory_storage_factory(name: str) -> _CircuitBreakerStorage:
     return CircuitMemoryStorage(state=aiobreaker.CircuitBreakerState.CLOSED)
 
 
-class AioBreakerAdapter(ISagaStepCircuitBreaker):
-    """
-    Adapter for aiobreaker circuit breaker.
+def _identifier_to_name(identifier: type | str) -> str:
+    """Build circuit breaker namespace from type or string."""
+    if isinstance(identifier, str):
+        return identifier
+    module = getattr(identifier, "__module__", "")
+    name = getattr(identifier, "__name__", str(identifier))
+    return f"{module}.{name}" if module else name
 
-    Manages circuit breaker instances per step type. Each step type gets its own
-    isolated circuit breaker with a namespace based on the step class name.
+
+class AioBreakerAdapter(ICircuitBreaker, ISagaStepCircuitBreaker):
+    """
+    Unified adapter for aiobreaker circuit breaker.
+
+    Implements ICircuitBreaker (and ISagaStepCircuitBreaker for backward
+    compatibility). Each fallback type (Saga, Request, Event) typically
+    uses its own adapter instance; identifier can be a step/handler type
+    or a string for namespace.
 
     Attributes:
         fail_max: Maximum number of failures before opening the circuit.
@@ -121,11 +132,10 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
                         Defaults to in-memory storage.
 
     Example::
-        adapter = AioBreakerAdapter(
-            fail_max=3,
-            timeout_duration=60,
-            exclude=[InventoryOutOfStockError]
-        )
+        # One adapter per fallback domain (each has its own breaker namespaces)
+        saga_cb = AioBreakerAdapter(fail_max=3, timeout_duration=60)
+        request_cb = AioBreakerAdapter(fail_max=5, timeout_duration=30)
+        event_cb = AioBreakerAdapter(fail_max=5, timeout_duration=30)
     """
 
     def __init__(
@@ -145,45 +155,23 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
         self._exclude = exclude or []
         self._storage_factory = storage_factory or default_memory_storage_factory
 
-        # Dictionary to store circuit breakers per step type
+        # Dictionary to store circuit breakers per identifier (type or str)
         self._breakers: dict[str, typing.Any] = {}  # type: ignore[type-arg]
 
-    def _get_step_name(self, step_type: type[SagaStepHandler]) -> str:
+    def _get_breaker(self, identifier: type | str) -> typing.Any:  # type: ignore[return-type]
         """
-        Get name for a step type.
-
-        Uses the fully qualified name of the step class as namespace.
+        Get or create circuit breaker for an identifier (type or string).
 
         Args:
-            step_type: The step handler class type.
+            identifier: Step/handler type or string for namespace.
 
         Returns:
-            Name string for the circuit breaker (module.class_name).
+            CircuitBreaker instance for this identifier.
         """
-        module = getattr(step_type, "__module__", "")
-        name = step_type.__name__
-        return f"{module}.{name}" if module else name
-
-    def _get_breaker(self, step_type: type[SagaStepHandler]) -> typing.Any:  # type: ignore[return-type]
-        """
-        Get or create circuit breaker for a step type.
-
-        Each step type gets its own isolated circuit breaker with a unique name
-        based on the step's fully qualified name.
-
-        Args:
-            step_type: The step handler class type.
-
-        Returns:
-            CircuitBreaker instance for this step type.
-        """
-        step_name = self._get_step_name(step_type)
-
-        if step_name not in self._breakers:
-            breaker = self._create_breaker(step_name)
-            self._breakers[step_name] = breaker
-
-        return self._breakers[step_name]
+        name = _identifier_to_name(identifier)
+        if name not in self._breakers:
+            self._breakers[name] = self._create_breaker(name)
+        return self._breakers[name]
 
     def _create_breaker(self, name: str) -> typing.Any:  # type: ignore[return-type]
         """
@@ -220,7 +208,7 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
 
     async def call(
         self,
-        step_type: type[SagaStepHandler],
+        identifier: type | str,
         func: typing.Callable[..., typing.Awaitable[typing.Any]],
         *args: typing.Any,
         **kwargs: typing.Any,
@@ -229,7 +217,7 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
         Execute the function with circuit breaker protection.
 
         Args:
-            step_type: The step handler class type. Used to determine breaker name.
+            identifier: Step/handler type or string for breaker namespace.
             func: The async function to execute.
             *args: Positional arguments to pass to func.
             **kwargs: Keyword arguments to pass to func.
@@ -241,7 +229,7 @@ class AioBreakerAdapter(ISagaStepCircuitBreaker):
             CircuitBreakerError: If the circuit breaker is open.
             Exception: Any exception raised by func (if circuit is closed).
         """
-        breaker = self._get_breaker(step_type)
+        breaker = self._get_breaker(identifier)
         return await breaker.call_async(func, *args, **kwargs)
 
     def is_circuit_breaker_error(self, exc: Exception) -> bool:

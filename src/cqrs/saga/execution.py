@@ -277,9 +277,9 @@ class FallbackStepExecutor(typing.Generic[ContextT]):
             # Execute primary step with circuit breaker if present
             if fallback_wrapper.circuit_breaker is not None:
                 step_result = await fallback_wrapper.circuit_breaker.call(
-                    step_type=fallback_wrapper.step,
-                    func=primary_step.act,
-                    context=self._context,
+                    fallback_wrapper.step,
+                    primary_step.act,
+                    self._context,
                 )
             else:
                 step_result = await primary_step.act(self._context)
