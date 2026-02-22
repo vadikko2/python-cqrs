@@ -12,7 +12,7 @@ from cqrs.outbox import map, repository
 try:
     import sqlalchemy
     from sqlalchemy import func
-    from sqlalchemy.orm import Mapped, mapped_column, declared_attr, DeclarativeMeta, registry
+    from sqlalchemy.orm import Mapped, mapped_column, DeclarativeMeta, registry
     from sqlalchemy.ext.asyncio import session as sql_session
     from sqlalchemy.dialects import postgresql
 except ImportError:
