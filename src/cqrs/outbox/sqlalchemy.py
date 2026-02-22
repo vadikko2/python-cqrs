@@ -89,6 +89,11 @@ class OutboxModel(Base):
         nullable=False,
         comment="Event idempotency id",
     )
+    event_id_bin: Mapped[bytes] = mapped_column(
+        sqlalchemy.BINARY(16),
+        nullable=False,
+        comment="Event idempotency id in 16 bit presentation",
+    )
     event_status: Mapped[repository.EventStatus] = mapped_column(
         sqlalchemy.Enum(repository.EventStatus),
         nullable=False,
