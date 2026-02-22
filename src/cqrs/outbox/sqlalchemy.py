@@ -218,7 +218,7 @@ class SqlAlchemyOutboxedEventRepository(repository.OutboxedEventRepository):
         self.session.add(
             OutboxModel(
                 event_id=event.event_id,
-                event_id_bin=func.UUID_TO_BIN(event.event_id),
+                event_id_bin=event.event_id.bytes,
                 event_name=event.event_name,
                 created_at=event.event_timestamp,
                 payload=bytes_payload,
