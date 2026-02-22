@@ -21,6 +21,7 @@ dependencies = [
   "dependency-injector>=4.0",
   "orjson==3.*",
   "pydantic==2.*",
+  "sqlalchemy[asyncio]==2.0.*",
   "python-dotenv==1.*",
   "retry-async==0.1.*",
   "typing-extensions>=4.0"
@@ -47,7 +48,6 @@ dev = [
   "aio-pika==9.3.0",  # from rabbit
   "aiokafka==0.10.0",  # from kafka
   "requests==2.*",  # from aiokafka
-  "sqlalchemy[asyncio]==2.0.*",  # from sqlalchemy
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
