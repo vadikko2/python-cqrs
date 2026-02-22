@@ -11,6 +11,7 @@ from cqrs.outbox import map, repository
 
 try:
     import sqlalchemy
+
     from sqlalchemy import func
     from sqlalchemy.orm import Mapped, mapped_column, DeclarativeMeta, registry
     from sqlalchemy.ext.asyncio import session as sql_session
@@ -19,7 +20,7 @@ except ImportError:
     raise ImportError(
         "You are trying to use SQLAlchemy outbox implementation, "
         "but 'sqlalchemy' is not installed. "
-        "Please install it using: pip install python-cqrs[sqlalchemy]"
+        "Please install it using: pip install python-cqrs[sqlalchemy]",
     )
 
 
@@ -36,6 +37,7 @@ MAX_FLUSH_COUNTER_VALUE = 5
 
 class BinaryUUID(sqlalchemy.TypeDecorator):
     """Stores the UUID as a native UUID in Postgres and as BINARY(16) in other databases (MySQL)."""
+
     impl = sqlalchemy.BINARY(16)
     cache_ok = True
 
@@ -53,7 +55,7 @@ class BinaryUUID(sqlalchemy.TypeDecorator):
         if isinstance(value, str):
             value = uuid.UUID(value)
         if isinstance(value, uuid.UUID):
-            return value.bytes # For MySQL return 16 bytes
+            return value.bytes  # For MySQL return 16 bytes
         return value
 
     def process_result_value(self, value, dialect):
