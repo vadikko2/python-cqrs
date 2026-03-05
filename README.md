@@ -1,9 +1,4 @@
 <div align="center">
-  <img
-    src="https://raw.githubusercontent.com/vadikko2/python-cqrs-mkdocs/master/docs/img.png"
-    alt="Python CQRS"
-    style="max-width: 80%;"
-  >
   <h1>Python CQRS</h1>
   <p><strong>Event-Driven Architecture Framework for Distributed Systems</strong></p>
   <p>
