@@ -21,8 +21,8 @@ except ImportError:
     raise ImportError(
         "You are trying to use SQLAlchemy saga storage implementation, "
         "but 'sqlalchemy' is not installed. "
-        "Please install it using: pip install python-cqrs[sqlalchemy]"
-    )
+        "Please install it using: pip install python-cqrs[sqlalchemy]",
+    ) from None
 
 Base = registry().generate_base()
 logger = logging.getLogger(__name__)

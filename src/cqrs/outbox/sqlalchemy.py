@@ -21,7 +21,7 @@ except ImportError:
         "You are trying to use SQLAlchemy outbox implementation, "
         "but 'sqlalchemy' is not installed. "
         "Please install it using: pip install python-cqrs[sqlalchemy]",
-    )
+    ) from None
 
 
 Base = registry().generate_base()
@@ -50,10 +50,10 @@ class BinaryUUID(sqlalchemy.TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return value
-        if dialect.name == "postgresql":
-            return value  # asyncpg work with uuid.UUID
         if isinstance(value, str):
             value = uuid.UUID(value)
+        if dialect.name == "postgresql":
+            return value  # asyncpg works with uuid.UUID
         if isinstance(value, uuid.UUID):
             return value.bytes  # For MySQL return 16 bytes
         return value
@@ -128,7 +128,6 @@ class OutboxModel(Base):
     payload: Mapped[bytes] = mapped_column(
         sqlalchemy.LargeBinary,
         nullable=False,
-        default={},
         comment="Event payload",
     )
 
