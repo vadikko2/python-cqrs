@@ -51,7 +51,7 @@ dev = [
   "pytest~=7.4.2",
   "pytest-asyncio~=0.21.1",
   "pytest-env==0.6.2",
-  "cryptography==42.0.2",
+  "cryptography==48.0.1",
   "asyncmy==0.2.9",
   "asyncpg>=0.29.0",
   "redis>=5.0.0",
