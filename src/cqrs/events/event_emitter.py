@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import logging
 import typing
@@ -169,22 +170,30 @@ class EventEmitter:
                 type(event).__name__,
             )
             return ()
+
+        results = await asyncio.gather(
+            *(self._process_single_handler(event, item) for item in handlers_types),
+            return_exceptions=True,
+        )
+
         follow_ups: list[IEvent] = []
-        for handler_item in handlers_types:
-            if isinstance(handler_item, EventHandlerFallback):
-                follow_ups.extend(
-                    await self._handle_with_fallback(event, handler_item),
+        for handler_item, res in zip(handlers_types, results):
+            if isinstance(res, BaseException):
+                handler_name = (
+                    handler_item.primary.__name__
+                    if isinstance(handler_item, EventHandlerFallback)
+                    else handler_item.__name__
                 )
-                continue
-            handler_type = handler_item
-            handler: _H = await self._container.resolve(handler_type)
-            logger.debug(
-                "Handling Event(%s) via event handler(%s)",
-                type(event).__name__,
-                handler_type.__name__,
-            )
-            await handler.handle(event)
-            follow_ups.extend(list(handler.events))
+                logger.exception(
+                    "Error occurred while processing domain event %s in handler %s: %s",
+                    type(event).__name__,
+                    handler_name,
+                    res,
+                    exc_info=res,
+                )
+            else:
+                follow_ups.extend(res)
+
         return follow_ups
 
     @emit.register(INotificationEvent)
@@ -192,3 +201,22 @@ class EventEmitter:
         """Emit notification event: send to message broker; no follow-ups."""
         await self._send_to_broker(event)
         return ()
+
+    async def _process_single_handler(
+        self,
+        event: IDomainEvent,
+        handler_item: typing.Union[typing.Type[_H], EventHandlerFallback],
+    ) -> typing.Sequence[IEvent]:
+        """Process a single event handler and return its follow-up events."""
+        if isinstance(handler_item, EventHandlerFallback):
+            return await self._handle_with_fallback(event, handler_item)
+
+        handler_type = handler_item
+        handler: _H = await self._container.resolve(handler_type)
+        logger.debug(
+            "Handling Event(%s) via event handler(%s)",
+            type(event).__name__,
+            handler_type.__name__,
+        )
+        await handler.handle(event)
+        return list(handler.events)
