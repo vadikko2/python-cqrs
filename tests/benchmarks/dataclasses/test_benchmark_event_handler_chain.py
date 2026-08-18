@@ -112,11 +112,15 @@ def test_benchmark_event_chain_three_levels_parallel(
 ) -> None:
     """Benchmark: 1 root event -> 10 L2 -> 50 L3 (61 total), semaphore 4 (dataclass)."""
     processor = event_processor_chain_parallel
+    loop = asyncio.new_event_loop()
 
     async def run() -> None:
         await processor.emit_events([_EventL1(id_="root")])
 
-    benchmark(lambda: asyncio.run(run()))
+    try:
+        benchmark(lambda: loop.run_until_complete(run()))
+    finally:
+        loop.close()
 
 
 @pytest.fixture
@@ -132,8 +136,12 @@ def test_benchmark_event_chain_three_levels_sequential(
 ) -> None:
     """Benchmark: same 3-level chain, sequential (BFS), dataclass events."""
     processor = event_processor_chain_sequential
+    loop = asyncio.new_event_loop()
 
     async def run() -> None:
         await processor.emit_events([_EventL1(id_="root")])
 
-    benchmark(lambda: asyncio.run(run()))
+    try:
+        benchmark(lambda: loop.run_until_complete(run()))
+    finally:
+        loop.close()
