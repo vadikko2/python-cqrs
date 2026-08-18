@@ -102,7 +102,7 @@ def _make_processor(parallel: bool) -> EventProcessor:
 
 @pytest.fixture
 def event_processor_chain_parallel() -> EventProcessor:
-    """EventProcessor with 3-level chain, parallel, semaphore=4."""
+    """EventProcessor with 3-level chain, parallel, semaphore=4 (dataclass events)."""
     return _make_processor(parallel=True)
 
 
@@ -111,18 +111,22 @@ def test_benchmark_event_chain_three_levels_parallel(
     benchmark,
     event_processor_chain_parallel: EventProcessor,
 ) -> None:
-    """Benchmark: 1 root event -> 10 L2 -> 50 L3 (61 total), semaphore 4."""
+    """Benchmark: 1 root event -> 10 L2 -> 50 L3 (61 total), semaphore 4 (dataclass)."""
     processor = event_processor_chain_parallel
+    loop = asyncio.new_event_loop()
 
     async def run() -> None:
         await processor.emit_events([_EventL1(id="root")])
 
-    benchmark(lambda: asyncio.run(run()))
+    try:
+        benchmark(lambda: loop.run_until_complete(run()))
+    finally:
+        loop.close()
 
 
 @pytest.fixture
 def event_processor_chain_sequential() -> EventProcessor:
-    """EventProcessor with 3-level chain, sequential."""
+    """EventProcessor with 3-level chain, sequential (dataclass events)."""
     return _make_processor(parallel=False)
 
 
@@ -131,10 +135,14 @@ def test_benchmark_event_chain_three_levels_sequential(
     benchmark,
     event_processor_chain_sequential: EventProcessor,
 ) -> None:
-    """Benchmark: same 3-level chain, sequential (BFS)."""
+    """Benchmark: same 3-level chain, sequential (BFS), dataclass events."""
     processor = event_processor_chain_sequential
+    loop = asyncio.new_event_loop()
 
     async def run() -> None:
         await processor.emit_events([_EventL1(id="root")])
 
-    benchmark(lambda: asyncio.run(run()))
+    try:
+        benchmark(lambda: loop.run_until_complete(run()))
+    finally:
+        loop.close()
