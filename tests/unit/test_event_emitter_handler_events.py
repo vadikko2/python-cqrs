@@ -133,16 +133,20 @@ async def test_event_emitter_executes_handlers_in_parallel() -> None:
 
     handler_1_started = asyncio.Event()
     handler_2_started = asyncio.Event()
+    handler_1_completed = asyncio.Event()
+    handler_2_completed = asyncio.Event()
 
     class _ParallelHandler1(EventHandler[_ParallelEvent]):
         async def handle(self, event: _ParallelEvent) -> None:
             handler_1_started.set()
             await asyncio.wait_for(handler_2_started.wait(), timeout=1.0)
+            handler_1_completed.set()
 
     class _ParallelHandler2(EventHandler[_ParallelEvent]):
         async def handle(self, event: _ParallelEvent) -> None:
             handler_2_started.set()
             await asyncio.wait_for(handler_1_started.wait(), timeout=1.0)
+            handler_2_completed.set()
 
     h1 = _ParallelHandler1()
     h2 = _ParallelHandler2()
@@ -167,6 +171,8 @@ async def test_event_emitter_executes_handlers_in_parallel() -> None:
 
     assert handler_1_started.is_set()
     assert handler_2_started.is_set()
+    assert handler_1_completed.is_set()
+    assert handler_2_completed.is_set()
 
 
 async def test_event_emitter_continues_execution_when_handler_raises_exception() -> None:

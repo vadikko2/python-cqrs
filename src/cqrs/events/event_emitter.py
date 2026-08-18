@@ -178,7 +178,7 @@ class EventEmitter:
 
         follow_ups: list[IEvent] = []
         for handler_item, res in zip(handlers_types, results):
-            if isinstance(res, BaseException):
+            if isinstance(res, Exception):
                 handler_name = (
                     handler_item.primary.__name__
                     if isinstance(handler_item, EventHandlerFallback)
@@ -191,6 +191,8 @@ class EventEmitter:
                     res,
                     exc_info=res,
                 )
+            elif isinstance(res, BaseException):
+                raise res
             else:
                 follow_ups.extend(res)
 
