@@ -169,5 +169,3 @@ tmp/
 uv.lock
 
 .codspeed/
-
-.vscode

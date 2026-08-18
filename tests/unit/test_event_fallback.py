@@ -102,7 +102,8 @@ async def test_event_fallback_failure_exceptions_only_matching_triggers_fallback
     container: Container[Any] = _TestEventContainer()
     emitter = EventEmitter(event_map=event_map, container=container)
 
-    await emitter.emit(SampleEvent(id="e1"))
+    with pytest.raises(RuntimeError, match="Primary failed"):
+        await emitter.emit(SampleEvent(id="e1"))
 
     assert container._primary.called
     assert not container._fallback.called
